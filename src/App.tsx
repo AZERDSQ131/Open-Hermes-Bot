@@ -43,6 +43,10 @@ import {
 
 const MAX_PINNED = 3;
 
+function isQuotaFailure(message?: string): boolean {
+  return Boolean(message && QUOTA_ERROR.test(message));
+}
+
 // A model picked once stays picked: new conversations start on the last one the
 // person chose for that bot, instead of the profile's configured model — which
 // may be the one that just refused to answer.
@@ -68,6 +72,28 @@ function rememberPreferredModel(profile: string | undefined, pick: PreferredMode
     window.localStorage.setItem(preferredModelKey(profile), JSON.stringify(pick));
   } catch {
     // A full or blocked storage must not break sending.
+  }
+}
+
+// A configured model can be out of quota while a free one on the same provider
+// still answers. That is not a conversation-ending failure, so the first turn
+// rescues itself; the picker then shows the model that actually replied.
+const QUOTA_ERROR = /usage limit|quota|rate limit|too many requests|429|exhausted/i;
+
+async function freeModelFor(profile?: string): Promise<PreferredModel | null> {
+  const bridge = window.hermes;
+  if (!bridge?.models) return null;
+  try {
+    const result = await bridge.models({ profile });
+    if (!result.ok) return null;
+    const free = (result.models ?? []).find((entry) =>
+      /(^|[-_])free($|[-_])/i.test(entry.model),
+    );
+    return free
+      ? { model: free.model, provider: free.provider, label: free.model }
+      : null;
+  } catch {
+    return null;
   }
 }
 
@@ -678,6 +704,38 @@ export default function App() {
             }
           : fallback,
       );
+
+      // Move to a free model rather than showing a dead end, then make that
+      // switch visible in the thread: the chip and the note must agree.
+      if (!result.ok && isQuotaFailure(result.error)) {
+        const rescue = await freeModelFor(thread.profile);
+        if (rescue && rescue.model !== (thread.model ?? fallback?.model)) {
+          result = await ask(rescue);
+          if (result.ok) {
+            rememberPreferredModel(thread.profile, rescue);
+            setThreads((current) =>
+              current.map((item) =>
+                item.id === threadId
+                  ? {
+                      ...item,
+                      model: rescue.model,
+                      modelProvider: rescue.provider,
+                      modelLabel: rescue.label,
+                      messages: [
+                        ...item.messages,
+                        {
+                          id: uid(),
+                          role: 'event',
+                          text: `The configured model is out of quota — answered with ${rescue.model} instead.`,
+                        },
+                      ],
+                    }
+                  : item,
+              ),
+            );
+          }
+        }
+      }
 
       if (requestThread.current?.requestId === requestId) {
         requestThread.current = null;
