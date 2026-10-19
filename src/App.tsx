@@ -1154,9 +1154,8 @@ export default function App() {
           sync((item) => ({ ...item, messages: history, sessions }));
         }
 
-        let pick =
-          defaultModelPick(member.profile) ??
-          readPreferredModel(member.profile);
+        const configured = defaultModelPick(member.profile);
+        let pick = configured ?? readPreferredModel(member.profile);
         if (!pick) pick = await configuredModelFor(member.profile);
         if (!isCurrent()) return;
 
@@ -1185,10 +1184,25 @@ export default function App() {
         // Same rescue as a private thread: an exhausted model must not take a
         // whole member out of the conversation.
         if (!result.ok && isQuotaFailure(result.error)) {
+          const failed = pick?.model ?? 'The configured model';
           const rescue = await freeModelFor(member.profile);
           if (rescue && rescue.model !== pick?.model) {
             result = await ask(rescue);
             if (!isCurrent()) return;
+            if (result.ok) {
+              // Same rule as a private thread: only a model that was not
+              // picked on purpose becomes the bot's remembered fallback.
+              if (!configured) rememberPreferredModel(member.profile, rescue);
+              history = [
+                ...history,
+                {
+                  id: uid(),
+                  role: 'event',
+                  text: `${failed} is out of quota — ${member.name} answered with ${rescue.model} instead.`,
+                },
+              ];
+              sync((item) => ({ ...item, messages: history }));
+            }
           }
         }
         if (!result.ok) {
