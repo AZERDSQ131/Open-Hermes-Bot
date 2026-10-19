@@ -2342,17 +2342,20 @@ button:focus-visible {
   align-self: center;
   align-items: center;
   height: 40px;
-  margin-right: 6px;
+  margin-right: 14px;
 }
 
 /* Just the model's name in the row: same size and colour as the composer's
    placeholder, no pill and no fill. Hovering draws an outline the way a button
    would, without moving anything — the outline is painted, not laid out. */
 .composer-main .model-chip {
-  max-width: 220px;
-  padding: 0;
+  max-width: 240px;
+  /* The padding is the air the hover outline needs; the negative margin keeps
+     the name itself exactly where it was in the row. */
+  padding: 4px 10px;
+  margin-left: -10px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: none;
   color: #83838a;
   font-size: 15.5px;
@@ -2364,7 +2367,9 @@ button:focus-visible {
 .composer-main .model-chip:hover,
 .composer-main .model-chip.is-open {
   border: 0;
-  background: none;
+  /* Brighter than the composer behind it (#262628), well short of the text:
+     a tint, not a pill. The outline keeps its distance from the name. */
+  background: rgba(242, 239, 229, 0.07);
   color: #83838a;
   outline: 1px solid rgba(242, 239, 229, 0.16);
   outline-offset: 4px;
