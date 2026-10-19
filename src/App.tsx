@@ -1833,7 +1833,14 @@ export default function App() {
         {activeThread.members?.length ? (
           <div className="group-roster" aria-label="Group members">
             {activeThread.members.map((member) => (
-              <span className="group-roster-member" key={member.id}>
+              <span
+                className={`group-roster-member ${
+                  activeThread.thinking && activeThread.speaking?.id === member.id
+                    ? 'is-speaking'
+                    : ''
+                }`}
+                key={member.id}
+              >
                 <AgentAvatar
                   avatar={member.avatar}
                   size={20}
