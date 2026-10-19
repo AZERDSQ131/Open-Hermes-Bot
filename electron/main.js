@@ -503,12 +503,39 @@ function apiErrorText(result, fallback) {
 
 // A thread in the app is a session in Hermes: created on its first message and
 // reused for every turn after that, so the bot keeps the conversation's memory.
+// Hermes refuses a second session with a title already in use, which is exactly
+// what happens when a thread is reopened after an app restart: the conversation
+// still exists on the server under that title. Finding it is the correct answer
+// — the thread resumes instead of the composer dying on an id nobody shows.
+async function sessionIdByTitle(title, profile) {
+  const list = await apiCall('/api/sessions', { profile, timeoutMs: 15000 });
+  if (!list.ok) return '';
+  const rows = list.body?.data ?? list.body?.sessions ?? [];
+  const hit = rows
+    .filter(
+      (row) => row && String(row.title ?? '') === title && !row.archived,
+    )
+    .sort((a, b) => Number(b.last_active ?? 0) - Number(a.last_active ?? 0))[0];
+  return hit?.id ? String(hit.id) : '';
+}
+
 ipcMain.handle('hermes:session', async (_event, payload) => {
-  const result = await apiCall('/api/sessions', {
-    method: 'POST',
-    profile: payload?.profile,
-    body: { title: String(payload?.title ?? '').slice(0, 120) || 'Sidekick' },
-  });
+  const title = String(payload?.title ?? '').slice(0, 120) || 'Sidekick';
+  const create = (value) =>
+    apiCall('/api/sessions', {
+      method: 'POST',
+      profile: payload?.profile,
+      body: { title: value },
+    });
+
+  let result = await create(title);
+  if (!result.ok && /title already in use/i.test(apiErrorText(result, ''))) {
+    const existing = await sessionIdByTitle(title, payload?.profile);
+    if (existing) return { ok: true, sessionId: existing, resumed: true };
+    // The title is taken by something we cannot see (another profile, an
+    // archived row): a suffixed title keeps the user's message flowing.
+    result = await create(`${title} · ${String(Date.now()).slice(-5)}`);
+  }
   if (!result.ok) {
     return {
       ok: false,
