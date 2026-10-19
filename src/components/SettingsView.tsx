@@ -259,256 +259,296 @@ export function SettingsView({
       </aside>
 
       <main className="settings-pane">
-        <div
-          className={`settings-pane-inner ${
-            section === 'models' ? 'is-models' : ''
-          }`}
-        >
+        <div className="settings-pane-inner">
           {section === 'connection' ? (
-          <>
-          <header className="connection-head">
-            <div className="connection-head-copy">
-              <h2>Connection</h2>
-              <p>Link Sidekick to the Hermes Agent running on your machine.</p>
-            </div>
-            <div className="connection-state" data-state={status.state}>
-              <span className="connection-state-dot" aria-hidden="true" />
-              <span className="connection-state-text">
-                {STATE_LABEL[status.state]}
-                {status.state === 'connected' && status.version
-                  ? ` · Hermes ${status.version}`
-                  : null}
-              </span>
-              {status.state === 'connected' ? (
-                <button
-                  type="button"
-                  className="connection-state-action"
-                  disabled={disabled}
-                  onClick={handleDisconnect}
-                >
-                  {busy === 'disconnect' ? 'Closing…' : 'Disconnect'}
-                </button>
-              ) : null}
-            </div>
-          </header>
-
-          {bridge ? null : (
-            <p className="settings-warning">
-              Connection settings are only available inside the desktop app.
-            </p>
-          )}
-
-          <div className="connection-rows">
-            <div className="connection-row">
-              <label className="connection-label" htmlFor="connection-host">
-                SSH host
-              </label>
-              <div className="connection-control">
-                <input
-                  id="connection-host"
-                  type="text"
-                  value={host}
-                  spellCheck={false}
-                  autoComplete="off"
-                  placeholder="jetson"
-                  disabled={Boolean(busy)}
-                  onChange={(event) => {
-                    setHost(event.target.value);
-                    setError('');
-                    setNotice('');
-                  }}
-                />
-                <span className="connection-note">
-                  The machine running Hermes, over your existing SSH config.
-                </span>
-              </div>
-            </div>
-
-            <div className="connection-row">
-              <label className="connection-label" htmlFor="connection-key">
-                API key
-              </label>
-              <div className="connection-control">
-                <input
-                  id="connection-key"
-                  type="password"
-                  value={apiKey}
-                  autoComplete="off"
-                  spellCheck={false}
-                  disabled={Boolean(busy)}
-                  placeholder={
-                    hasKey ? 'Saved in Keychain' : 'Paste API_SERVER_KEY'
-                  }
-                  onChange={(event) => {
-                    setApiKey(event.target.value);
-                    setError('');
-                    setNotice('');
-                  }}
-                />
-                <div className="connection-key-actions">
-                  <button
-                    type="button"
-                    className="settings-text-button"
-                    disabled={disabled || !host.trim()}
-                    onClick={handleImportKey}
-                  >
-                    {busy === 'import'
-                      ? 'Reading…'
-                      : `Import from ${host || 'server'}`}
-                  </button>
-                  {hasKey ? (
+            <div className="settings-page">
+              <header className="settings-page-head">
+                <div>
+                  <h2>Connection</h2>
+                  <p>
+                    Link Sidekick to the Hermes Agent running on your machine.
+                  </p>
+                </div>
+                <div className="settings-page-side">
+                  <span className="connection-state" data-state={status.state}>
+                    <span className="connection-state-dot" aria-hidden="true" />
+                    <span className="connection-state-text">
+                      {STATE_LABEL[status.state]}
+                      {status.state === 'connected' && status.version
+                        ? ` · Hermes ${status.version}`
+                        : null}
+                    </span>
+                  </span>
+                  {status.state === 'connected' ? (
                     <button
                       type="button"
-                      className="settings-text-button is-muted"
+                      className="settings-page-action"
                       disabled={disabled}
-                      onClick={handleClearKey}
+                      onClick={handleDisconnect}
                     >
-                      {busy === 'clear' ? 'Removing…' : 'Remove stored key'}
+                      {busy === 'disconnect' ? 'Closing…' : 'Disconnect'}
                     </button>
                   ) : null}
                 </div>
-              </div>
-            </div>
-          </div>
+              </header>
 
-          <button
-            type="button"
-            className={`settings-advanced-toggle ${
-              advanced ? 'is-open' : ''
-            }`}
-            aria-expanded={advanced}
-            onClick={() => setAdvanced((current) => !current)}
-          >
-            <span className="settings-advanced-chevron" aria-hidden="true">
-              ›
-            </span>
-            Advanced settings
-          </button>
+              {bridge ? null : (
+                <p className="settings-notice">
+                  Connection settings are only available inside the desktop app.
+                </p>
+              )}
 
-          {advanced ? (
-            <div className="settings-advanced">
-              <div className="settings-advanced-grid">
-                <label className="connection-field">
-                  <span>Remote API port</span>
-                  <input
-                    type="number"
-                    value={port}
-                    min={1}
-                    max={65535}
-                    spellCheck={false}
-                    disabled={Boolean(busy)}
-                    onChange={(event) => {
-                      setPort(event.target.value);
-                      setError('');
-                      setNotice('');
-                    }}
-                  />
-                </label>
-                <label className="connection-field">
-                  <span>Local tunnel port</span>
-                  <input
-                    type="number"
-                    value={localPort}
-                    min={1}
-                    max={65535}
-                    spellCheck={false}
-                    disabled={Boolean(busy)}
-                    onChange={(event) => {
-                      setLocalPort(event.target.value);
-                      setError('');
-                      setNotice('');
-                    }}
-                  />
-                </label>
-              </div>
-
-              <div className="settings-advanced-list">
-                <div className="settings-advanced-item">
-                  <span>Local tunnel</span>
-                  <code>{tunnelUrl}</code>
-                </div>
-                <div className="settings-advanced-item">
-                  <span>SSH command</span>
-                  <code>{tunnelCommand}</code>
-                </div>
-                <div className="settings-advanced-item">
-                  <span>Key storage</span>
-                  <code>macOS Keychain</code>
-                </div>
-                <label className="settings-advanced-item settings-advanced-switch">
-                  <span>
-                    Connect on launch
-                    <em>Open the tunnel as soon as Sidekick starts.</em>
+              <section className="settings-card">
+                <header className="settings-card-head">
+                  <div>
+                    <h3>Server</h3>
+                    <p>How Sidekick reaches Hermes.</p>
+                  </div>
+                  <span className="settings-card-meta">
+                    {hasKey ? 'Key in Keychain' : 'No key stored'}
                   </span>
-                  <input
-                    type="checkbox"
-                    checked={autoConnect}
-                    disabled={Boolean(busy)}
-                    onChange={(event) => {
-                      setAutoConnect(event.target.checked);
-                      setError('');
-                      setNotice('');
-                    }}
-                  />
-                </label>
-              </div>
+                </header>
 
-              <div className="settings-advanced-foot">
-                <button
-                  type="button"
-                  className="settings-text-button is-muted"
-                  disabled={Boolean(busy)}
-                  onClick={() => {
-                    setPort('8642');
-                    setLocalPort('18742');
-                    setAutoConnect(false);
-                    setError('');
-                    setNotice('Advanced settings reset — save to apply.');
-                  }}
-                >
-                  Reset to defaults
-                </button>
-                <span className="settings-hint">
-                  The server key lives in <code>~/.hermes/.env</code>.
-                </span>
+                <div className="settings-form">
+                  <label className="settings-field">
+                    <span className="settings-field-label">SSH host</span>
+                    <input
+                      id="connection-host"
+                      type="text"
+                      value={host}
+                      spellCheck={false}
+                      autoComplete="off"
+                      placeholder="jetson"
+                      disabled={Boolean(busy)}
+                      onChange={(event) => {
+                        setHost(event.target.value);
+                        setError('');
+                        setNotice('');
+                      }}
+                    />
+                    <span className="settings-field-note">
+                      The machine running Hermes, reached with your existing SSH
+                      config.
+                    </span>
+                  </label>
+
+                  <div className="settings-field">
+                    <label
+                      className="settings-field-label"
+                      htmlFor="connection-key"
+                    >
+                      API key
+                    </label>
+                    <input
+                      id="connection-key"
+                      type="password"
+                      value={apiKey}
+                      autoComplete="off"
+                      spellCheck={false}
+                      disabled={Boolean(busy)}
+                      placeholder={
+                        hasKey ? 'Saved in Keychain' : 'Paste API_SERVER_KEY'
+                      }
+                      onChange={(event) => {
+                        setApiKey(event.target.value);
+                        setError('');
+                        setNotice('');
+                      }}
+                    />
+                    <div className="settings-field-actions">
+                      <button
+                        type="button"
+                        className="settings-text-button"
+                        disabled={disabled || !host.trim()}
+                        onClick={handleImportKey}
+                      >
+                        {busy === 'import'
+                          ? 'Reading…'
+                          : `Import from ${host || 'server'}`}
+                      </button>
+                      {hasKey ? (
+                        <button
+                          type="button"
+                          className="settings-text-button is-muted"
+                          disabled={disabled}
+                          onClick={handleClearKey}
+                        >
+                          {busy === 'clear' ? 'Removing…' : 'Remove stored key'}
+                        </button>
+                      ) : null}
+                    </div>
+                    <span className="settings-field-note">
+                      Kept in the macOS Keychain, never written by Sidekick.
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              <section
+                className={`settings-card ${advanced ? 'is-open' : ''}`}
+              >
+                <header className="settings-card-head">
+                  <div>
+                    <h3>Advanced</h3>
+                    <p>Ports, tunnel and launch behaviour.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="settings-card-chevron-button"
+                    aria-expanded={advanced}
+                    aria-label={
+                      advanced
+                        ? 'Hide advanced settings'
+                        : 'Show advanced settings'
+                    }
+                    title={advanced ? 'Hide advanced settings' : 'Show advanced settings'}
+                    onClick={() => setAdvanced((current) => !current)}
+                  >
+                    <span
+                      className="settings-card-chevron"
+                      aria-hidden="true"
+                    >
+                      ›
+                    </span>
+                  </button>
+                </header>
+
+                {advanced ? (
+                  <div className="settings-card-body">
+                    <div className="settings-field-grid">
+                      <label className="settings-field">
+                        <span className="settings-field-label">
+                          Remote API port
+                        </span>
+                        <input
+                          type="number"
+                          value={port}
+                          min={1}
+                          max={65535}
+                          spellCheck={false}
+                          disabled={Boolean(busy)}
+                          onChange={(event) => {
+                            setPort(event.target.value);
+                            setError('');
+                            setNotice('');
+                          }}
+                        />
+                      </label>
+                      <label className="settings-field">
+                        <span className="settings-field-label">
+                          Local tunnel port
+                        </span>
+                        <input
+                          type="number"
+                          value={localPort}
+                          min={1}
+                          max={65535}
+                          spellCheck={false}
+                          disabled={Boolean(busy)}
+                          onChange={(event) => {
+                            setLocalPort(event.target.value);
+                            setError('');
+                            setNotice('');
+                          }}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="settings-facts">
+                      <div className="settings-fact">
+                        <span>Local tunnel</span>
+                        <code>{tunnelUrl}</code>
+                      </div>
+                      <div className="settings-fact">
+                        <span>SSH command</span>
+                        <code>{tunnelCommand}</code>
+                      </div>
+                    </div>
+
+                    <div className="settings-switch-row">
+                      <span className="settings-switch-copy">
+                        Connect on launch
+                        <em>Open the tunnel as soon as Sidekick starts.</em>
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={autoConnect}
+                        aria-label="Connect on launch"
+                        className={`settings-switch ${
+                          autoConnect ? 'is-on' : ''
+                        }`}
+                        disabled={Boolean(busy)}
+                        onClick={() => {
+                          setAutoConnect((current) => !current);
+                          setError('');
+                          setNotice('');
+                        }}
+                      >
+                        <span className="settings-switch-knob" />
+                      </button>
+                    </div>
+
+                    <div className="settings-card-foot">
+                      <button
+                        type="button"
+                        className="settings-text-button is-muted"
+                        disabled={Boolean(busy)}
+                        onClick={() => {
+                          setPort('8642');
+                          setLocalPort('18742');
+                          setAutoConnect(false);
+                          setError('');
+                          setNotice('Advanced settings reset — save to apply.');
+                        }}
+                      >
+                        Reset to defaults
+                      </button>
+                      <span className="settings-hint">
+                        The server key lives in <code>~/.hermes/.env</code>.
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+
+              <div className="settings-page-actions">
+                {feedback ? (
+                  <p className="settings-feedback" data-tone={feedback.tone}>
+                    <span className="settings-feedback-dot" aria-hidden="true" />
+                    {feedback.text}
+                  </p>
+                ) : null}
+                <div className="settings-page-buttons">
+                  <button
+                    type="button"
+                    className="settings-action"
+                    disabled={!canTest}
+                    onClick={handleTest}
+                  >
+                    {busy === 'test' ? 'Testing…' : 'Test connection'}
+                  </button>
+                  <button
+                    type="button"
+                    className="settings-action is-primary"
+                    disabled={disabled || !host.trim()}
+                    onClick={handleSave}
+                  >
+                    {busy === 'save'
+                      ? 'Connecting…'
+                      : status.state === 'connected'
+                        ? 'Save & reconnect'
+                        : 'Save & connect'}
+                  </button>
+                </div>
               </div>
             </div>
-          ) : null}
-
-          <div className="settings-actions">
-            {feedback ? (
-              <p className="connection-feedback" data-tone={feedback.tone}>
-                <span className="connection-feedback-dot" aria-hidden="true" />
-                {feedback.text}
-              </p>
-            ) : null}
-            <button
-              type="button"
-              className="settings-action"
-              disabled={!canTest}
-              onClick={handleTest}
-            >
-              {busy === 'test' ? 'Testing…' : 'Test connection'}
-            </button>
-            <button
-              type="button"
-              className="settings-action is-primary"
-              disabled={disabled || !host.trim()}
-              onClick={handleSave}
-            >
-              {busy === 'save'
-                ? 'Connecting…'
-                : status.state === 'connected'
-                  ? 'Save & reconnect'
-                  : 'Save & connect'}
-            </button>
-          </div>
-          </>
           ) : (
             <ModelsSettings connected={status.state === 'connected'} />
           )}
         </div>
       </main>
+
     </div>
   );
 }

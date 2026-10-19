@@ -132,16 +132,16 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
   const searching = needle.trim() !== '';
 
   return (
-    <div className="models-view">
-      <header className="models-head">
-        <div className="models-head-copy">
+    <div className="settings-page">
+      <header className="settings-page-head">
+        <div>
           <h2>Models</h2>
           <p>
             One default per bot, and a picker that only lists the models you
             actually reach for.
           </p>
         </div>
-        <div className="models-head-side">
+        <div className="settings-page-side">
           <div className="models-stats">
             <span>
               <strong>{offeredCount}</strong> offered
@@ -153,7 +153,7 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
           </div>
           <button
             type="button"
-            className={`models-refresh ${modelsLoading ? 'is-busy' : ''}`}
+            className={`settings-page-action ${modelsLoading ? 'is-busy' : ''}`}
             disabled={!bridge || modelsLoading}
             onClick={() => setReload((count) => count + 1)}
           >
@@ -163,24 +163,24 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
       </header>
 
       {bridge ? null : (
-        <p className="models-notice">
+        <p className="settings-notice">
           Model settings are only available inside the desktop app.
         </p>
       )}
       {bridge && !connected ? (
-        <p className="models-notice">
+        <p className="settings-notice">
           The tunnel is closed — open Connection and connect to refresh the
           list. Your choices are kept.
         </p>
       ) : null}
 
-      <section className="models-panel">
-        <header className="models-panel-head">
+      <section className="settings-card">
+        <header className="settings-card-head">
           <div>
             <h3>Bot defaults</h3>
             <p>New conversations start on these models.</p>
           </div>
-          <span className="models-panel-meta">
+          <span className="settings-card-meta">
             {profiles === null && !profilesError
               ? 'Reading the gateway…'
               : `${configuredBots} of ${bots.length} set`}
@@ -252,13 +252,13 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
         ) : null}
       </section>
 
-      <section className="models-panel">
-        <header className="models-panel-head">
+      <section className="settings-card">
+        <header className="settings-card-head">
           <div>
             <h3>Picker</h3>
             <p>Star what you use often, switch off the rest.</p>
           </div>
-          <span className="models-panel-meta">
+          <span className="settings-card-meta">
             {models
               ? `${offeredCount} of ${totalModels} on`
               : modelsLoading
@@ -348,10 +348,10 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
                             ? 'Listed in the model picker'
                             : 'Hidden from the model picker'
                         }
-                        className={`models-switch ${checked ? 'is-on' : ''}`}
+                        className={`settings-switch ${checked ? 'is-on' : ''}`}
                         onClick={() => setModelVisible(id, !checked)}
                       >
-                        <span className="models-switch-knob" />
+                        <span className="settings-switch-knob" />
                       </button>
                     </div>
                   );
