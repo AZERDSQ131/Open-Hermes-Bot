@@ -967,6 +967,21 @@ mkdir -p "$STAGING/memories" "$STAGING/sessions" "$STAGING/skills" \
 
 if [ -f "$ROOT/config.yaml" ]; then cp -f "$ROOT/config.yaml" "$STAGING/config.yaml"; fi
 if [ -f "$ROOT/SOUL.md" ]; then cp -f "$ROOT/SOUL.md" "$STAGING/SOUL.md"; fi
+
+# The copied soul opens with the primary agent's identity ("You are Hermes").
+# A bot answering "I am Hermes" to "who are you?" is the wrong agent wearing
+# the right name, so the first line is rewritten before the profile is published.
+python3 - "$STAGING/SOUL.md" "$TITLE" "$NAME" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+if path.is_file():
+    name = (sys.argv[2] or "").strip() or (sys.argv[3] or "").strip()
+    text = path.read_text(encoding="utf-8")
+    if name and "You are Hermes" in text:
+        path.write_text(text.replace("You are Hermes", "You are " + name, 1), encoding="utf-8")
+PY
 for F in memories/MEMORY.md memories/USER.md; do
   if [ -f "$ROOT/$F" ]; then cp -f "$ROOT/$F" "$STAGING/$F"; fi
 done
