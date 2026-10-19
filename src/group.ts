@@ -19,11 +19,6 @@ const PARTIAL_SILENT = /\[\[\s*s(?:i(?:l(?:e(?:n(?:t)?)?)?)?)?[^\]]*$/i;
 export const MAX_GROUP_LINES = 8;
 export const MAX_MEMBER_LINES = 2;
 
-/** True when a streaming line is only a marker so far, not a reply. */
-export function isSilentMarkerOnly(text: string): boolean {
-  return !text.replace(SILENT, '').trim() && text.trim().length > 0;
-}
-
 export function stripSilentMarkers(text: string): string {
   return text.replace(SILENT, '').replace(PARTIAL_SILENT, '');
 }
