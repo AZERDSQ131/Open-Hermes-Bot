@@ -1737,6 +1737,12 @@ button:focus-visible {
   white-space: nowrap;
 }
 
+.connection-state-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .connection-state-dot {
   width: 7px;
   height: 7px;
