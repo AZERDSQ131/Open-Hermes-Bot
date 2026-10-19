@@ -148,9 +148,6 @@ export function ModelPicker({
         onClick={() => setOpen((current) => !current)}
       >
         <span className="model-chip-name">{chipLabel}</span>
-        <span className="model-chip-caret" aria-hidden="true">
-          ⌄
-        </span>
       </button>
 
       {open ? (
