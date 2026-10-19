@@ -2355,7 +2355,7 @@ button:focus-visible {
   padding: 4px 10px;
   margin-left: -10px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 0;
   background: none;
   color: #83838a;
   font-size: 15.5px;
@@ -2367,12 +2367,19 @@ button:focus-visible {
 .composer-main .model-chip:hover,
 .composer-main .model-chip.is-open {
   border: 0;
+  border-radius: 0;
   /* Brighter than the composer behind it (#262628), well short of the text:
-     a tint, not a pill. The outline keeps its distance from the name. */
+     a square tint, no line around it. */
   background: rgba(242, 239, 229, 0.07);
   color: #83838a;
-  outline: 1px solid rgba(242, 239, 229, 0.16);
-  outline-offset: 4px;
+  outline: none;
+}
+
+/* Keyboard focus would otherwise draw the global 2px ring on the name and
+   read as a border; the tint marks focus here instead. */
+.composer-main .model-chip:focus-visible {
+  outline: none;
+  background: rgba(242, 239, 229, 0.07);
 }
 
 /* Anchored right, the 310px menu opens inside the window instead of running
