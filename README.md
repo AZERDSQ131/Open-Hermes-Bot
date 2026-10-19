@@ -29,12 +29,17 @@ src/styles.css          Design system and layout
 build/                  App icon (.icns + .png) and icon source
 ```
 
-The interface is self-contained. The `+` button creates either a bot (with its own
-Bloub shape and color) or a group of existing bots. In the header, click the name to
-rename the agent, or the logo to change its shape and color — for a group, each member
-is styled from its own tab. Searching, switching agents, attaching files and sending
-messages also work locally. The agent reply is mocked, so no backend or API key is
-needed.
+The `+` button creates either a bot (with its own Bloub shape and color) or a group
+of existing bots. In the header, click the name to rename the agent, or the logo to
+change its shape and color — for a group, each member is styled from its own tab.
+
+Chat is real once the app is connected to a Hermes host (Settings → API key): the
+first message in a conversation opens a Hermes session for that bot, and every turn
+is streamed back into an assistant bubble, so the bot keeps the thread's memory.
+The model chip in the composer lists the models the bot's providers offer and sends
+the picked one with each turn; “Bot default” leaves the choice to Hermes. A turn
+that stops producing events — a refused key, an exhausted quota — ends with a
+readable line in the conversation instead of a spinner that never stops.
 
 ## Credits
 
