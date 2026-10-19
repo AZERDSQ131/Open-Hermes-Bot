@@ -852,9 +852,22 @@ export default function App() {
 
   function updateActiveAvatar(avatar: AvatarSpec) {
     setThreads((current) =>
-      current.map((thread) =>
-        thread.id === activeId ? { ...thread, avatar } : thread,
-      ),
+      current.map((thread) => {
+        if (thread.id !== activeId) return thread;
+        if (avatar.kind !== 'group' || !thread.members) {
+          return { ...thread, avatar };
+        }
+        return {
+          ...thread,
+          avatar,
+          // The logo editor restyles members in place; the roster and every
+          // future group line must wear the same faces.
+          members: thread.members.map((member, index) => ({
+            ...member,
+            avatar: avatar.members[index] ?? member.avatar,
+          })),
+        };
+      }),
     );
   }
 
