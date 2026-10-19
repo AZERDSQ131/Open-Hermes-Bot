@@ -121,6 +121,31 @@ async function configuredModelFor(
 // rescues itself; the picker then shows the model that actually replied.
 const QUOTA_ERROR = /usage limit|quota|rate limit|too many requests|429|exhausted/i;
 
+// A profile whose environment is being provisioned refuses turns until the
+// install finishes. That is a "come back in a moment", not a dead end — the
+// group especially tends to hit it on the first parallel turn of several bots.
+const DEPENDENCY_BUSY = /installing dependencies|hermes pm install/i;
+const DEPENDENCY_RETRY_MS = 8000;
+const DEPENDENCY_RETRIES = 2;
+
+type ChatOutcome = { ok: boolean; error?: string; canceled?: boolean };
+
+async function retryWhileDependenciesInstall<T extends ChatOutcome>(
+  call: () => Promise<T>,
+  stillWanted: () => boolean,
+): Promise<T> {
+  let result = await call();
+  for (let attempt = 0; attempt < DEPENDENCY_RETRIES; attempt += 1) {
+    if (result.ok || result.canceled) return result;
+    if (!DEPENDENCY_BUSY.test(result.error ?? '')) return result;
+    if (!stillWanted()) return result;
+    await new Promise((resolve) => setTimeout(resolve, DEPENDENCY_RETRY_MS));
+    if (!stillWanted()) return result;
+    result = await call();
+  }
+  return result;
+}
+
 async function freeModelFor(profile?: string): Promise<PreferredModel | null> {
   const bridge = window.hermes;
   if (!bridge?.models) return null;
@@ -1247,6 +1272,7 @@ export default function App() {
     const spoken = new Map<string, number>();
     let lines = 0;
     let reacted = false;
+    let failures = 0;
     let lastLine = '';
     let waves = 0;
 
@@ -1371,7 +1397,10 @@ export default function App() {
                 instructions,
               });
 
-            let result = await ask(pick);
+            let result = await retryWhileDependenciesInstall(
+              () => ask(pick),
+              () => isCurrent() && !runtime.interrupted.has(member.id),
+            );
             if (!isCurrent()) return { floor, canceled: true };
             const stoppedWhileAsking = stopped();
             if (stoppedWhileAsking) {
@@ -1492,6 +1521,7 @@ export default function App() {
           ];
         }
         if (outcome.error) {
+          failures += 1;
           history = [
             ...history,
             { id: uid(), role: 'event', text: outcome.error },
@@ -1559,7 +1589,7 @@ export default function App() {
 
     if (!isCurrent()) return;
     finish();
-    if (lines === 0 && !reacted) {
+    if (lines === 0 && !reacted && failures === 0) {
       history = [
         ...history,
         { id: uid(), role: 'event', text: 'The group stayed silent.' },
@@ -1744,14 +1774,18 @@ export default function App() {
           instructions: REACTION_PROMPT,
         });
 
-      let result = await ask(
-        thread.model
-          ? {
-              model: thread.model,
-              provider: thread.modelProvider ?? '',
-              label: thread.modelLabel ?? thread.model,
-            }
-          : fallback,
+      let result = await retryWhileDependenciesInstall(
+        () =>
+          ask(
+            thread.model
+              ? {
+                  model: thread.model,
+                  provider: thread.modelProvider ?? '',
+                  label: thread.modelLabel ?? thread.model,
+                }
+              : fallback,
+          ),
+        isCurrent,
       );
       if (!isCurrent()) return;
 
