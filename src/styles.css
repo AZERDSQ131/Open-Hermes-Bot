@@ -2337,14 +2337,31 @@ button:focus-visible {
 /* The picker sits in the composer row itself, left of send: centred on the
    40px buttons rather than dropped to their baseline. */
 .composer-main .model-picker {
+  display: flex;
   flex: 0 0 auto;
   align-self: center;
+  align-items: center;
+  height: 40px;
+  margin-right: 6px;
 }
 
-/* The chip shares the row with the input, so it trades width for the message
-   instead of pushing the send button out of the composer. */
+/* Just the model's name in the row: no pill, no fill — the text is the control.
+   It shares the row with the input, so it is capped and ellipsised rather than
+   pushing the send button out of the composer. */
 .composer-main .model-chip {
-  max-width: 170px;
+  max-width: 190px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: #8d8a82;
+}
+
+.composer-main .model-chip:hover,
+.composer-main .model-chip.is-open {
+  border: 0;
+  background: none;
+  color: #e4e1d7;
 }
 
 /* Anchored right, the 310px menu opens inside the window instead of running
