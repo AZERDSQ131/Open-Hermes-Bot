@@ -24,7 +24,8 @@ npm start       # build, then launch the production app
 electron/main.js        Electron shell, window chrome, dock icon
 src/App.tsx             Sidebar, chat, composer and interactions
 src/components/         Bloub avatars, create dialog, logo editor, icons
-src/data.ts             Demo agents and transcripts
+src/data.ts             Threads, group members, messages and reactions
+src/group.ts            Group protocol: silence, tapbacks, @mentions, turns
 src/styles.css          Design system and layout
 build/                  App icon (.icns + .png) and icon source
 ```
