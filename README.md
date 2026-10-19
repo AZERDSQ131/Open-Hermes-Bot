@@ -64,13 +64,16 @@ shows up in the group and in its private thread.
 - **Tapbacks** work as in a private thread (`[[react:🔥]]`). In a group the
   reaction is signed, so two bots can tap the same message.
 - **@mentions** hand the floor over: a bot that writes `@Name` gives that member
-  the next turn, and a member can answer back. A round stops after eight spoken
+  the next wave, and a member can answer back. A round stops after eight spoken
   lines and no member speaks more than twice, so the group cannot talk itself
   into a loop.
-- Type `@` in the composer to pick a member from the roster; only the bots you
-  name are guaranteed a turn. With no mention, the whole group is asked and any
-  member may stay out. Each member uses its own model default — the group has no
-  model picker of its own.
+- **Every member is asked at the same time.** One message makes one request per
+  bot in parallel, and their answers stream side by side. Members named in the
+  message are told they were addressed; the rest decide on their own whether to
+  chime in or stay silent. A later wave only includes the bots mentioned by the
+  previous one, also in parallel.
+- Type `@` in the composer to pick a member. Each member uses its own model
+  default — the group has no model picker of its own.
 
 ## Credits
 
