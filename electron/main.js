@@ -629,35 +629,119 @@ ipcMain.handle('hermes:models', async (_event, payload) => {
   };
 });
 
-// The bots are Hermes profiles on the connected machine, and only the server
-// knows the whole list: a bot exists before this app ever opens a thread for
-// it. Each one can carry its own default model, so the names have to come from
-// there rather than from whatever the sidebar happens to hold.
-ipcMain.handle('hermes:profiles', async () => {
-  const result = await runSsh(
-    storedConnection().sshHost,
-    'ls -1 "$HOME/.hermes/profiles" 2>/dev/null || true',
-    15000,
-  );
-  if (!result.ok) {
-    return {
-      ok: false,
-      error:
-        result.error ||
-        String(result.stderr ?? '').trim() ||
-        'Could not list the bots',
-    };
+// Which bots exist is the gateway's answer, not the disk's: a profile
+// directory outlives the bot (deleted names leave one behind until cleanup)
+// and a profile the gateway has not picked up yet is not one the app can talk
+// to. `served_profiles` on the control socket is what Hermes itself shows.
+const LIST_PROFILES_PY = `
+import json, socket
+from pathlib import Path
+
+home = Path.home() / ".hermes"
+path = home / "gateway.sock"
+pointer = home / "gateway.sock.path"
+if not path.exists() and pointer.is_file():
+    candidate = Path(pointer.read_text(encoding="utf-8-sig").strip())
+    if candidate.exists():
+        path = candidate
+
+if not path.exists():
+    print(json.dumps({"ok": False, "error": "The Hermes gateway is not running"}))
+    raise SystemExit(0)
+
+try:
+    client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    client.settimeout(4)
+    client.connect(str(path))
+    client.sendall(b'{"verb": "identify"}\\n')
+    answer = b""
+    while True:
+        chunk = client.recv(65536)
+        if not chunk:
+            break
+        answer += chunk
+    client.close()
+    payload = json.loads(answer.decode() or "{}")
+    served = (payload.get("result") or {}).get("served_profiles")
+    if not isinstance(served, list):
+        raise ValueError("the gateway did not report its profiles")
+    print(json.dumps({"ok": True, "profiles": served}))
+except Exception as exc:
+    print(json.dumps({"ok": False, "error": str(exc)}))
+`;
+
+// Only used when the gateway cannot answer: the profile directories minus the
+// tombstoned names, which is the closest offline guess at the bot list.
+const LIST_PROFILES_SH = `
+root="$HOME/.hermes/profiles"
+for dir in "$root"/*; do
+  [ -d "$dir" ] || continue
+  name=$(basename "$dir")
+  case "$name" in .*) continue ;; esac
+  [ -e "$root/.deleted/$name" ] && continue
+  printf '%s\\n' "$name"
+done
+`;
+
+function lastJsonObject(text) {
+  const lines = String(text ?? '').trim().split('\n');
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index].trim();
+    if (!line.startsWith('{')) continue;
+    try {
+      return JSON.parse(line);
+    } catch {
+      // Keep looking: Python warnings can precede the answer.
+    }
   }
+  return null;
+}
+
+function cleanProfileNames(values) {
   const names = new Set();
-  for (const line of String(result.stdout ?? '').split('\n')) {
-    const name = line.trim();
-    // Dot entries are staging copies and tombstones, not bots.
-    if (!name || name.startsWith('.')) continue;
+  for (const value of values ?? []) {
+    const name = String(value ?? '').trim();
+    if (!name || name === 'default') continue;
     if (!PROFILE_NAME_RE.test(name)) continue;
     if (RESERVED_PROFILE_NAMES.has(name)) continue;
     names.add(name);
   }
-  return { ok: true, profiles: [...names].sort() };
+  return [...names].sort();
+}
+
+ipcMain.handle('hermes:profiles', async () => {
+  const host = storedConnection().sshHost;
+  const live = await runSsh(
+    host,
+    `python3 - <<'PY'\n${LIST_PROFILES_PY}PY`,
+    20000,
+  );
+  const answer = lastJsonObject(live.stdout);
+  if (live.ok && answer?.ok && Array.isArray(answer.profiles)) {
+    return {
+      ok: true,
+      source: 'gateway',
+      profiles: cleanProfileNames(answer.profiles),
+    };
+  }
+
+  const disk = await runSsh(host, LIST_PROFILES_SH, 15000);
+  if (!disk.ok) {
+    return {
+      ok: false,
+      error:
+        live.error ||
+        answer?.error ||
+        String(disk.stderr ?? '').trim() ||
+        'Could not list the bots',
+    };
+  }
+  return {
+    ok: true,
+    source: 'disk',
+    warning: answer?.error || 'The gateway is not answering, so this list comes from disk.',
+    profiles: cleanProfileNames(String(disk.stdout ?? '').split('\n')),
+  };
 });
 
 function parseSseFrame(frame) {

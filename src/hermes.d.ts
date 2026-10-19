@@ -56,8 +56,12 @@ export type HermesModelList = {
 
 export type HermesProfileList = {
   ok: boolean;
-  /** Bot names, i.e. the profiles living on the connected machine. */
+  /** Bot names, i.e. the profiles the gateway is serving. */
   profiles?: string[];
+  /** `gateway` is the live answer; `disk` is the offline fallback. */
+  source?: 'gateway' | 'disk';
+  /** Why the list came from disk instead of the gateway. */
+  warning?: string;
   error?: string;
 };
 
