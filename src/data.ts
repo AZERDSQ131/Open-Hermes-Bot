@@ -17,6 +17,24 @@ export type GroupAvatar = {
 
 export type AvatarSpec = SingleAvatar | GroupAvatar;
 
+/**
+ * A bot that belongs to a group. `profile` is what Hermes answers for; `id`
+ * points back at the bot's own thread, so a member stays the same bot across
+ * renames and refreshes.
+ */
+export type GroupMember = {
+  id: string;
+  name: string;
+  profile?: string;
+  avatar: SingleAvatar;
+};
+
+/** A tapback, and who left it. The who only shows in groups. */
+export type Reaction = {
+  emoji: string;
+  by?: string;
+};
+
 export type Message =
   | {
       id: string;
@@ -24,6 +42,15 @@ export type Message =
       text: string;
       /** Emoji the agent tapped on this message; never sent back to Hermes. */
       reaction?: string;
+      /** Group chat: the bot that wrote this line. */
+      authorId?: string;
+      authorName?: string;
+      /** Group chat: the author's face, kept with the line. */
+      authorAvatar?: SingleAvatar;
+      /** Group chats collect one tapback per bot instead of a single one. */
+      reactions?: Reaction[];
+      /** Bots named with @ in this line. */
+      mentions?: string[];
     }
   | { id: string; role: 'event'; text: string };
 
@@ -39,6 +66,15 @@ export type Thread = {
   system?: boolean;
   /** Hermes session this conversation lives in, once it has been opened. */
   sessionId?: string;
+  /** Group members, when this thread is a group. */
+  members?: GroupMember[];
+  /**
+   * Group members each keep their own Hermes session: the bot that answers
+   * stays the same bot, with its own memory, across the whole conversation.
+   */
+  sessions?: Record<string, string>;
+  /** Group member currently composing a line. */
+  speaking?: GroupMember;
   /** Model picked for this conversation; absent means the bot's own. */
   model?: string;
   modelProvider?: string;
