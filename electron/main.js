@@ -780,6 +780,10 @@ function parseSseFrame(frame) {
   return { event, data: data.join('\n') };
 }
 
+// Turns in flight, so the renderer can abandon one when a new message lands in
+// the same conversation.
+const chatRequests = new Map();
+
 // One agent turn, streamed. Hermes emits the assistant's text as it is written
 // and reports failures (a rejected key, an exhausted quota) as an `error`
 // event long before the turn would end, so the app can stop waiting instead of
@@ -811,6 +815,8 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
 
   const controller = new AbortController();
   const requestId = String(payload?.requestId ?? '');
+  // A new message in the same thread cancels the previous turn by request id.
+  if (requestId) chatRequests.set(requestId, controller);
   const send = (channel, data) => {
     if (event.sender.isDestroyed()) return;
     event.sender.send(channel, { requestId, ...data });
@@ -909,6 +915,7 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
     return { ok: true, text };
   } catch (error) {
     if (error.name === 'AbortError') {
+      if (controller.canceled) return { ok: false, canceled: true };
       return {
         ok: false,
         error: silent
@@ -920,7 +927,19 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
   } finally {
     clearTimeout(hardStop);
     clearTimeout(silenceTimer);
+    chatRequests.delete(requestId);
   }
+});
+
+// Abandon a turn: the renderer has a newer message for the same conversation.
+// Closing the stream also tells Hermes to interrupt the run, so the next turn
+// does not race a run that is still writing into the session.
+ipcMain.handle('hermes:chat:cancel', (_event, requestId) => {
+  const controller = chatRequests.get(String(requestId ?? ''));
+  if (!controller) return { ok: false };
+  controller.canceled = true;
+  controller.abort();
+  return { ok: true };
 });
 
 

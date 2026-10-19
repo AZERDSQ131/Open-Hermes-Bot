@@ -78,6 +78,8 @@ export type HermesChatResult = {
   ok: boolean;
   text?: string;
   error?: string;
+  /** The renderer abandoned this turn for a newer message. */
+  canceled?: boolean;
 };
 
 export type HermesChatDelta = { requestId: string; text: string };
@@ -100,6 +102,8 @@ export type HermesBridge = {
     /** Appended to the system prompt for this turn only. */
     instructions?: string;
   }) => Promise<HermesChatResult>;
+  /** Stop a turn in flight; used when a newer message replaces it. */
+  cancelChat: (requestId: string) => Promise<{ ok: boolean }>;
   onChatDelta: (callback: (delta: HermesChatDelta) => void) => () => void;
   onChatTool: (callback: (tool: HermesChatTool) => void) => () => void;
   getSettings: () => Promise<HermesSettings>;

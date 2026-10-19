@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('hermes', {
   models: (payload) => ipcRenderer.invoke('hermes:models', payload),
   profiles: () => ipcRenderer.invoke('hermes:profiles'),
   sendChat: (payload) => ipcRenderer.invoke('hermes:chat:send', payload),
+  cancelChat: (requestId) => ipcRenderer.invoke('hermes:chat:cancel', requestId),
   onChatDelta: (callback) => {
     const listener = (_event, data) => callback(data);
     ipcRenderer.on('hermes:chat:delta', listener);

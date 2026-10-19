@@ -277,11 +277,9 @@ export default function App() {
     state: 'disconnected',
   });
 
-  // Which thread the turn in flight belongs to: streamed text must land in the
-  // conversation it was asked from, even if the person switches away.
-  const requestThread = useRef<{ requestId: string; threadId: string } | null>(
-    null,
-  );
+  // One live turn per thread, keyed by thread: a new message replaces the turn
+  // in flight, and a replaced turn must not paint over the new one.
+  const requestThread = useRef(new Map<string, string>());
 
   const searchRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -419,11 +417,14 @@ export default function App() {
     if (!bridge?.onChatDelta) return;
 
     const applyToThread = (requestId: string, update: (thread: Thread) => Thread) => {
-      const pending = requestThread.current;
-      if (!pending || pending.requestId !== requestId) return;
+      const entry = [...requestThread.current.entries()].find(
+        ([, current]) => current === requestId,
+      );
+      if (!entry) return;
+      const [threadId] = entry;
       setThreads((current) =>
         current.map((thread) =>
-          thread.id === pending.threadId ? update(thread) : thread,
+          thread.id === threadId ? update(thread) : thread,
         ),
       );
     };
@@ -817,9 +818,20 @@ export default function App() {
   async function sendMessage() {
     const text = draft.trim();
     const thread = activeThread;
-    if (!text || !thread || thread.thinking) return;
+    if (!text || !thread) return;
 
     const threadId = thread.id;
+    const requestId = uid();
+    const bridge = window.hermes;
+
+    // A newer message replaces the turn in flight: stop the old request so the
+    // server stops writing an answer nobody is waiting for, then make this turn
+    // the one whose stream is allowed to land. The thread keeps every message
+    // and the same Hermes session, so the context is not lost.
+    const previous = requestThread.current.get(threadId);
+    if (previous) bridge?.cancelChat?.(previous);
+    requestThread.current.set(threadId, requestId);
+    const isCurrent = () => requestThread.current.get(threadId) === requestId;
     // Sending is an intent to look at the answer, even from inside older turn.
     stickToBottom.current = true;
     const outgoing = attachments.length
@@ -854,6 +866,9 @@ export default function App() {
     // Whatever goes wrong, the thread has to come back to rest with a reason
     // the person can read — never a spinner that stays forever.
     const fail = (message: string) => {
+      // A replaced turn has nothing to say: the newer one owns the thread.
+      if (!isCurrent()) return;
+      requestThread.current.delete(threadId);
       setThreads((current) =>
         current.map((item) =>
           item.id === threadId
@@ -873,7 +888,6 @@ export default function App() {
       );
     };
 
-    const bridge = window.hermes;
     if (!bridge?.sendChat) {
       fail(
         'Not connected to Hermes yet — open Settings, connect, then send this again.',
@@ -902,10 +916,8 @@ export default function App() {
             item.id === threadId ? { ...item, sessionId } : item,
           ),
         );
+        if (!isCurrent()) return;
       }
-
-      const requestId = uid();
-      requestThread.current = { requestId, threadId };
 
       // Order of intent: this conversation's pick, the default Settings gives
       // this bot, the model it last remembered, then the model the profile is
@@ -918,6 +930,7 @@ export default function App() {
       if (!thread.model && !fallback) {
         fallback = await configuredModelFor(thread.profile);
       }
+      if (!isCurrent()) return;
       const ask = (pick: PreferredModel | null) =>
         bridge.sendChat({
           requestId,
@@ -938,6 +951,7 @@ export default function App() {
             }
           : fallback,
       );
+      if (!isCurrent()) return;
 
       // Move to a free model rather than showing a dead end, then make that
       // switch visible in the thread: the chip and the note must agree. An
@@ -948,6 +962,7 @@ export default function App() {
         const rescue = await freeModelFor(thread.profile);
         if (rescue && rescue.model !== failed) {
           result = await ask(rescue);
+          if (!isCurrent()) return;
           if (result.ok) {
             if (!thread.model) rememberPreferredModel(thread.profile, rescue);
             setThreads((current) =>
@@ -974,11 +989,8 @@ export default function App() {
         }
       }
 
-      if (requestThread.current?.requestId === requestId) {
-        requestThread.current = null;
-      }
-
       if (!result.ok) {
+        if (result.canceled) return;
         fail(result.error ?? 'The bot could not answer this one.');
         return;
       }
@@ -986,7 +998,6 @@ export default function App() {
       reply = parsed.text;
       reaction = parsed.emoji;
     } catch (reason) {
-      requestThread.current = null;
       fail(
         reason instanceof Error && reason.message
           ? reason.message
@@ -1000,6 +1011,8 @@ export default function App() {
       fail('The bot finished without saying anything.');
       return;
     }
+    if (!isCurrent()) return;
+    requestThread.current.delete(threadId);
 
     setThreads((current) =>
       current.map((item) =>
