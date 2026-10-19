@@ -8,7 +8,6 @@ export type BotStyle = {
 
 export type SingleAvatar = BotStyle & {
   kind?: 'single';
-  badge?: string;
 };
 
 export type GroupAvatar = {
@@ -90,7 +89,6 @@ export const THREADS: Thread[] = [
       color: '#5b5bda',
       shape: 'cercle',
       variant: 'curious',
-      badge: '#2496e8',
     },
     preview: 'inbox at zero, 5 drafts parked for review',
     time: '8:02 PM',
