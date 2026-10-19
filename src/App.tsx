@@ -1670,6 +1670,21 @@ export default function App() {
           </div>
         </header>
 
+        {activeThread.members?.length ? (
+          <div className="group-roster" aria-label="Group members">
+            {activeThread.members.map((member) => (
+              <span className="group-roster-member" key={member.id}>
+                <AgentAvatar
+                  avatar={member.avatar}
+                  size={20}
+                  showBadge={false}
+                />
+                <span className="group-roster-name">{member.name}</span>
+              </span>
+            ))}
+          </div>
+        ) : null}
+
         <div
           className="chat-scroll"
           ref={scrollRef}
@@ -1917,6 +1932,14 @@ export default function App() {
                   onKeyDown={handleComposerKeyDown}
                   aria-label={`Message ${activeThread.name}`}
                 />
+                {activeThread.members?.length ? (
+                  <span
+                    className="group-model-note"
+                    title="Each member answers on its own default model"
+                  >
+                    Group
+                  </span>
+                ) : (
                 <ModelPicker
                   profile={activeThread.profile}
                   value={activeThread.model}
@@ -1947,6 +1970,7 @@ export default function App() {
                     );
                   }}
                 />
+                )}
                 {draft.trim() ? (
                   <button
                     type="submit"

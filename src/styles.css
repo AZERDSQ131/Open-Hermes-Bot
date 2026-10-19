@@ -669,6 +669,48 @@ button:focus-visible {
   color: #e3e3e7;
 }
 
+/* A group shows its cast before the conversation starts. */
+.group-roster {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  max-width: 896px;
+  margin: 0 auto;
+  padding: 10px 28px 0;
+}
+
+.group-roster-member {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 3px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  background: #232326;
+  color: #b9b9c0;
+  font-size: 12px;
+  letter-spacing: -0.002em;
+}
+
+.group-roster-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-model-note {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: #85858d;
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+}
+
 .chat-scroll {
   flex: 1 1 auto;
   min-height: 0;
