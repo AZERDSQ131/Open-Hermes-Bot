@@ -1094,7 +1094,6 @@ export default function App() {
                     <div className="message-row assistant">
                       <div className="bubble bubble-assistant is-streaming">
                         {activeThread.streaming}
-                        <span className="stream-caret" aria-hidden="true" />
                       </div>
                     </div>
                   ) : (
