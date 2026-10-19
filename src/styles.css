@@ -2349,11 +2349,12 @@ button:focus-visible {
    placeholder, no pill and no fill. Hovering draws an outline the way a button
    would, without moving anything — the outline is painted, not laid out. */
 .composer-main .model-chip {
-  max-width: 240px;
-  /* The padding is the air the hover outline needs; the negative margin keeps
-     the name itself exactly where it was in the row. */
-  padding: 4px 10px;
-  margin-left: -10px;
+  max-width: 260px;
+  /* Same height as the round buttons beside it, so the pill matches them; the
+     negative margin keeps the name itself exactly where it was in the row. */
+  height: 40px;
+  padding: 0 12px;
+  margin-left: -12px;
   border: 0;
   border-radius: 999px;
   background: none;
