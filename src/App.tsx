@@ -17,6 +17,7 @@ import {
 import { EditAgentDialog } from './components/EditAgentDialog';
 import {
   ArrowUpIcon,
+  FileIcon,
   MenuIcon,
   MicIcon,
   MonitorIcon,
@@ -42,13 +43,33 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+type AttachmentFile = {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  previewUrl?: string;
+};
+
+function fileExtension(name: string) {
+  const dot = name.lastIndexOf('.');
+  if (dot <= 0 || dot === name.length - 1) return 'FILE';
+  return name.slice(dot + 1).slice(0, 4).toUpperCase();
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 
 export default function App() {
   const [threads, setThreads] = useState<Thread[]>(THREADS);
   const [activeId, setActiveId] = useState('sales-outbound');
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState('');
-  const [attachments, setAttachments] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [listening, setListening] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [logoOpen, setLogoOpen] = useState(false);
@@ -192,6 +213,23 @@ export default function App() {
     scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
   }, [activeId, activeThread?.messages.length, activeThread?.thinking]);
 
+  function clearAttachments() {
+    setAttachments((current) => {
+      current.forEach((attachment) => {
+        if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+      });
+      return [];
+    });
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((current) => {
+      const target = current.find((attachment) => attachment.id === id);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return current.filter((attachment) => attachment.id !== id);
+    });
+  }
+
   function selectThread(id: string) {
     setActiveId(id);
     setThreads((current) =>
@@ -201,7 +239,7 @@ export default function App() {
           : thread,
       ),
     );
-    setAttachments([]);
+    clearAttachments();
     setListening(false);
     setLogoOpen(false);
     setRenaming(false);
@@ -232,7 +270,7 @@ export default function App() {
     setRenaming(false);
     setQuery('');
     setDraft('');
-    setAttachments([]);
+    clearAttachments();
     setListening(false);
     window.requestAnimationFrame(() => composerRef.current?.focus());
   }
@@ -308,7 +346,7 @@ export default function App() {
 
     if (activeId === id) {
       if (fallback) setActiveId(fallback.id);
-      setAttachments([]);
+      clearAttachments();
       setListening(false);
       setLogoOpen(false);
       setRenaming(false);
@@ -390,7 +428,9 @@ export default function App() {
 
     const threadId = activeThread.id;
     const outgoing = attachments.length
-      ? `${text}\n\nAttached: ${attachments.join(', ')}`
+      ? `${text}\n\nAttached: ${attachments
+          .map((attachment) => attachment.name)
+          .join(', ')}`
       : text;
     const userMessage: Message = { id: uid(), role: 'user', text: outgoing };
 
@@ -408,7 +448,7 @@ export default function App() {
     );
 
     setDraft('');
-    setAttachments([]);
+    clearAttachments();
     setListening(false);
     if (composerRef.current) {
       composerRef.current.style.height = '40px';
@@ -452,9 +492,20 @@ export default function App() {
   }
 
   function handleFiles(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []).map((file) => file.name);
+    const files = Array.from(event.target.files ?? []);
     if (files.length) {
-      setAttachments((current) => [...current, ...files]);
+      setAttachments((current) => [
+        ...current,
+        ...files.map((file) => ({
+          id: uid(),
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          previewUrl: file.type.startsWith('image/')
+            ? URL.createObjectURL(file)
+            : undefined,
+        })),
+      ]);
     }
     event.target.value = '';
   }
@@ -734,79 +785,112 @@ export default function App() {
 
         <div className="composer-dock">
           <div className="composer-inner">
-            {attachments.length > 0 ? (
-              <div className="attachment-row">
-                {attachments.map((name, index) => (
-                  <span className="attachment" key={`${name}-${index}`}>
-                    <span className="attachment-name">{name}</span>
-                    <button
-                      type="button"
-                      className="attachment-remove"
-                      aria-label={`Remove ${name}`}
-                      onClick={() =>
-                        setAttachments((current) =>
-                          current.filter((_, itemIndex) => itemIndex !== index),
-                        )
-                      }
+            <form
+              className={`composer ${attachments.length ? 'has-attachments' : ''}`}
+              onSubmit={handleSubmit}
+            >
+              {attachments.length > 0 ? (
+                <div className="attachment-row">
+                  {attachments.map((attachment) => (
+                    <div
+                      className={`attachment ${
+                        attachment.previewUrl ? 'is-image' : 'is-file'
+                      }`}
+                      key={attachment.id}
                     >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            ) : null}
+                      <div className="attachment-visual">
+                        {attachment.previewUrl ? (
+                          <img
+                            className="attachment-image"
+                            src={attachment.previewUrl}
+                            alt=""
+                          />
+                        ) : (
+                          <span className="attachment-file">
+                            <FileIcon size={26} />
+                            <span className="attachment-ext">
+                              {fileExtension(attachment.name)}
+                            </span>
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          className="attachment-remove"
+                          aria-label={`Remove ${attachment.name}`}
+                          title="Remove attachment"
+                          onClick={() => removeAttachment(attachment.id)}
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="attachment-meta">
+                        <span
+                          className="attachment-name"
+                          title={attachment.name}
+                        >
+                          {attachment.name}
+                        </span>
+                        <span className="attachment-size">
+                          {formatFileSize(attachment.size)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
 
-            <form className="composer" onSubmit={handleSubmit}>
-              <button
-                type="button"
-                className="composer-button attach-button"
-                aria-label="Attach a file"
-                title="Attach a file"
-                onClick={() => fileRef.current?.click()}
-              >
-                <PlusIcon size={18} />
-              </button>
-              <input
-                ref={fileRef}
-                type="file"
-                multiple
-                hidden
-                onChange={handleFiles}
-              />
-              <textarea
-                ref={composerRef}
-                className="composer-input"
-                rows={1}
-                value={draft}
-                placeholder={
-                  listening
-                    ? 'Listening...'
-                    : `Message ${activeThread.name}`
-                }
-                onChange={handleDraftChange}
-                onKeyDown={handleComposerKeyDown}
-                aria-label={`Message ${activeThread.name}`}
-              />
-              {draft.trim() ? (
-                <button
-                  type="submit"
-                  className="composer-button send-button"
-                  aria-label="Send message"
-                  title="Send message"
-                >
-                  <ArrowUpIcon size={18} />
-                </button>
-              ) : (
+              <div className="composer-main">
                 <button
                   type="button"
-                  className={`composer-button mic-button ${listening ? 'is-listening' : ''}`}
-                  aria-label="Voice message"
-                  title="Voice message"
-                  onClick={toggleListening}
+                  className="composer-button attach-button"
+                  aria-label="Attach a file"
+                  title="Attach a file"
+                  onClick={() => fileRef.current?.click()}
                 >
-                  <MicIcon size={18} />
+                  <PlusIcon size={18} />
                 </button>
-              )}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  multiple
+                  hidden
+                  onChange={handleFiles}
+                />
+                <textarea
+                  ref={composerRef}
+                  className="composer-input"
+                  rows={1}
+                  value={draft}
+                  placeholder={
+                    listening
+                      ? 'Listening...'
+                      : `Message ${activeThread.name}`
+                  }
+                  onChange={handleDraftChange}
+                  onKeyDown={handleComposerKeyDown}
+                  aria-label={`Message ${activeThread.name}`}
+                />
+                {draft.trim() ? (
+                  <button
+                    type="submit"
+                    className="composer-button send-button"
+                    aria-label="Send message"
+                    title="Send message"
+                  >
+                    <ArrowUpIcon size={18} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={`composer-button mic-button ${listening ? 'is-listening' : ''}`}
+                    aria-label="Voice message"
+                    title="Voice message"
+                    onClick={toggleListening}
+                  >
+                    <MicIcon size={18} />
+                  </button>
+                )}
+              </div>
             </form>
           </div>
         </div>
