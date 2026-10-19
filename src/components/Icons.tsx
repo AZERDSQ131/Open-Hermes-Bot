@@ -42,6 +42,21 @@ export function PlusIcon({ size = 20, className }: IconProps) {
   );
 }
 
+export function MenuIcon({ size = 19, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      strokeWidth="1.8"
+      className={className}
+      {...base}
+    >
+      <path d="M4 6.5h16M4 12h16M4 17.5h16" />
+    </svg>
+  );
+}
+
 export function MonitorIcon({ size = 19, className }: IconProps) {
   return (
     <svg
