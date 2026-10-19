@@ -17,6 +17,7 @@ import {
 import { EditAgentDialog } from './components/EditAgentDialog';
 import {
   ArrowUpIcon,
+  MenuIcon,
   MicIcon,
   MonitorIcon,
   PlusIcon,
@@ -59,6 +60,7 @@ export default function App() {
     y: number;
   } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -148,6 +150,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') setSidebarOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [sidebarOpen]);
+
+  useEffect(() => {
     if (!renaming) return;
     const input = nameInputRef.current;
     input?.focus();
@@ -195,6 +206,7 @@ export default function App() {
     setLogoOpen(false);
     setRenaming(false);
     setContextMenu(null);
+    setSidebarOpen(false);
     composerRef.current?.blur();
   }
 
@@ -203,6 +215,7 @@ export default function App() {
     setEditingId(null);
     setLogoOpen(false);
     setRenaming(false);
+    setSidebarOpen(false);
     setCreateOpen(true);
   }
 
@@ -452,8 +465,8 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <aside className="sidebar">
+    <div className={`app ${sidebarOpen ? 'is-sidebar-open' : ''}`}>
+      <aside className={`sidebar ${sidebarOpen ? 'is-open' : ''}`}>
         <div className="sidebar-topbar">
           <button
             type="button"
@@ -581,9 +594,27 @@ export default function App() {
         </nav>
       </aside>
 
+      <button
+        type="button"
+        className="sidebar-scrim"
+        aria-label="Close agents"
+        tabIndex={-1}
+        onClick={() => setSidebarOpen(false)}
+      />
+
       <main className="chat">
         <header className="chat-header">
           <div className="chat-header-inner">
+            <button
+              type="button"
+              className="header-menu"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open agents"
+              aria-expanded={sidebarOpen}
+              title="Open agents"
+            >
+              <MenuIcon size={19} />
+            </button>
             <div className="header-agent" ref={logoRef}>
               <button
                 type="button"
