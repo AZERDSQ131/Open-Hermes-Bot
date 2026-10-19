@@ -179,12 +179,13 @@ export default function App() {
     threads.find((thread) => thread.id === activeId) ?? threads[0];
 
   // What a message would use with nothing picked in this conversation, in the
-  // same order as the send path: this bot's remembered model, then the default
-  // chosen in Settings. The chip needs it so it cannot promise another model
-  // than the one the next turn will use.
+  // same order as the send path: the default chosen for this bot, then the
+  // model it last remembered. The chip needs it so it cannot promise another
+  // model than the one the next turn will use.
   const activeFallbackLabel = activeThread.model
     ? undefined
-    : (readPreferredModel(activeThread.profile) ?? defaultModelPick())?.model;
+    : (defaultModelPick(activeThread.profile) ??
+        readPreferredModel(activeThread.profile))?.model;
 
   const orderedThreads = useMemo(
     () =>
@@ -713,11 +714,12 @@ export default function App() {
       const requestId = uid();
       requestThread.current = { requestId, threadId };
 
-      // Order of intent: this conversation's pick, the model last chosen for
-      // this bot, then the default chosen in Settings.
+      // Order of intent: this conversation's pick, the default Settings gives
+      // this bot, then the model it last remembered.
       const fallback = thread.model
         ? null
-        : (readPreferredModel(thread.profile) ?? defaultModelPick());
+        : (defaultModelPick(thread.profile) ??
+            readPreferredModel(thread.profile));
       const ask = (pick: PreferredModel | null) =>
         bridge.sendChat({
           requestId,
