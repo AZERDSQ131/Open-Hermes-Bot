@@ -54,10 +54,19 @@ export type HermesModelList = {
   error?: string;
 };
 
+export type HermesProfile = {
+  /** Profile name, i.e. what the API calls it. */
+  name: string;
+  /** Title shown in Hermes, when the profile carries one. */
+  title?: string;
+  /** Colour Hermes paints this bot with, when the profile carries one. */
+  color?: string;
+};
+
 export type HermesProfileList = {
   ok: boolean;
-  /** Bot names, i.e. the profiles the gateway is serving. */
-  profiles?: string[];
+  /** Bots, i.e. the profiles the gateway is serving. */
+  profiles?: HermesProfile[];
   /** `gateway` is the live answer; `disk` is the offline fallback. */
   source?: 'gateway' | 'disk';
   /** Why the list came from disk instead of the gateway. */

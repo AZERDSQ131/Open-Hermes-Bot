@@ -665,7 +665,26 @@ try:
     served = (payload.get("result") or {}).get("served_profiles")
     if not isinstance(served, list):
         raise ValueError("the gateway did not report its profiles")
-    print(json.dumps({"ok": True, "profiles": served}))
+    profiles = []
+    for raw in served:
+        name = str(raw).strip()
+        if not name or name == "default":
+            continue
+        title = ""
+        color = ""
+        # The same ui_meta block the Hermes desktop app reads for the name and
+        # colour it paints this bot with.
+        try:
+            import yaml
+            meta = home / "profiles" / name / "profile.yaml"
+            data = yaml.safe_load(meta.read_text()) or {}
+            bots = (data.get("ui_meta") or {}).get("hermes-bots") or {}
+            title = str(bots.get("title") or "")
+            color = str(bots.get("color") or "")
+        except Exception:
+            pass
+        profiles.append({"name": name, "title": title, "color": color})
+    print(json.dumps({"ok": True, "profiles": profiles}))
 except Exception as exc:
     print(json.dumps({"ok": False, "error": str(exc)}))
 `;
@@ -697,16 +716,23 @@ function lastJsonObject(text) {
   return null;
 }
 
-function cleanProfileNames(values) {
-  const names = new Set();
+function cleanProfiles(values) {
+  const seen = new Map();
   for (const value of values ?? []) {
-    const name = String(value ?? '').trim();
+    const raw = typeof value === 'string' ? { name: value } : value ?? {};
+    const name = String(raw.name ?? '').trim();
     if (!name || name === 'default') continue;
     if (!PROFILE_NAME_RE.test(name)) continue;
     if (RESERVED_PROFILE_NAMES.has(name)) continue;
-    names.add(name);
+    seen.set(name, {
+      name,
+      title: String(raw.title ?? '').trim(),
+      color: String(raw.color ?? '').trim(),
+    });
   }
-  return [...names].sort();
+  return [...seen.values()].sort((left, right) =>
+    left.name.localeCompare(right.name),
+  );
 }
 
 ipcMain.handle('hermes:profiles', async () => {
@@ -721,7 +747,7 @@ ipcMain.handle('hermes:profiles', async () => {
     return {
       ok: true,
       source: 'gateway',
-      profiles: cleanProfileNames(answer.profiles),
+      profiles: cleanProfiles(answer.profiles),
     };
   }
 
@@ -740,7 +766,7 @@ ipcMain.handle('hermes:profiles', async () => {
     ok: true,
     source: 'disk',
     warning: answer?.error || 'The gateway is not answering, so this list comes from disk.',
-    profiles: cleanProfileNames(String(disk.stdout ?? '').split('\n')),
+    profiles: cleanProfiles(String(disk.stdout ?? '').split('\n')),
   };
 });
 

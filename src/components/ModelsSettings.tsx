@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { HermesModel } from '../hermes';
+import type { HermesModel, HermesProfile } from '../hermes';
 import {
   defaultModelFor,
   isFavorite,
@@ -22,6 +22,8 @@ type Bot = {
   key: string;
   label: string;
   profile?: string;
+  /** Colour Hermes stores for this profile, when it has one. */
+  color?: string;
 };
 
 export function ModelsSettings({ connected }: ModelsSettingsProps) {
@@ -30,7 +32,7 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
   const [models, setModels] = useState<HermesModel[] | null>(null);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState('');
-  const [profiles, setProfiles] = useState<string[] | null>(null);
+  const [profiles, setProfiles] = useState<HermesProfile[] | null>(null);
   const [profilesError, setProfilesError] = useState('');
   const [profilesWarning, setProfilesWarning] = useState('');
   const [needle, setNeedle] = useState('');
@@ -93,10 +95,11 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
   const bots = useMemo<Bot[]>(
     () => [
       { key: 'default', label: 'Primary profile', profile: undefined },
-      ...(profiles ?? []).map((name) => ({
-        key: name,
-        label: name,
-        profile: name,
+      ...(profiles ?? []).map((bot) => ({
+        key: bot.name,
+        label: bot.title || bot.name,
+        profile: bot.name,
+        color: bot.color,
       })),
     ],
     [profiles],
@@ -208,7 +211,7 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
               <div className="models-bot" key={bot.key}>
                 <span
                   className="models-bot-dot"
-                  style={{ background: avatarColor(undefined, bot.profile) }}
+                  style={{ background: avatarColor(bot.color, bot.profile) }}
                   aria-hidden="true"
                 />
                 <span className="models-bot-name">{bot.label}</span>
