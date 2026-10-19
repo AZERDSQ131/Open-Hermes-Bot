@@ -166,6 +166,9 @@ export default function App() {
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Follow the growing reply only while the person is already at the bottom;
+  // scrolling up to read must not be yanked back on the next token.
+  const stickToBottom = useRef(true);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const logoRef = useRef<HTMLDivElement>(null);
   const renameCancelled = useRef(false);
@@ -335,10 +338,25 @@ export default function App() {
   }, [logoOpen]);
 
   useEffect(() => {
+    stickToBottom.current = true;
+  }, [activeId]);
+
+  useEffect(() => {
     const scroller = scrollRef.current;
     if (!scroller) return;
-    scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
-  }, [activeId, activeThread?.messages.length, activeThread?.thinking]);
+    if (!stickToBottom.current) return;
+    // Tokens arrive several times a second: a smooth animation would restart on
+    // every one and trail behind the text. Streaming jumps, a new message glides.
+    scroller.scrollTo({
+      top: scroller.scrollHeight,
+      behavior: activeThread?.streaming ? 'auto' : 'smooth',
+    });
+  }, [
+    activeId,
+    activeThread?.messages.length,
+    activeThread?.thinking,
+    activeThread?.streaming,
+  ]);
 
   function clearAttachments() {
     setAttachments((current) => {
@@ -601,6 +619,8 @@ export default function App() {
     if (!text || !thread || thread.thinking) return;
 
     const threadId = thread.id;
+    // Sending is an intent to look at the answer, even from inside older turn.
+    stickToBottom.current = true;
     const outgoing = attachments.length
       ? `${text}\n\nAttached: ${attachments
           .map((attachment) => attachment.name)
@@ -1047,7 +1067,17 @@ export default function App() {
           </div>
         </header>
 
-        <div className="chat-scroll" ref={scrollRef}>
+        <div
+          className="chat-scroll"
+          ref={scrollRef}
+          onScroll={() => {
+            const scroller = scrollRef.current;
+            if (!scroller) return;
+            const distance =
+              scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+            stickToBottom.current = distance < 60;
+          }}
+        >
           <div className="chat-inner">
             {activeThread.messages.length === 0 ? (
               <div className="empty-state">
