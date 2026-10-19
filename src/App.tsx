@@ -194,8 +194,10 @@ export default function App() {
         if (!cancelled) setHermesStatus(current);
       })
       .catch(() => undefined);
+    const unsubscribe = bridge.onStatus?.((current) => setHermesStatus(current));
     return () => {
       cancelled = true;
+      unsubscribe?.();
     };
   }, []);
 
@@ -681,10 +683,6 @@ export default function App() {
           >
             <GearIcon size={16} />
             <span className="settings-entry-label">Settings</span>
-            <span
-              className={`hermes-dot is-${hermesStatus.state}`}
-              aria-hidden="true"
-            />
           </button>
         </div>
       </aside>

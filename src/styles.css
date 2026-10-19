@@ -187,27 +187,6 @@ button:focus-visible {
   transform: scale(0.92);
 }
 
-.hermes-dot {
-  width: 8px;
-  height: 8px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: #6f6f76;
-}
-
-.hermes-dot.is-connected {
-  background: #3ecf8e;
-}
-
-.hermes-dot.is-connecting {
-  background: #e0b341;
-  animation: settings-pulse 1.2s ease-in-out infinite;
-}
-
-.hermes-dot.is-error {
-  background: #ff5f57;
-}
-
 .sidebar-footer {
   flex: 0 0 auto;
   padding: 6px 10px 12px;
@@ -1699,11 +1678,6 @@ button:focus-visible {
   color: var(--text);
 }
 
-.settings-nav-label {
-  flex: 1 1 auto;
-  text-align: left;
-}
-
 .settings-rail-foot {
   display: flex;
   align-items: center;
@@ -1717,13 +1691,19 @@ button:focus-visible {
 /* pane */
 
 .settings-pane {
+  display: flex;
   min-width: 0;
+  justify-content: center;
   overflow-y: auto;
 }
 
 .settings-pane-inner {
-  max-width: 560px;
-  padding: 58px 48px 72px;
+  display: flex;
+  width: 100%;
+  max-width: 860px;
+  min-height: 100%;
+  flex-direction: column;
+  padding: 50px 56px 24px;
 }
 
 .settings-pane-head h2 {
@@ -1894,22 +1874,62 @@ button:focus-visible {
   font-size: 13px;
 }
 
+.settings-advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.settings-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: #c5c5cc;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.settings-check input {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  margin: 1px 0 0;
+  accent-color: #f2efe5;
+  cursor: pointer;
+}
+
+.settings-check em {
+  display: block;
+  margin-top: 3px;
+  color: #7d7d84;
+  font-size: 11.5px;
+  font-style: normal;
+}
+
 .settings-readout {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 5px;
   color: #a2a2a9;
   font-size: 12.5px;
 }
 
-.settings-readout code,
-.settings-hint code {
-  padding: 2px 5px;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.06);
+.settings-readout code {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
   color: #b9b9c0;
   font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.settings-advanced-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
 }
 
 .settings-hint {
@@ -1917,6 +1937,14 @@ button:focus-visible {
   color: #7d7d84;
   font-size: 11.5px;
   line-height: 1.55;
+}
+
+.settings-hint code {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #b9b9c0;
+  font-size: 11.5px;
 }
 
 .settings-test {
@@ -1953,7 +1981,8 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 28px;
+  margin-top: auto;
+  padding-top: 26px;
 }
 
 .settings-action {
@@ -2105,7 +2134,7 @@ button:focus-visible {
   }
 
   .settings-pane-inner {
-    padding: 32px 20px 56px;
+    padding: 28px 20px 24px;
   }
 }
 

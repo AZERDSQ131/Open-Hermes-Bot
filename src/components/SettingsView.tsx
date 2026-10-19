@@ -30,6 +30,7 @@ export function SettingsView({
   const [host, setHost] = useState('jetson');
   const [port, setPort] = useState('8642');
   const [localPort, setLocalPort] = useState('18742');
+  const [autoConnect, setAutoConnect] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [hasKey, setHasKey] = useState(false);
   const [advanced, setAdvanced] = useState(false);
@@ -49,13 +50,9 @@ export function SettingsView({
         if (cancelled) return;
         setHost(settings.sshHost);
         setPort(String(settings.apiPort));
+        setLocalPort(String(settings.localPort));
+        setAutoConnect(settings.autoConnect);
         setHasKey(settings.hasKey);
-      })
-      .catch(() => undefined);
-    bridge
-      ?.localPort()
-      .then((value) => {
-        if (!cancelled) setLocalPort(String(value));
       })
       .catch(() => undefined);
     return () => {
@@ -72,6 +69,10 @@ export function SettingsView({
   }, [busy, onClose]);
 
   const draftFingerprint = fingerprint(host, port, apiKey);
+  const savedUrl = `127.0.0.1:${localPort || '18742'}`;
+  const savedCommand = `ssh -N -L 127.0.0.1:${localPort || '18742'}:127.0.0.1:${
+    port || '8642'
+  } ${host || 'jetson'}`;
   const testStatus =
     tested && tested.fingerprint === draftFingerprint ? tested.status : null;
 
@@ -111,6 +112,8 @@ export function SettingsView({
       .saveSettings({
         sshHost: host,
         apiPort: Number.parseInt(port, 10),
+        localPort: Number.parseInt(localPort, 10),
+        autoConnect,
         apiKey: apiKey.trim() || undefined,
       })
       .catch((reason: Error) => ({
@@ -127,6 +130,8 @@ export function SettingsView({
       setHasKey(saved.settings.hasKey);
       setHost(saved.settings.sshHost);
       setPort(String(saved.settings.apiPort));
+      setLocalPort(String(saved.settings.localPort));
+      setAutoConnect(saved.settings.autoConnect);
     }
     setApiKey('');
     report(await bridge.connect());
@@ -163,6 +168,8 @@ export function SettingsView({
       .saveSettings({
         sshHost: host,
         apiPort: Number.parseInt(port, 10),
+        localPort: Number.parseInt(localPort, 10),
+        autoConnect,
         clearKey: true,
       })
       .catch((reason: Error) => ({ ok: false, error: reason.message }));
@@ -208,11 +215,7 @@ export function SettingsView({
             className="settings-nav-item is-active"
             aria-current="page"
           >
-            <span className="settings-nav-label">Connection</span>
-            <span
-              className={`hermes-dot is-${status.state}`}
-              aria-hidden="true"
-            />
+            Connection
           </button>
         </nav>
 
@@ -338,31 +341,90 @@ export function SettingsView({
 
           {advanced ? (
             <div className="settings-advanced">
-              <label className="field">
-                <span>Remote API port</span>
+              <div className="settings-advanced-grid">
+                <label className="field">
+                  <span>Remote API port</span>
+                  <input
+                    type="number"
+                    value={port}
+                    min={1}
+                    max={65535}
+                    spellCheck={false}
+                    disabled={Boolean(busy)}
+                    onChange={(event) => {
+                      setPort(event.target.value);
+                      setError('');
+                      setNotice('');
+                    }}
+                  />
+                </label>
+                <label className="field">
+                  <span>Local tunnel port</span>
+                  <input
+                    type="number"
+                    value={localPort}
+                    min={1}
+                    max={65535}
+                    spellCheck={false}
+                    disabled={Boolean(busy)}
+                    onChange={(event) => {
+                      setLocalPort(event.target.value);
+                      setError('');
+                      setNotice('');
+                    }}
+                  />
+                </label>
+              </div>
+
+              <label className="settings-check">
                 <input
-                  type="number"
-                  value={port}
-                  min={1}
-                  max={65535}
-                  spellCheck={false}
+                  type="checkbox"
+                  checked={autoConnect}
                   disabled={Boolean(busy)}
                   onChange={(event) => {
-                    setPort(event.target.value);
+                    setAutoConnect(event.target.checked);
                     setError('');
                     setNotice('');
                   }}
                 />
+                <span>
+                  Connect on launch
+                  <em>Open the tunnel as soon as Sidekick starts.</em>
+                </span>
               </label>
+
               <div className="settings-readout">
-                <span>Local tunnel</span>
-                <code>127.0.0.1:{localPort}</code>
+                <span>Tunnel</span>
+                <code>{savedUrl}</code>
               </div>
-              <p className="settings-hint">
-                Sidekick forwards the remote API over SSH and keeps the key in
-                the macOS Keychain. The server key lives in{' '}
-                <code>~/.hermes/.env</code>.
-              </p>
+              <div className="settings-readout">
+                <span>SSH command</span>
+                <code>{savedCommand}</code>
+              </div>
+              <div className="settings-readout">
+                <span>Key storage</span>
+                <code>macOS Keychain</code>
+              </div>
+
+              <div className="settings-advanced-foot">
+                <button
+                  type="button"
+                  className="settings-text-button is-muted"
+                  disabled={Boolean(busy)}
+                  onClick={() => {
+                    setPort('8642');
+                    setLocalPort('18742');
+                    setAutoConnect(false);
+                    setError('');
+                    setNotice('Advanced settings reset — save to apply.');
+                  }}
+                >
+                  Reset to defaults
+                </button>
+                <span className="settings-hint">
+                  The server key lives in <code>~/.hermes/.env</code>.
+                </span>
+              </div>
             </div>
           ) : null}
 
