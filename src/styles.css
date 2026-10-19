@@ -1549,6 +1549,53 @@ button:focus-visible {
   margin-bottom: 7px;
 }
 
+.create-progress {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(242, 239, 229, 0.12);
+  border-radius: 10px;
+  background: rgba(242, 239, 229, 0.04);
+}
+
+.create-progress .create-hint {
+  margin: 3px 0 0;
+  color: #6f6f76;
+  font-size: 11px;
+}
+
+.create-progress-line {
+  margin: 0;
+  color: #d8d5cb;
+  font-size: 12px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.create-progress-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #f2efe5;
+  animation: create-progress-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes create-progress-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .modal-actions {
   display: flex;
   flex: 0 0 auto;

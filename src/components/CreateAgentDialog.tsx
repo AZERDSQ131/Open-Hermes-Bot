@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { BotStyle, SingleAvatar } from '../data';
+import { profileColor } from '../profileColor';
 import type { BloubShape } from './bloubFrames';
 import { AgentAvatar } from './AgentAvatar';
 import { AnimatedBloub } from './AnimatedBloub';
@@ -14,14 +15,24 @@ export type CreateCandidate = {
 
 export type CreateBotOutcome = { ok: true } | { ok: false; error: string };
 
+export type CreateBotProgress = {
+  /** Seconds since the server picked the job up. */
+  elapsed: number;
+  /** What the server is doing, in its own words. */
+  step: string;
+};
+
 type CreateAgentDialogProps = {
   candidates: CreateCandidate[];
   onClose: () => void;
-  onCreateBot: (input: {
-    name: string;
-    shape: BloubShape;
-    color: string;
-  }) => Promise<CreateBotOutcome>;
+  onCreateBot: (
+    input: {
+      name: string;
+      shape: BloubShape;
+      color: string;
+    },
+    onProgress?: (progress: CreateBotProgress) => void,
+  ) => Promise<CreateBotOutcome>;
   onCreateGroup: (input: { name: string; members: BotStyle[] }) => void;
 };
 
@@ -52,6 +63,10 @@ export function CreateAgentDialog({
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [progress, setProgress] = useState<CreateBotProgress | null>(null);
+  // The colour starts out as the one Hermes derives from the name, and follows
+  // the name until the user picks one — then it is theirs.
+  const [colorTouched, setColorTouched] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -77,6 +92,15 @@ export function CreateAgentDialog({
   const profileId = mode === 'bot' ? toProfileId(name) : '';
   const canCreate =
     name.trim().length > 0 && (mode === 'bot' || selected.length >= 2);
+
+  const hermesColor = useMemo(
+    () => profileColor(profileId) ?? DEFAULT_COLOR,
+    [profileId],
+  );
+
+  useEffect(() => {
+    if (!colorTouched) setColor(hermesColor);
+  }, [hermesColor, colorTouched]);
 
   const preview =
     mode === 'group'
@@ -105,9 +129,14 @@ export function CreateAgentDialog({
     }
     setBusy(true);
     setError('');
-    const outcome = await onCreateBot({ name: name.trim(), shape, color });
+    setProgress({ elapsed: 0, step: 'sending it to the server' });
+    const outcome = await onCreateBot(
+      { name: name.trim(), shape, color },
+      setProgress,
+    );
     if (!outcome.ok) {
       setError(outcome.error);
+      setProgress(null);
       setBusy(false);
     }
   }
@@ -200,6 +229,21 @@ export function CreateAgentDialog({
 
           {error ? <p className="create-error">{error}</p> : null}
 
+          {busy && progress ? (
+            <div className="create-progress" role="status">
+              <span className="create-progress-dot" aria-hidden="true" />
+              <div>
+                <p className="create-progress-line">
+                  {progress.elapsed}s · {progress.step}…
+                </p>
+                <p className="create-hint">
+                  A bot gets its own profile, so the first one takes a minute or
+                  two. Closing this window will not interrupt it.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           {mode === 'bot' ? (
             <>
               <div className="create-section">
@@ -208,7 +252,23 @@ export function CreateAgentDialog({
               </div>
               <div className="create-section">
                 <span className="create-label">Color</span>
-                <ColorGrid value={color} onChange={setColor} />
+                <ColorGrid
+                  value={color}
+                  onChange={(next) => {
+                    setColorTouched(true);
+                    setColor(next);
+                  }}
+                />
+                {colorTouched ? (
+                  <p className="create-hint">
+                    This is the colour Hermes will show for {name.trim() || 'this bot'}.
+                  </p>
+                ) : (
+                  <p className="create-hint">
+                    Hermes' own colour for {profileId || 'this name'} — pick one
+                    to override it.
+                  </p>
+                )}
               </div>
             </>
           ) : (
@@ -257,13 +317,8 @@ export function CreateAgentDialog({
         </div>
 
         <div className="modal-actions">
-          <button
-            type="button"
-            className="button-ghost"
-            disabled={busy}
-            onClick={onClose}
-          >
-            Cancel
+          <button type="button" className="button-ghost" onClick={onClose}>
+            {busy ? 'Close' : 'Cancel'}
           </button>
           <button
             type="submit"
@@ -271,7 +326,9 @@ export function CreateAgentDialog({
             disabled={!canCreate || busy}
           >
             {busy
-              ? 'Creating bot…'
+              ? progress
+                ? `Creating bot… ${progress.elapsed}s`
+                : 'Creating bot…'
               : mode === 'bot'
                 ? 'Create bot'
                 : 'Create group'}
