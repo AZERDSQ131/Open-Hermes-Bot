@@ -1761,45 +1761,191 @@ button:focus-visible {
 .settings-pane-inner {
   display: flex;
   width: 100%;
-  max-width: 780px;
+  max-width: 880px;
   min-height: 100%;
   flex-direction: column;
   padding: 54px 48px 26px;
 }
 
-/* connection: header */
+/* Both sections share one column, one title size and one rhythm, so moving
+   between Connection and Models never shifts the page. */
 
-.connection-head {
+.settings-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.settings-page-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
-  padding-bottom: 26px;
+  padding-bottom: 22px;
   border-bottom: 1px solid var(--divider);
 }
 
-.connection-head-copy h2 {
+.settings-page-head h2 {
   margin: 0;
-  font-size: 23px;
+  font-size: 25px;
   font-weight: 600;
-  letter-spacing: -0.026em;
+  letter-spacing: -0.028em;
+  line-height: 1.2;
 }
 
-.connection-head-copy p {
+.settings-page-head p {
+  /* Two lines reserved on both pages, so the first card starts at the same
+     height whether the subtitle wraps or not. */
+  min-height: 39px;
   margin: 8px 0 0;
-  max-width: 42ch;
+  max-width: 46ch;
   color: var(--text-2);
   font-size: 13px;
   line-height: 1.5;
 }
+
+.settings-page-side {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+.settings-page-action {
+  height: 30px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #b6b6bd;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
+}
+
+.settings-page-action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.settings-page-action:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.settings-notice {
+  margin: 0;
+  padding: 10px 13px;
+  border: 1px solid rgba(224, 179, 65, 0.22);
+  border-radius: 10px;
+  background: rgba(224, 179, 65, 0.06);
+  color: #d9b45a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* cards: every block on either page is one of these */
+
+.settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 16px 14px;
+  border: 1px solid var(--divider);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.settings-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.settings-card-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+
+.settings-card-head p {
+  margin: 4px 0 0;
+  color: #83838a;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.settings-card-meta {
+  padding-top: 2px;
+  color: #7d7d84;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.settings-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 4px;
+}
+
+.settings-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--divider);
+}
+
+.settings-card-chevron-button {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  margin-top: -2px;
+  place-items: center;
+  border-radius: 7px;
+  color: #8c8c93;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.settings-card-chevron-button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.settings-card-chevron {
+  display: block;
+  font-size: 17px;
+  line-height: 1;
+  transform: rotate(90deg);
+  transition: transform 160ms ease;
+}
+
+.settings-card-chevron-button[aria-expanded='true'] .settings-card-chevron {
+  transform: rotate(-90deg);
+}
+
+/* connection: state pill */
 
 .connection-state {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;
-  margin-top: 4px;
-  padding: 6px 8px 6px 11px;
+  padding: 6px 11px;
   border: 1px solid var(--divider);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.02);
@@ -1836,159 +1982,39 @@ button:focus-visible {
   background: #ff5f57;
 }
 
-.connection-state-action {
-  padding: 2px 8px;
-  border-radius: 999px;
-  color: #8f8f96;
-  font-size: 12px;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
-}
-
-.connection-state-action:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text);
-}
-
-.connection-state-action:disabled {
-  cursor: default;
-  opacity: 0.4;
-}
-
 /* connection: fields */
 
-.connection-rows {
+.settings-form {
   display: flex;
   flex-direction: column;
 }
 
-.connection-row {
-  display: grid;
-  grid-template-columns: 160px minmax(0, 1fr);
-  gap: 20px;
-  padding: 20px 0;
-  border-bottom: 1px solid var(--divider);
-}
-
-.connection-label {
-  padding-top: 9px;
-  color: #a5a5ac;
-  font-size: 13px;
-  letter-spacing: -0.004em;
-}
-
-.connection-control {
+.settings-field {
   display: flex;
-  min-width: 0;
   flex-direction: column;
-  gap: 9px;
-}
-
-.connection-control input {
-  width: 100%;
-  max-width: 380px;
-  height: 38px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.075);
-  border-radius: 9px;
-  outline: none;
-  background: #1a1a1d;
-  color: var(--text);
-  font-size: 13.5px;
-  letter-spacing: -0.004em;
-  transition:
-    border-color 120ms ease,
-    background-color 120ms ease;
-}
-
-.connection-control input:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.12);
-}
-
-.connection-control input:focus {
-  border-color: rgba(255, 255, 255, 0.26);
-  background: #1e1e21;
-}
-
-.connection-control input:disabled {
-  opacity: 0.55;
-}
-
-.connection-control input::placeholder {
-  color: #61616a;
-}
-
-.connection-note {
-  color: #77777e;
-  font-size: 11.5px;
-  line-height: 1.5;
-}
-
-.connection-key-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-}
-
-/* connection: feedback + actions */
-
-.connection-feedback {
-  display: flex;
-  align-items: center;
   gap: 7px;
-  margin: 0 auto 0 0;
-  color: #a9a9b0;
-  font-size: 12.5px;
-  line-height: 1.45;
+  padding: 14px 0;
+  border-top: 1px solid var(--divider);
 }
 
-.connection-feedback-dot {
-  width: 6px;
-  height: 6px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: #6f6f76;
+.settings-field:first-child {
+  padding-top: 2px;
+  border-top: 0;
 }
 
-.connection-feedback[data-tone='ok'] .connection-feedback-dot {
-  background: #3ecf8e;
+.settings-field:last-child {
+  padding-bottom: 0;
 }
 
-.connection-feedback[data-tone='error'] {
-  color: #ff8a82;
-}
-
-.connection-feedback[data-tone='error'] .connection-feedback-dot {
-  background: #ff5f57;
-}
-
-/* connection: advanced */
-
-.settings-advanced {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 20px 0 4px;
-}
-
-.settings-advanced-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 18px;
-}
-
-.connection-field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.settings-field-label {
   color: #a5a5ac;
-  font-size: 12.5px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.002em;
 }
 
-.connection-field input {
+.settings-field input {
   width: 100%;
-  max-width: 200px;
   height: 34px;
   padding: 0 11px;
   border: 1px solid rgba(255, 255, 255, 0.075);
@@ -1997,32 +2023,78 @@ button:focus-visible {
   background: #1a1a1d;
   color: var(--text);
   font-size: 13px;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
 }
 
-.connection-field input:focus {
+.settings-field input:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.settings-field input:focus {
   border-color: rgba(255, 255, 255, 0.26);
+  background: #1e1e21;
 }
 
-.settings-advanced-list {
+.settings-field input:disabled {
+  opacity: 0.55;
+}
+
+.settings-field input::placeholder {
+  color: #61616a;
+}
+
+.settings-field-note {
+  color: #77777e;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.settings-field-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.settings-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.settings-field-grid .settings-field {
+  padding: 0;
+  border-top: 0;
+}
+
+.settings-field-grid input {
+  max-width: 220px;
+}
+
+/* connection: facts and launch switch */
+
+.settings-facts {
   display: flex;
   flex-direction: column;
+  border-top: 1px solid var(--divider);
 }
 
-.settings-advanced-item {
+.settings-fact {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 20px;
-  padding: 11px 0;
+  padding: 10px 0;
   color: #a5a5ac;
-  font-size: 12.5px;
+  font-size: 12px;
 }
 
-.settings-advanced-item + .settings-advanced-item {
+.settings-fact + .settings-fact {
   border-top: 1px solid var(--divider);
 }
 
-.settings-advanced-item code {
+.settings-fact code {
   color: #b9b9c0;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11.5px;
@@ -2030,34 +2102,124 @@ button:focus-visible {
   text-align: right;
 }
 
-.settings-advanced-switch {
+.settings-switch-row {
+  display: flex;
   align-items: center;
-  cursor: pointer;
+  justify-content: space-between;
+  gap: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--divider);
 }
 
-.settings-advanced-switch em {
-  display: block;
-  margin-top: 3px;
+.settings-switch-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: #b6b6bd;
+  font-size: 12.5px;
+}
+
+.settings-switch-copy em {
   color: #74747b;
   font-size: 11.5px;
   font-style: normal;
 }
 
-.settings-advanced-switch input {
-  width: 16px;
-  height: 16px;
+/* the shared switch: model rows and Connect on launch */
+
+.settings-switch {
+  position: relative;
+  width: 34px;
+  height: 20px;
   flex: 0 0 auto;
-  margin: 0;
-  accent-color: #f2efe5;
-  cursor: pointer;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  transition: background-color 140ms ease;
 }
 
-.settings-advanced-foot {
+.settings-switch:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.settings-switch.is-on {
+  background: #f2efe5;
+}
+
+.settings-switch.is-on:hover:not(:disabled) {
+  background: #fffdf6;
+}
+
+.settings-switch:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.settings-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #b6b6bd;
+  transition:
+    transform 140ms ease,
+    background-color 140ms ease;
+}
+
+.settings-switch.is-on .settings-switch-knob {
+  background: #1d1d1f;
+  transform: translateX(14px);
+}
+
+/* connection: feedback and actions */
+
+.settings-page-actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.settings-page-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.settings-feedback {
+  display: flex;
+  max-width: 46ch;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: #a9a9b0;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.settings-feedback-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #6f6f76;
+}
+
+.settings-feedback[data-tone='ok'] .settings-feedback-dot {
+  background: #3ecf8e;
+}
+
+.settings-feedback[data-tone='error'] {
+  color: #ff8a82;
+}
+
+.settings-feedback[data-tone='error'] .settings-feedback-dot {
+  background: #ff5f57;
 }
 
 .settings-hint {
@@ -2075,57 +2237,7 @@ button:focus-visible {
   font-size: 11.5px;
 }
 
-.settings-warning {
-  margin: 18px 0 0;
-  color: #e0b341;
-  font-size: 12px;
-}
-
 /* models: the settings pane that curates the picker and each bot's default */
-
-.settings-pane-inner.is-models {
-  max-width: 880px;
-}
-
-.models-view {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-}
-
-/* head: title on the left, a live count and Refresh on the right */
-
-.models-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  padding-bottom: 22px;
-  border-bottom: 1px solid var(--divider);
-}
-
-.models-head-copy h2 {
-  margin: 0;
-  font-size: 25px;
-  font-weight: 600;
-  letter-spacing: -0.028em;
-}
-
-.models-head-copy p {
-  margin: 8px 0 0;
-  max-width: 46ch;
-  color: var(--text-2);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.models-head-side {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 14px;
-  padding-top: 8px;
-}
 
 .models-stats {
   display: flex;
@@ -2149,83 +2261,7 @@ button:focus-visible {
   background: #4a4a4f;
 }
 
-.models-refresh {
-  height: 30px;
-  padding: 0 13px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: #b6b6bd;
-  font-size: 12.5px;
-  font-weight: 500;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease,
-    opacity 120ms ease;
-}
-
-.models-refresh:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
-}
-
-.models-refresh:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
-
-.models-notice {
-  margin: 0;
-  padding: 10px 13px;
-  border: 1px solid rgba(224, 179, 65, 0.22);
-  border-radius: 10px;
-  background: rgba(224, 179, 65, 0.06);
-  color: #d9b45a;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-/* panels: one card per job, quietly separated from the page */
-
-.models-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px 16px 14px;
-  border: 1px solid var(--divider);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.018);
-}
-
-.models-panel-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.models-panel-head h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.012em;
-}
-
-.models-panel-head p {
-  margin: 4px 0 0;
-  color: #83838a;
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.models-panel-meta {
-  padding-top: 2px;
-  color: #7d7d84;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* bots: a dot in Hermes' own colour, the name, a compact model select */
+/* bots: one row per bot, with its own default model */
 
 .models-bots {
   display: flex;
@@ -2465,46 +2501,6 @@ button:focus-visible {
 
 /* the switch that puts a model in the picker, or takes it out */
 
-.models-switch {
-  position: relative;
-  width: 34px;
-  height: 20px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  transition: background-color 140ms ease;
-}
-
-.models-switch:hover {
-  background: rgba(255, 255, 255, 0.22);
-}
-
-.models-switch.is-on {
-  background: #f2efe5;
-}
-
-.models-switch.is-on:hover {
-  background: #fffdf6;
-}
-
-.models-switch-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #b6b6bd;
-  transition:
-    transform 140ms ease,
-    background-color 140ms ease;
-}
-
-.models-switch.is-on .models-switch-knob {
-  background: #1d1d1f;
-  transform: translateX(14px);
-}
-
 /* states */
 
 .models-empty {
@@ -2564,41 +2560,6 @@ button:focus-visible {
 .settings-text-button:disabled {
   cursor: default;
   opacity: 0.45;
-}
-
-.settings-advanced-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 28px;
-  padding: 0;
-  color: #8c8c93;
-  font-size: 12.5px;
-  transition: color 120ms ease;
-}
-
-.settings-advanced-toggle:hover {
-  color: var(--text);
-}
-
-.settings-advanced-chevron {
-  display: inline-block;
-  font-size: 14px;
-  line-height: 1;
-  transition: transform 140ms ease;
-}
-
-.settings-advanced-toggle.is-open .settings-advanced-chevron {
-  transform: rotate(90deg);
-}
-
-.settings-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: auto;
-  padding-top: 24px;
 }
 
 .settings-action {
@@ -2751,17 +2712,30 @@ button:focus-visible {
     padding: 28px 20px 24px;
   }
 
-  .connection-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
+  .settings-page-head {
+    flex-direction: column;
+    gap: 14px;
   }
 
-  .connection-label {
+  .settings-page-side {
     padding-top: 0;
   }
 
-  .connection-control input {
-    max-width: none;
+  .settings-field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-page-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .settings-page-buttons {
+    margin-left: 0;
+  }
+
+  .models-select {
+    max-width: 52%;
   }
 }
 
