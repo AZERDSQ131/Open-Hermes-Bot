@@ -302,7 +302,9 @@ export function CreateAgentDialog({
                 ) : null}
               </div>
               <p className="create-hint">
-                Pick at least two bots. There is no maximum.
+                Pick at least two bots. Every member decides on its own whether
+                to answer or stay silent, and can @ another member to hand over
+                the floor.
               </p>
             </div>
           )}
