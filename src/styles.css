@@ -437,7 +437,7 @@ button:focus-visible {
 }
 
 .context-menu-item:hover:not(:disabled),
-.context-menu-item:focus {
+.context-menu-item:focus-visible {
   outline: none;
   background: #3a3a3f;
 }
@@ -452,7 +452,7 @@ button:focus-visible {
 }
 
 .context-menu-item.is-danger:hover:not(:disabled),
-.context-menu-item.is-danger:focus {
+.context-menu-item.is-danger:focus-visible {
   background: rgba(255, 95, 87, 0.13);
 }
 
