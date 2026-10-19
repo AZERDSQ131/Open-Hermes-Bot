@@ -1,16 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { HermesModel, HermesSettings, HermesStatus } from '../hermes';
-import {
-  defaultModelFor,
-  isFavorite,
-  isHidden,
-  modelId,
-  setDefaultModel,
-  setModelVisible,
-  toggleModelFavorite,
-  useModelPrefs,
-} from '../modelPrefs';
-import { ChevronLeftIcon, StarIcon } from './Icons';
+import { useEffect, useState } from 'react';
+import type { HermesSettings, HermesStatus } from '../hermes';
+import { ChevronLeftIcon } from './Icons';
+import { ModelsSettings } from './ModelsSettings';
 
 type Section = 'connection' | 'models';
 
@@ -47,15 +38,7 @@ export function SettingsView({
   const [hasKey, setHasKey] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [section, setSection] = useState<Section>('connection');
-  const [models, setModels] = useState<HermesModel[] | null>(null);
-  const [modelsLoading, setModelsLoading] = useState(false);
-  const [modelsError, setModelsError] = useState('');
-  const [profiles, setProfiles] = useState<string[] | null>(null);
-  const [profilesError, setProfilesError] = useState('');
-  const [modelNeedle, setModelNeedle] = useState('');
-  const [modelsReload, setModelsReload] = useState(0);
   const [busy, setBusy] = useState<BusyAction>(null);
-  const prefs = useModelPrefs();
   const [tested, setTested] = useState<{
     fingerprint: string;
     status: HermesStatus;
@@ -88,97 +71,6 @@ export function SettingsView({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [busy, onClose]);
-
-  // The inventory is only fetched when the Models section is open, and again
-  // whenever Refresh is pressed: the gateway answers slowly over the tunnel.
-  useEffect(() => {
-    if (section !== 'models' || !bridge?.models) return;
-    let cancelled = false;
-    setModelsLoading(true);
-    setModelsError('');
-    bridge
-      .models({})
-      .then((result) => {
-        if (cancelled) return;
-        if (!result.ok) {
-          setModelsError(result.error ?? 'Could not list the models');
-          return;
-        }
-        setModels(result.models ?? []);
-      })
-      .catch((reason: Error) => {
-        if (!cancelled) setModelsError(reason.message);
-      })
-      .finally(() => {
-        if (!cancelled) setModelsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [section, bridge, modelsReload]);
-
-  // Bots live on the server, so their names come from there rather than from
-  // the threads this window happens to hold.
-  useEffect(() => {
-    if (section !== 'models' || !bridge?.profiles) return;
-    let cancelled = false;
-    setProfilesError('');
-    bridge
-      .profiles()
-      .then((result) => {
-        if (cancelled) return;
-        if (!result.ok) {
-          setProfilesError(result.error ?? 'Could not list the bots');
-          return;
-        }
-        setProfiles(result.profiles ?? []);
-      })
-      .catch((reason: Error) => {
-        if (!cancelled) setProfilesError(reason.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [section, bridge, modelsReload]);
-
-  const bots = useMemo(
-    () => [
-      { key: 'default', label: 'Primary profile', profile: undefined },
-      ...(profiles ?? []).map((name) => ({
-        key: name,
-        label: name,
-        profile: name,
-      })),
-    ],
-    [profiles],
-  );
-
-  // Only what the picker would offer can become a default: a hidden model is
-  // cleared from every bot when it is hidden.
-  const offeredModels = useMemo(
-    () => (models ?? []).filter((entry) => !isHidden(prefs, modelId(entry))),
-    [models, prefs],
-  );
-
-  const modelGroups = useMemo(() => {
-    const needle = modelNeedle.trim().toLowerCase();
-    const byProvider = new Map<string, HermesModel[]>();
-    for (const entry of models ?? []) {
-      if (needle && !entry.model.toLowerCase().includes(needle)) continue;
-      const key = entry.providerName || entry.provider;
-      const list = byProvider.get(key) ?? [];
-      list.push(entry);
-      byProvider.set(key, list);
-    }
-    // Kept in the gateway's order: a row must not jump under the cursor when
-    // its star is clicked. Favourites float to the top of the composer only.
-    return [...byProvider.entries()];
-  }, [models, modelNeedle]);
-
-  const totalModels = models?.length ?? 0;
-  const hiddenModels = models
-    ? models.filter((entry) => isHidden(prefs, modelId(entry))).length
-    : 0;
 
   const draftFingerprint = fingerprint(host, port, apiKey);
   const testStatus =
@@ -367,7 +259,11 @@ export function SettingsView({
       </aside>
 
       <main className="settings-pane">
-        <div className="settings-pane-inner">
+        <div
+          className={`settings-pane-inner ${
+            section === 'models' ? 'is-models' : ''
+          }`}
+        >
           {section === 'connection' ? (
           <>
           <header className="connection-head">
@@ -609,222 +505,7 @@ export function SettingsView({
           </div>
           </>
           ) : (
-            <>
-              <header className="connection-head">
-                <div className="connection-head-copy">
-                  <h2>Models</h2>
-                  <p>
-                    Choose what the composer offers. A model switched off stays
-                    in Hermes — it just disappears from the picker.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="settings-action"
-                  disabled={!bridge?.models || modelsLoading}
-                  onClick={() => setModelsReload((count) => count + 1)}
-                >
-                  {modelsLoading ? 'Loading…' : 'Refresh'}
-                </button>
-              </header>
-
-              {bridge?.models ? null : (
-                <p className="settings-warning">
-                  Model settings are only available inside the desktop app.
-                </p>
-              )}
-
-              {bridge?.models && status.state !== 'connected' ? (
-                <p className="settings-warning">
-                  The tunnel is closed. Connect from the Connection section to
-                  list the models — your choices are kept.
-                </p>
-              ) : null}
-
-              <div className="model-admin">
-                <section className="model-defaults">
-                  <div className="model-admin-section-head">
-                    <h3>Bot defaults</h3>
-                    <span>Used when a conversation has no model picked.</span>
-                  </div>
-
-                  {profilesError ? (
-                    <p className="model-error">{profilesError}</p>
-                  ) : null}
-
-                  <div className="model-defaults-list">
-                    {bots.map((bot) => {
-                      const current = defaultModelFor(prefs, bot.profile);
-                      return (
-                        <div className="model-default-row" key={bot.key}>
-                          <span className="model-default-bot">{bot.label}</span>
-                          <select
-                            className="model-default-select"
-                            aria-label={`Default model for ${bot.label}`}
-                            value={current ? modelId(current) : ''}
-                            disabled={!models}
-                            onChange={(event) => {
-                              const ref = offeredModels.find(
-                                (entry) =>
-                                  modelId(entry) === event.target.value,
-                              );
-                              setDefaultModel(
-                                bot.profile,
-                                ref
-                                  ? {
-                                      model: ref.model,
-                                      provider: ref.provider,
-                                    }
-                                  : null,
-                              );
-                            }}
-                          >
-                            <option value="">
-                              This bot&apos;s configured model
-                            </option>
-                            {offeredModels.map((entry) => (
-                              <option
-                                key={modelId(entry)}
-                                value={modelId(entry)}
-                              >
-                                {entry.model}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-
-                <div className="model-admin-divider" />
-
-                <div className="model-admin-toolbar">
-                  <input
-                    className="model-admin-search"
-                    type="search"
-                    value={modelNeedle}
-                    placeholder="Search models"
-                    spellCheck={false}
-                    onChange={(event) => setModelNeedle(event.target.value)}
-                  />
-                  <span className="model-admin-count">
-                    {modelsLoading
-                      ? 'Reading the gateway…'
-                      : `${totalModels - hiddenModels} of ${totalModels} shown`}
-                  </span>
-                </div>
-
-                {modelsError ? (
-                  <p className="model-error">{modelsError}</p>
-                ) : null}
-
-                {!models && modelsLoading ? (
-                  <p className="model-note">Loading models…</p>
-                ) : null}
-
-                <div className="model-admin-list">
-                  {modelGroups.map(([providerName, entries]) => {
-                    const shown = entries.filter(
-                      (entry) => !isHidden(prefs, modelId(entry)),
-                    ).length;
-                    return (
-                      <section
-                        className="model-admin-group"
-                        key={providerName}
-                      >
-                        <header className="model-admin-group-head">
-                          <span>{providerName}</span>
-                          <span>
-                            {shown}/{entries.length}
-                          </span>
-                        </header>
-                        {entries.map((entry) => {
-                          const id = modelId(entry);
-                          const checked = !isHidden(prefs, id);
-                          const favorite = isFavorite(prefs, id);
-                          return (
-                            <div
-                              className={`model-admin-row ${
-                                checked ? '' : 'is-unlisted'
-                              }`}
-                              key={id}
-                            >
-                              <span className="model-admin-name">
-                                {entry.model}
-                              </span>
-                              {entry.current ? (
-                                <span className="model-tag">current</span>
-                              ) : null}
-                              <button
-                                type="button"
-                                className={`model-admin-star ${
-                                  favorite ? 'is-on' : ''
-                                }`}
-                                aria-pressed={favorite}
-                                aria-label={
-                                  favorite
-                                    ? `Remove ${entry.model} from favorites`
-                                    : `Add ${entry.model} to favorites`
-                                }
-                                title={
-                                  favorite
-                                    ? 'Remove from favorites'
-                                    : 'Add to favorites'
-                                }
-                                onClick={() => toggleModelFavorite(id)}
-                              >
-                                <StarIcon filled={favorite} />
-                              </button>
-                              <button
-                                type="button"
-                                role="switch"
-                                aria-checked={checked}
-                                aria-label={`List ${entry.model} in the picker`}
-                                title={
-                                  checked
-                                    ? 'Listed in the model picker'
-                                    : 'Hidden from the model picker'
-                                }
-                                className={`model-switch ${
-                                  checked ? 'is-on' : ''
-                                }`}
-                                onClick={() => setModelVisible(id, !checked)}
-                              >
-                                <span className="model-switch-knob" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </section>
-                    );
-                  })}
-                </div>
-
-                {models && modelGroups.length === 0 ? (
-                  <p className="model-note">
-                    No authenticated provider offers a model yet.
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="settings-actions model-admin-foot">
-                <span className="settings-hint">
-                  A model picked inside a conversation still wins over the bot
-                  default.
-                </span>
-                <button
-                  type="button"
-                  className="settings-text-button"
-                  disabled={prefs.hidden.length === 0}
-                  onClick={() => {
-                    for (const id of prefs.hidden) setModelVisible(id, true);
-                  }}
-                >
-                  Show all models
-                </button>
-              </div>
-            </>
+            <ModelsSettings connected={status.state === 'connected'} />
           )}
         </div>
       </main>
