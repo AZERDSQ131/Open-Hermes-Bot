@@ -280,6 +280,9 @@ export default function App() {
   // One live turn per thread, keyed by thread: a new message replaces the turn
   // in flight, and a replaced turn must not paint over the new one.
   const requestThread = useRef(new Map<string, string>());
+  // Messages that arrived while a turn was being replaced. A request cancelled
+  // before Hermes stored it would otherwise vanish from the model's context.
+  const superseded = useRef(new Map<string, string[]>());
 
   const searchRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -829,7 +832,22 @@ export default function App() {
     // the one whose stream is allowed to land. The thread keeps every message
     // and the same Hermes session, so the context is not lost.
     const previous = requestThread.current.get(threadId);
-    if (previous) bridge?.cancelChat?.(previous);
+    if (previous) {
+      bridge?.cancelChat?.(previous);
+      // The replaced turn's message may not have reached the server before the
+      // cancellation; carry it into the next prompt so the context never loses
+      // a message the person can see in the transcript.
+      const priorUser = [...thread.messages]
+        .reverse()
+        .find((message) => message.role === 'user');
+      if (priorUser) {
+        const queued = superseded.current.get(threadId) ?? [];
+        if (queued[queued.length - 1] !== priorUser.text) {
+          queued.push(priorUser.text);
+          superseded.current.set(threadId, queued);
+        }
+      }
+    }
     requestThread.current.set(threadId, requestId);
     const isCurrent = () => requestThread.current.get(threadId) === requestId;
     // Sending is an intent to look at the answer, even from inside older turn.
@@ -931,11 +949,20 @@ export default function App() {
         fallback = await configuredModelFor(thread.profile);
       }
       if (!isCurrent()) return;
+      const queued = superseded.current.get(threadId) ?? [];
+      // Carried inside the user turn, not the system prompt: Hermes stores the
+      // message, so the next turn still knows what was typed during the cut.
+      const carried = queued.length
+        ? `\n\n(I also sent these while you were working; treat them as part of this request.)\n${queued
+            .map((text) => `- ${text}`)
+            .join('\n')}`
+        : '';
+      const wireMessage = carried ? `${outgoing}${carried}` : outgoing;
       const ask = (pick: PreferredModel | null) =>
         bridge.sendChat({
           requestId,
           sessionId: sessionId as string,
-          message: outgoing,
+          message: wireMessage,
           profile: thread.profile,
           model: pick?.model,
           provider: pick?.provider,
@@ -1013,6 +1040,7 @@ export default function App() {
     }
     if (!isCurrent()) return;
     requestThread.current.delete(threadId);
+    superseded.current.delete(threadId);
 
     setThreads((current) =>
       current.map((item) =>
