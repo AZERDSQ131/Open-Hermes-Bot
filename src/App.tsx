@@ -801,6 +801,13 @@ export default function App() {
     const fallback =
       orderedThreads[index + 1] ?? orderedThreads[index - 1] ?? null;
 
+    // A deleted conversation has nobody to answer: stop whatever is still
+    // writing into it, including the rest of a group round.
+    const inFlight = requestThread.current.get(id);
+    if (inFlight) window.hermes?.cancelChat?.(inFlight);
+    requestThread.current.delete(id);
+    groupRound.current.delete(id);
+
     setThreads((current) =>
       current
         .filter((thread) => thread.id !== id)
