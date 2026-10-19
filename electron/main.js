@@ -629,6 +629,37 @@ ipcMain.handle('hermes:models', async (_event, payload) => {
   };
 });
 
+// The bots are Hermes profiles on the connected machine, and only the server
+// knows the whole list: a bot exists before this app ever opens a thread for
+// it. Each one can carry its own default model, so the names have to come from
+// there rather than from whatever the sidebar happens to hold.
+ipcMain.handle('hermes:profiles', async () => {
+  const result = await runSsh(
+    storedConnection().sshHost,
+    'ls -1 "$HOME/.hermes/profiles" 2>/dev/null || true',
+    15000,
+  );
+  if (!result.ok) {
+    return {
+      ok: false,
+      error:
+        result.error ||
+        String(result.stderr ?? '').trim() ||
+        'Could not list the bots',
+    };
+  }
+  const names = new Set();
+  for (const line of String(result.stdout ?? '').split('\n')) {
+    const name = line.trim();
+    // Dot entries are staging copies and tombstones, not bots.
+    if (!name || name.startsWith('.')) continue;
+    if (!PROFILE_NAME_RE.test(name)) continue;
+    if (RESERVED_PROFILE_NAMES.has(name)) continue;
+    names.add(name);
+  }
+  return { ok: true, profiles: [...names].sort() };
+});
+
 function parseSseFrame(frame) {
   let event = 'message';
   const data = [];

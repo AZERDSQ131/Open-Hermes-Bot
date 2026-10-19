@@ -54,6 +54,13 @@ export type HermesModelList = {
   error?: string;
 };
 
+export type HermesProfileList = {
+  ok: boolean;
+  /** Bot names, i.e. the profiles living on the connected machine. */
+  profiles?: string[];
+  error?: string;
+};
+
 export type HermesChatResult = {
   ok: boolean;
   text?: string;
@@ -69,6 +76,7 @@ export type HermesBridge = {
     title?: string;
   }) => Promise<HermesSessionResult>;
   models: (payload: { profile?: string }) => Promise<HermesModelList>;
+  profiles: () => Promise<HermesProfileList>;
   sendChat: (payload: {
     requestId: string;
     sessionId: string;
