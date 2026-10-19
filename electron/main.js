@@ -454,16 +454,32 @@ function shellQuote(value) {
   return `'${String(value ?? '').replace(/'/g, `'\\''`)}'`;
 }
 
-// Runs on the Hermes host. `hermes profile create` seeds an EMPTY .env, and the
-// multiplexed gateway resolves API_SERVER_KEY per routed profile (never through
-// another profile's env), so a fresh bot is unreachable until it owns a key.
-// The clone brings the model/provider credentials; the key we mint ourselves.
+// Colours travel into the profile's bot metadata, so they must be something a
+// browser can paint — nothing else reaches the remote python that writes it.
+const BOT_COLOR_RE = /^(?:#[0-9a-fA-F]{3,8}|hsl\(\s*\d{1,3}(?:\.\d+)?\s+\d{1,3}%\s+\d{1,3}%\s*\))$/;
+
+function sanitizeBotColor(value) {
+  const color = String(value ?? '').trim();
+  return BOT_COLOR_RE.test(color) ? color : '';
+}
+
+// A clone of the default profile takes a minute or two on a Jetson, which is
+// far too long for one request to sit on. So this script runs DETACHED on the
+// Hermes host and reports through a log the app polls (see createBotStatus):
+// closing the window no longer loses the job, and the dialog can show which
+// step it is on. Every line is machine-read, so keep the prefixes stable.
+//
+// `hermes profile create` seeds an EMPTY .env and the multiplexed gateway
+// resolves API_SERVER_KEY per routed profile (never through another profile's
+// env), so a fresh bot stays unreachable until it owns a key. The clone brings
+// the model/provider credentials; the key we mint ourselves.
 const CREATE_BOT_SCRIPT = `set -u
 export PATH="$HOME/.local/bin:$PATH"
 
 NAME="$1"
 TITLE="$2"
 DESC="$3"
+COLOR="$4"
 ROOT="$HOME/.hermes"
 P="$ROOT/profiles/$NAME"
 
@@ -472,18 +488,21 @@ if [ -e "$P" ]; then
   exit 0
 fi
 
+echo "STEP cloning the default profile"
 CREATE_OUT=$(hermes profile create "$NAME" --clone-from default --description "$DESC" 2>&1 </dev/null)
 if [ ! -d "$P" ]; then
   echo "ERR $(printf '%s' "$CREATE_OUT" | tail -1)"
   exit 0
 fi
 
+echo "STEP giving the bot its own API key"
 if ! grep -q '^API_SERVER_KEY=' "$P/.env" 2>/dev/null; then
   printf '\\nAPI_SERVER_KEY=%s\\n' "$(openssl rand -hex 32)" >> "$P/.env"
   chmod 600 "$P/.env"
 fi
 
-python3 - "$P/profile.yaml" "$TITLE" <<'PY'
+echo "STEP saving its name and colour"
+python3 - "$P/profile.yaml" "$TITLE" "$COLOR" <<'PY'
 import os
 import pathlib
 import sys
@@ -492,6 +511,7 @@ import yaml
 
 path = pathlib.Path(sys.argv[1])
 title = sys.argv[2].strip()
+color = sys.argv[3].strip()
 
 data = {}
 if path.exists():
@@ -506,6 +526,8 @@ ui = data.get("ui_meta") if isinstance(data.get("ui_meta"), dict) else {}
 bots = ui.get("hermes-bots") if isinstance(ui.get("hermes-bots"), dict) else {}
 if title:
     bots["title"] = title
+if color:
+    bots["color"] = color
 ui["hermes-bots"] = bots
 data["ui_meta"] = ui
 
@@ -514,16 +536,24 @@ tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
 os.replace(tmp, path)
 PY
 
+echo "STEP checking the bot answers"
 KEY=$(grep -m1 '^API_SERVER_KEY=' "$P/.env" | cut -d= -f2-)
 CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $KEY" "http://127.0.0.1:8642/p/$NAME/api/sessions" 2>/dev/null || echo 000)
 echo "OK $NAME $CODE"
 `;
+
+const CREATE_JOB_DIR = '$HOME/.hermes/.sidekick';
+
+function createJobLog(name) {
+  return `${CREATE_JOB_DIR}/create-${name}.log`;
+}
 
 ipcMain.handle('hermes:bot:create', async (_event, payload) => {
   const connection = storedConnection();
   const name = String(payload?.name ?? '').trim().toLowerCase();
   const title = String(payload?.title ?? '').trim();
   const description = String(payload?.description ?? '').trim();
+  const color = sanitizeBotColor(payload?.color);
 
   if (!PROFILE_NAME_RE.test(name)) {
     return {
@@ -539,42 +569,124 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
     };
   }
 
-  const encoded = Buffer.from(CREATE_BOT_SCRIPT, 'utf8').toString('base64');
-  const command = `echo ${shellQuote(encoded)} | base64 -d | bash -s -- ${shellQuote(name)} ${shellQuote(title)} ${shellQuote(description)}`;
-  const result = await runSsh(connection.sshHost, command, 240000);
+  // A bot that is already there is not a failure: the earlier attempt may have
+  // finished on the server while the app was closed, so hand it back instead of
+  // dead-ending on "already exists".
+  const existing = await runSsh(
+    connection.sshHost,
+    `test -d "$HOME/.hermes/profiles/${name}" && echo EXISTS || echo MISSING`,
+  );
+  if (!existing.ok) {
+    return {
+      ok: false,
+      error:
+        existing.error ||
+        existing.stderr.trim() ||
+        `Could not reach ${connection.sshHost} over SSH`,
+    };
+  }
+  if (existing.stdout.trim() === 'EXISTS') {
+    return { ok: true, name, title: title || name, exists: true };
+  }
 
-  if (!result.ok) {
+  const encoded = Buffer.from(CREATE_BOT_SCRIPT, 'utf8').toString('base64');
+  const script = `${CREATE_JOB_DIR}/create-${name}.sh`;
+  const log = createJobLog(name);
+  const command = [
+    'set -u',
+    `mkdir -p ${shellQuote(CREATE_JOB_DIR)}`,
+    `printf %s ${shellQuote(encoded)} | base64 -d > ${shellQuote(script)}`,
+    `rm -f ${shellQuote(log)}`,
+    `nohup bash ${shellQuote(script)} ${shellQuote(name)} ${shellQuote(title)} ${shellQuote(description)} ${shellQuote(color)} > ${shellQuote(log)} 2>&1 < /dev/null &`,
+    'echo LAUNCHED',
+  ].join('\n');
+
+  const result = await runSsh(connection.sshHost, command, 30000);
+  if (!result.ok || !result.stdout.includes('LAUNCHED')) {
     return {
       ok: false,
       error:
         result.error ||
         result.stderr.trim() ||
-        `Could not reach ${connection.sshHost} over SSH`,
+        `Could not start the bot on ${connection.sshHost}`,
     };
   }
 
-  const lastLine =
-    result.stdout
-      .trim()
-      .split('\n')
-      .filter((line) => line.trim())
-      .pop() ?? '';
+  return { ok: true, name, title: title || name, running: true };
+});
 
-  if (!lastLine.startsWith('OK ')) {
+// One cheap SSH round-trip per poll: how far the detached job got.
+ipcMain.handle('hermes:bot:status', async (_event, payload) => {
+  const connection = storedConnection();
+  const name = String(payload?.name ?? '').trim().toLowerCase();
+  if (!PROFILE_NAME_RE.test(name)) {
+    return { state: 'error', error: 'Invalid bot name' };
+  }
+
+  const log = createJobLog(name);
+  const command = [
+    `L=${shellQuote(log)}`,
+    'if [ -f "$L" ]; then',
+    '  echo "LOG:yes"',
+    '  echo "STEP:$(grep -m1 "^STEP " "$L" | tail -1 | cut -c6-)"',
+    '  echo "RESULT:$(grep -m1 -e "^OK " -e "^ERR " "$L" | head -1)"',
+    '  M=$(stat -c %Y "$L" 2>/dev/null || echo 0)',
+    '  echo "AGE:$(( $(date +%s) - M ))"',
+    'else',
+    '  echo "LOG:no"',
+    'fi',
+    `test -d "$HOME/.hermes/profiles/${name}" && echo "DIR:yes" || echo "DIR:no"`,
+  ].join('\n');
+
+  const result = await runSsh(connection.sshHost, command);
+  if (!result.ok) {
     return {
-      ok: false,
-      error: lastLine.replace(/^ERR\s*/, '').trim() || 'Could not create the bot',
+      state: 'error',
+      error: result.error || result.stderr.trim() || 'Lost the server',
     };
   }
 
-  const [, created, httpCode] = lastLine.split(' ');
-  return {
-    ok: true,
-    name: created,
-    title: title || created,
-    reachable: httpCode === '200',
-    httpCode,
+  const field = (key) => {
+    const line = result.stdout
+      .split('\n')
+      .find((entry) => entry.startsWith(`${key}:`));
+    return line ? line.slice(key.length + 1).trim() : '';
   };
+
+  const outcome = field('RESULT');
+  if (outcome.startsWith('OK ')) {
+    const [, created, httpCode] = outcome.split(' ');
+    return {
+      state: 'done',
+      name: created,
+      reachable: httpCode === '200',
+      httpCode,
+      step: field('STEP'),
+    };
+  }
+  if (outcome.startsWith('ERR ')) {
+    return {
+      state: 'error',
+      error: outcome.slice(4).trim() || 'Could not create the bot',
+    };
+  }
+  if (field('LOG') !== 'yes') {
+    return {
+      state: 'error',
+      error: `The bot job never started on ${connection.sshHost}`,
+    };
+  }
+
+  // A job that stopped writing for minutes is dead, not slow.
+  const age = Number.parseInt(field('AGE'), 10);
+  if (Number.isFinite(age) && age > 300) {
+    return {
+      state: 'error',
+      error: 'The server stopped working on this bot — try again.',
+    };
+  }
+
+  return { state: 'running', step: field('STEP') };
 });
 
 function createWindow() {

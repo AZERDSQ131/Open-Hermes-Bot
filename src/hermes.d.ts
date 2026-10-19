@@ -26,8 +26,20 @@ export type HermesBotCreateResult = {
   error?: string;
   name?: string;
   title?: string;
+  /** Already on the server: the earlier attempt outlived the app. */
+  exists?: boolean;
+  /** Started as a background job; poll `createBotStatus`. */
+  running?: boolean;
+};
+
+export type HermesBotCreateStatus = {
+  state: 'running' | 'done' | 'error';
+  /** What the server is doing right now, in the script's own words. */
+  step?: string;
+  name?: string;
   reachable?: boolean;
   httpCode?: string;
+  error?: string;
 };
 
 export type HermesBridge = {
@@ -52,7 +64,11 @@ export type HermesBridge = {
     name: string;
     title?: string;
     description?: string;
+    color?: string;
   }) => Promise<HermesBotCreateResult>;
+  createBotStatus: (payload: {
+    name: string;
+  }) => Promise<HermesBotCreateStatus>;
   connect: () => Promise<HermesStatus>;
   disconnect: () => Promise<HermesStatus>;
   status: () => Promise<HermesStatus>;
