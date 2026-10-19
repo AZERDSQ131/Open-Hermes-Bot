@@ -6,7 +6,10 @@ type AgentAvatarProps = {
   size?: number;
   className?: string;
   showBadge?: boolean;
+  unread?: boolean;
 };
+
+const UNREAD_BADGE = '#2496e8';
 
 const GROUP_LAYOUT_3 = [
   { style: { top: '0%', left: '9%' }, scale: 0.64 },
@@ -24,7 +27,11 @@ export function AgentAvatar({
   size = 40,
   className,
   showBadge = true,
+  unread = false,
 }: AgentAvatarProps) {
+  const badgeSize = Math.max(10, Math.round(size * 0.29));
+  const showUnreadBadge = showBadge && unread;
+
   if (avatar.kind === 'group') {
     const visibleMembers = avatar.members.slice(0, 3);
     const extraMembers = avatar.members.length - visibleMembers.length;
@@ -67,11 +74,22 @@ export function AgentAvatar({
             +{extraMembers}
           </span>
         ) : null}
+        {showUnreadBadge ? (
+          <span
+            className="bloub-badge"
+            role="img"
+            aria-label="Unread"
+            style={{
+              width: badgeSize,
+              height: badgeSize,
+              background: UNREAD_BADGE,
+              borderWidth: Math.max(2, Math.round(size * 0.055)),
+            }}
+          />
+        ) : null}
       </span>
     );
   }
-
-  const badgeSize = Math.max(10, Math.round(size * 0.29));
 
   return (
     <span
@@ -83,13 +101,15 @@ export function AgentAvatar({
         shape={avatar.shape}
         variant={avatar.variant ?? 'neutral'}
       />
-      {avatar.badge && showBadge ? (
+      {showUnreadBadge ? (
         <span
           className="bloub-badge"
+          role="img"
+          aria-label="Unread"
           style={{
             width: badgeSize,
             height: badgeSize,
-            background: avatar.badge,
+            background: UNREAD_BADGE,
             borderWidth: Math.max(2, Math.round(size * 0.055)),
           }}
         />
