@@ -2081,101 +2081,371 @@ button:focus-visible {
   font-size: 12px;
 }
 
-/* models: the settings pane that curates the picker's inventory */
+/* models: the settings pane that curates the picker and each bot's default */
 
-.model-admin {
+.settings-pane-inner.is-models {
+  max-width: 880px;
+}
+
+.models-view {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 22px 0 4px;
+  gap: 22px;
 }
 
-.model-admin-toolbar {
+/* head: title on the left, a live count and Refresh on the right */
+
+.models-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.models-head-copy h2 {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: -0.028em;
+}
+
+.models-head-copy p {
+  margin: 8px 0 0;
+  max-width: 46ch;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.models-head-side {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+.models-stats {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.model-admin-search {
-  min-width: 0;
-  flex: 1 1 auto;
-  padding: 8px 11px;
-  border: 1px solid var(--divider);
-  border-radius: 8px;
-  outline: none;
-  background: #1a1a1d;
-  color: var(--text);
-  font-size: 13px;
-}
-
-.model-admin-search:focus {
-  border-color: rgba(255, 255, 255, 0.26);
-}
-
-.model-admin-count {
-  flex: 0 0 auto;
-  color: #7d7d84;
+  gap: 8px;
+  color: #8c8c93;
   font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.models-stats strong {
+  color: var(--text);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
-.model-admin-list {
+.models-stats-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #4a4a4f;
+}
+
+.models-refresh {
+  height: 30px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #b6b6bd;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
+}
+
+.models-refresh:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.models-refresh:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.models-notice {
+  margin: 0;
+  padding: 10px 13px;
+  border: 1px solid rgba(224, 179, 65, 0.22);
+  border-radius: 10px;
+  background: rgba(224, 179, 65, 0.06);
+  color: #d9b45a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* panels: one card per job, quietly separated from the page */
+
+.models-panel {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  padding: 16px 16px 14px;
+  border: 1px solid var(--divider);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.models-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 18px;
 }
 
-.model-admin-group {
+.models-panel-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+
+.models-panel-head p {
+  margin: 4px 0 0;
+  color: #83838a;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.models-panel-meta {
+  padding-top: 2px;
+  color: #7d7d84;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* bots: a dot in Hermes' own colour, the name, a compact model select */
+
+.models-bots {
   display: flex;
   flex-direction: column;
 }
 
-.model-admin-group-head {
+.models-bot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 4px;
+  border-top: 1px solid var(--divider);
+}
+
+.models-bot:first-child {
+  border-top: 0;
+}
+
+.models-bot-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+.models-bot-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: #d3d3d9;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.models-select {
+  min-width: 0;
+  max-width: 58%;
+  height: 30px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  outline: none;
+  appearance: none;
+  background-color: #202023;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238c8c93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  color: #d8d8de;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+
+.models-select:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.models-select:focus {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.models-select:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* picker: search, then provider groups of rows */
+
+.models-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.models-search {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: #1a1a1d;
+  color: #6f6f76;
+  transition: border-color 120ms ease;
+}
+
+.models-search:focus-within {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #a3a3aa;
+}
+
+.models-search input {
+  min-width: 0;
+  flex: 1 1 auto;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.models-search input::placeholder {
+  color: #6f6f76;
+}
+
+.models-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.models-show-all {
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 8px;
+  color: #a3a3aa;
+  font-size: 12px;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
+}
+
+.models-show-all:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.models-show-all:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.models-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.models-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.models-group + .models-group {
+  margin-top: 10px;
+}
+
+.models-group-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 2px;
+  padding: 6px 8px 3px;
   color: #6f6f76;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.model-admin-group-head span:last-child {
+.models-group-count {
   font-weight: 500;
+  letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.03em;
 }
 
-.model-admin-row {
+.models-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 40px;
-  padding: 0 6px 0 8px;
-  border-bottom: 1px solid var(--divider);
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 8px 0 4px;
   border-radius: 8px;
-  color: #b6b6bd;
-  font-size: 13px;
-  transition: background-color 120ms ease;
+  color: #cfcfd5;
+  font-size: 12.5px;
+  transition: background-color 110ms ease;
 }
 
-.model-admin-row:hover {
+.models-row:hover {
   background: var(--row-hover);
 }
 
-.model-admin-row.is-unlisted {
-  color: #74747b;
+.models-row.is-off {
+  opacity: 0.55;
 }
 
-.model-admin-row.is-unlisted .model-admin-name {
+.models-row.is-off .models-name {
   text-decoration: line-through;
   text-decoration-color: rgba(255, 255, 255, 0.2);
 }
 
-.model-admin-name {
+.models-star {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  color: #55555b;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.models-star:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #b6b6bd;
+}
+
+.models-star.is-on {
+  color: #e0b341;
+}
+
+.models-name {
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
@@ -2183,8 +2453,19 @@ button:focus-visible {
   white-space: nowrap;
 }
 
-/* The on/off that decides whether a model appears in the picker at all. */
-.model-switch {
+.models-tag {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  color: #8d8b84;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+/* the switch that puts a model in the picker, or takes it out */
+
+.models-switch {
   position: relative;
   width: 34px;
   height: 20px;
@@ -2194,19 +2475,19 @@ button:focus-visible {
   transition: background-color 140ms ease;
 }
 
-.model-switch:hover {
+.models-switch:hover {
   background: rgba(255, 255, 255, 0.22);
 }
 
-.model-switch.is-on {
+.models-switch.is-on {
   background: #f2efe5;
 }
 
-.model-switch.is-on:hover {
+.models-switch.is-on:hover {
   background: #fffdf6;
 }
 
-.model-switch-knob {
+.models-switch-knob {
   position: absolute;
   top: 2px;
   left: 2px;
@@ -2219,121 +2500,43 @@ button:focus-visible {
     background-color 140ms ease;
 }
 
-.model-switch.is-on .model-switch-knob {
+.models-switch.is-on .models-switch-knob {
   background: #1d1d1f;
   transform: translateX(14px);
 }
 
-.model-admin-star {
-  display: inline-flex;
-  width: 26px;
-  height: 26px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border-radius: 7px;
-  color: #6f6f76;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
+/* states */
+
+.models-empty {
+  margin: 4px 0;
+  padding: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #83838a;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
 }
 
-.model-admin-star:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: #d8d5cb;
-}
-
-.model-admin-star.is-on {
-  color: #e0b341;
-}
-
-/* bot defaults: one model per bot, chosen from what the picker offers */
-
-.model-admin-section-head {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.model-admin-section-head h3 {
+.models-caption {
   margin: 0;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.model-admin-section-head span {
-  min-width: 0;
   color: #74747b;
   font-size: 11.5px;
+  line-height: 1.5;
 }
 
-.model-defaults-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.model-default-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 42px;
-  padding: 0 8px;
-  border-bottom: 1px solid var(--divider);
+.models-error {
+  margin: 0;
+  padding: 8px 10px;
   border-radius: 8px;
-  transition: background-color 120ms ease;
-}
-
-.model-default-row:hover {
-  background: var(--row-hover);
-}
-
-.model-default-bot {
-  min-width: 0;
-  overflow: hidden;
-  color: #b6b6bd;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.model-default-select {
-  min-width: 0;
-  max-width: 62%;
-  padding: 6px 10px;
-  border: 1px solid var(--divider);
-  border-radius: 8px;
-  outline: none;
-  background: #1a1a1d;
-  color: var(--text);
-  font-size: 12.5px;
-  cursor: pointer;
-}
-
-.model-default-select:focus {
-  border-color: rgba(255, 255, 255, 0.26);
-}
-
-.model-default-select:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.model-admin-divider {
-  height: 1px;
-  background: var(--divider);
-}
-
-.model-admin-foot {
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  gap: 14px;
+  background: rgba(255, 90, 80, 0.08);
+  color: #ff9a92;
+  font-size: 11.5px;
+  line-height: 1.45;
 }
 
 /* the favourite mark inside the composer's menu */
+
 .model-star {
   flex: 0 0 auto;
   color: #e0b341;
