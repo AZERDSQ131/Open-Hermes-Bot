@@ -35,6 +35,15 @@ import {
   REACTION_PROMPT,
   stripReactionMarkers,
 } from './reactions';
+import {
+  groupInstructions,
+  groupTurnMessage,
+  MAX_GROUP_LINES,
+  MAX_MEMBER_LINES,
+  mentionsIn,
+  readGroupTurn,
+  stripSilentMarkers,
+} from './group';
 import { avatarColor, PRIMARY_AVATAR_COLOR } from './profileColor';
 import { SettingsView } from './components/SettingsView';
 import { LogoEditor } from './components/LogoEditor';
@@ -138,6 +147,33 @@ function attachReaction(messages: Message[], emoji?: string): Message[] {
     return messages.map((message, at) =>
       at === index ? { ...message, reaction: emoji } : message,
     );
+  }
+  return messages;
+}
+
+// In a group, a tapback lands on the last line the reactor did not write, and
+// is signed: two bots can react to the same message without overwriting one
+// another. Reacting to your own line would be talking to yourself.
+function attachGroupReaction(
+  messages: Message[],
+  emoji: string | undefined,
+  by: string,
+): Message[] {
+  if (!emoji) return messages;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const target = messages[index];
+    if (target.role === 'event') continue;
+    if (target.role === 'assistant' && target.authorName === by) continue;
+    return messages.map((message, at) => {
+      if (at !== index || message.role === 'event') return message;
+      const others = (message.reactions ?? []).filter(
+        (reaction) => reaction.by !== by,
+      );
+      return {
+        ...message,
+        reactions: [...others, { emoji, by }],
+      };
+    });
   }
   return messages;
 }
@@ -280,6 +316,9 @@ export default function App() {
   // One live turn per thread, keyed by thread: a new message replaces the turn
   // in flight, and a replaced turn must not paint over the new one.
   const requestThread = useRef(new Map<string, string>());
+  // A group round is more than one request: the round token survives every
+  // member's turn and is what a newer message replaces.
+  const groupRound = useRef(new Map<string, string>());
   // Messages that arrived while a turn was being replaced. A request cancelled
   // before Hermes stored it would otherwise vanish from the model's context.
   const superseded = useRef(new Map<string, string[]>());
@@ -353,7 +392,7 @@ export default function App() {
     threads.find((thread) => thread.id === activeId) ?? threads[0];
   // The protocol marker is plumbing, not copy: a streaming bubble never shows it.
   const streamingText = activeThread?.streaming
-    ? stripReactionMarkers(activeThread.streaming)
+    ? stripSilentMarkers(stripReactionMarkers(activeThread.streaming))
     : '';
 
   // What a message would use with nothing picked in this conversation, in the
@@ -827,10 +866,297 @@ export default function App() {
     autoSize(event.target);
   }
 
+  /**
+   * One group turn is a small relay: the person speaks, members take the floor
+   * one by one, and each decides whether to stay out, react, or speak. A bot
+   * that says `@Name` hands the next turn over, until the round budget runs
+   * out. Every member answers through its own Hermes session, so it is the
+   * same bot with the same memory as in its private thread.
+   */
+  async function sendGroupMessage(
+    thread: Thread,
+    outgoing: string,
+    preview: string,
+  ) {
+    const threadId = thread.id;
+    const members = thread.members ?? [];
+    const bridge = window.hermes;
+    if (members.length === 0) return;
+
+    const roundId = uid();
+    groupRound.current.set(threadId, roundId);
+    const isCurrent = () => groupRound.current.get(threadId) === roundId;
+
+    // A newer message in the same group replaces the round in flight.
+    const inFlight = requestThread.current.get(threadId);
+    if (inFlight) bridge?.cancelChat?.(inFlight);
+
+    stickToBottom.current = true;
+    const userMessage: Message = { id: uid(), role: 'user', text: outgoing };
+    let history: Message[] = [...thread.messages, userMessage];
+
+    setThreads((current) =>
+      current.map((item) =>
+        item.id === threadId
+          ? {
+              ...item,
+              messages: history,
+              thinking: true,
+              streaming: '',
+              tool: undefined,
+              speaking: undefined,
+              preview,
+            }
+          : item,
+      ),
+    );
+    setDraft('');
+    clearAttachments();
+    setListening(false);
+    if (composerRef.current) composerRef.current.style.height = '40px';
+
+    const finish = () => {
+      requestThread.current.delete(threadId);
+      groupRound.current.delete(threadId);
+    };
+
+    const sync = (patch: (item: Thread) => Thread) => {
+      setThreads((current) =>
+        current.map((item) => (item.id === threadId ? patch(item) : item)),
+      );
+    };
+
+    if (!bridge?.sendChat) {
+      finish();
+      sync((item) => ({
+        ...item,
+        thinking: false,
+        streaming: undefined,
+        speaking: undefined,
+        messages: [
+          ...item.messages,
+          {
+            id: uid(),
+            role: 'event',
+            text: 'Not connected to Hermes yet — open Settings, connect, then send this again.',
+          },
+        ],
+      }));
+      return;
+    }
+
+    // Naming bots hands them the floor; saying nothing to anyone asks the whole
+    // group, and each member is free to stay silent.
+    const asked = mentionsIn(outgoing, members);
+    type Floor = { member: GroupMember; addressed: boolean; mentionedBy?: string };
+    const queue: Floor[] = (asked.length ? asked : members).map((member) => ({
+      member,
+      addressed: asked.includes(member),
+    }));
+    const sessions: Record<string, string> = { ...(thread.sessions ?? {}) };
+    const spoken = new Map<string, number>();
+    let lines = 0;
+    let reacted = false;
+    let lastLine = '';
+
+    while (queue.length > 0 && lines < MAX_GROUP_LINES) {
+      if (!isCurrent()) return;
+      const floor = queue.shift() as Floor;
+      const member = floor.member;
+      if ((spoken.get(member.id) ?? 0) >= MAX_MEMBER_LINES) continue;
+
+      const requestId = uid();
+      requestThread.current.set(threadId, requestId);
+      sync((item) => ({
+        ...item,
+        thinking: true,
+        streaming: '',
+        tool: undefined,
+        speaking: member,
+      }));
+
+      try {
+        let sessionId = sessions[member.id];
+        if (!sessionId) {
+          const created = await bridge.createSession({
+            profile: member.profile,
+            title: `${thread.name} · ${member.name}`,
+          });
+          if (!isCurrent()) return;
+          if (!created.ok || !created.sessionId) {
+            history = [
+              ...history,
+              {
+                id: uid(),
+                role: 'event',
+                text: `${member.name} could not join the group: ${created.error ?? 'no session'}`,
+              },
+            ];
+            sync((item) => ({ ...item, messages: history }));
+            continue;
+          }
+          sessionId = created.sessionId;
+          sessions[member.id] = sessionId;
+          sync((item) => ({ ...item, messages: history, sessions }));
+        }
+
+        let pick =
+          defaultModelPick(member.profile) ??
+          readPreferredModel(member.profile);
+        if (!pick) pick = await configuredModelFor(member.profile);
+        if (!isCurrent()) return;
+
+        const wire = groupTurnMessage({
+          groupName: thread.name,
+          members,
+          speaker: member,
+          history,
+          addressed: floor.addressed,
+          mentionedBy: floor.mentionedBy,
+        });
+        const instructions = groupInstructions(thread.name, members);
+        const ask = (modelPick: PreferredModel | null) =>
+          bridge.sendChat({
+            requestId,
+            sessionId: sessionId as string,
+            message: wire,
+            profile: member.profile,
+            model: modelPick?.model,
+            provider: modelPick?.provider,
+            instructions,
+          });
+
+        let result = await ask(pick);
+        if (!isCurrent()) return;
+        // Same rescue as a private thread: an exhausted model must not take a
+        // whole member out of the conversation.
+        if (!result.ok && isQuotaFailure(result.error)) {
+          const rescue = await freeModelFor(member.profile);
+          if (rescue && rescue.model !== pick?.model) {
+            result = await ask(rescue);
+            if (!isCurrent()) return;
+          }
+        }
+        if (!result.ok) {
+          if (result.canceled) return;
+          history = [
+            ...history,
+            {
+              id: uid(),
+              role: 'event',
+              text: `${member.name} could not answer: ${result.error ?? 'unknown error'}`,
+            },
+          ];
+          sync((item) => ({ ...item, messages: history, streaming: '' }));
+          continue;
+        }
+
+        const turn = readGroupTurn(result.text ?? '', members);
+        if (turn.silent) {
+          // Silence is the normal case, but a bot asked by name owes the room
+          // a visible "no" — otherwise the person waits for an answer that is
+          // never coming.
+          if (floor.addressed || floor.mentionedBy) {
+            history = [
+              ...history,
+              {
+                id: uid(),
+                role: 'event',
+                text: `${member.name} stayed silent.`,
+              },
+            ];
+          }
+          sync((item) => ({ ...item, messages: history, streaming: '' }));
+          continue;
+        }
+
+        if (turn.emoji) {
+          history = attachGroupReaction(history, turn.emoji, member.name);
+          reacted = true;
+        }
+        if (turn.text) {
+          history = [
+            ...history,
+            {
+              id: uid(),
+              role: 'assistant',
+              text: turn.text,
+              authorId: member.id,
+              authorName: member.name,
+              authorAvatar: member.avatar,
+            },
+          ];
+          lines += 1;
+          spoken.set(member.id, (spoken.get(member.id) ?? 0) + 1);
+          lastLine = turn.text;
+          for (const mentioned of turn.mentions) {
+            if (mentioned.id === member.id) continue;
+            queue.push({
+              member: mentioned,
+              addressed: false,
+              mentionedBy: member.name,
+            });
+          }
+        }
+        sync((item) => ({ ...item, messages: history, streaming: '' }));
+      } catch (reason) {
+        if (!isCurrent()) return;
+        history = [
+          ...history,
+          {
+            id: uid(),
+            role: 'event',
+            text: `${member.name} could not answer: ${
+              reason instanceof Error && reason.message
+                ? reason.message
+                : 'something broke'
+            }`,
+          },
+        ];
+        sync((item) => ({ ...item, messages: history, streaming: '' }));
+      }
+    }
+
+    if (!isCurrent()) return;
+    finish();
+    if (lines === 0 && !reacted) {
+      history = [
+        ...history,
+        { id: uid(), role: 'event', text: 'The group stayed silent.' },
+      ];
+    }
+    sync((item) => ({
+      ...item,
+      messages: history,
+      thinking: false,
+      streaming: undefined,
+      tool: undefined,
+      speaking: undefined,
+      sessions,
+      preview: lastLine
+        ? lastLine.replace(/\s+/g, ' ').slice(0, 90)
+        : item.preview,
+      chatTime: 'Now',
+      unread: threadId !== activeIdRef.current,
+    }));
+  }
+
   async function sendMessage() {
     const text = draft.trim();
     const thread = activeThread;
     if (!text || !thread) return;
+
+    // A group speaks with many voices: it gets its own relay, not the single
+    // bot turn below.
+    if (thread.members?.length) {
+      const outgoing = attachments.length
+        ? `${text}\n\nAttached: ${attachments
+            .map((attachment) => attachment.name)
+            .join(', ')}`
+        : text;
+      await sendGroupMessage(thread, outgoing, text);
+      return;
+    }
 
     const threadId = thread.id;
     const requestId = uid();
