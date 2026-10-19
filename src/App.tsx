@@ -298,6 +298,7 @@ export default function App() {
   const [draft, setDraft] = useState('');
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [listening, setListening] = useState(false);
+  const [mentionIndex, setMentionIndex] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
   const [logoOpen, setLogoOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -405,6 +406,28 @@ export default function App() {
       ? undefined
       : (defaultModelPick(activeThread.profile) ??
           readPreferredModel(activeThread.profile))?.model;
+
+  // Typing "@" in a group opens the roster: the person addresses a bot the
+  // same way the bots address each other.
+  const mentionMatch = useMemo(() => {
+    const members = activeThread?.members;
+    if (!members?.length) return null;
+    const found = /(^|\s)@([\p{L}\p{N}_ -]{0,32})$/u.exec(draft);
+    if (!found) return null;
+    const query = found[2].trimStart().toLowerCase();
+    const suggestions = members.filter((member) =>
+      member.name.toLowerCase().includes(query),
+    );
+    if (!suggestions.length) return null;
+    return {
+      start: found.index + found[1].length,
+      end: draft.length,
+      suggestions,
+    };
+  }, [activeThread?.members, draft]);
+  const activeMention = mentionMatch
+    ? mentionIndex % mentionMatch.suggestions.length
+    : 0;
 
   const orderedThreads = useMemo(
     () =>
@@ -864,7 +887,24 @@ export default function App() {
 
   function handleDraftChange(event: ChangeEvent<HTMLTextAreaElement>) {
     setDraft(event.target.value);
+    setMentionIndex(0);
     autoSize(event.target);
+  }
+
+  function insertMention(member: GroupMember) {
+    if (!mentionMatch) return;
+    const next = `${draft.slice(0, mentionMatch.start)}@${member.name} ${draft.slice(
+      mentionMatch.end,
+    )}`;
+    setDraft(next);
+    setMentionIndex(0);
+    window.requestAnimationFrame(() => {
+      const input = composerRef.current;
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(next.length, next.length);
+      autoSize(input);
+    });
   }
 
   /**
@@ -1412,6 +1452,24 @@ export default function App() {
   }
 
   function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (mentionMatch) {
+      const count = mentionMatch.suggestions.length;
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        setMentionIndex((current) => (current + step + count) % count);
+        return;
+      }
+      if (
+        (event.key === 'Enter' || event.key === 'Tab') &&
+        !event.shiftKey &&
+        !event.nativeEvent.isComposing
+      ) {
+        event.preventDefault();
+        insertMention(mentionMatch.suggestions[activeMention]);
+        return;
+      }
+    }
     if (
       event.key === 'Enter' &&
       !event.shiftKey &&
@@ -1851,6 +1909,38 @@ export default function App() {
               className={`composer ${attachments.length ? 'has-attachments' : ''}`}
               onSubmit={handleSubmit}
             >
+              {mentionMatch ? (
+                <div
+                  className="mention-menu"
+                  role="listbox"
+                  aria-label="Mention a bot"
+                >
+                  {mentionMatch.suggestions.map((member, index) => (
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={index === activeMention}
+                      className={`mention-option ${
+                        index === activeMention ? 'is-active' : ''
+                      }`}
+                      key={member.id}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        insertMention(member);
+                      }}
+                    >
+                      <AgentAvatar
+                        avatar={member.avatar}
+                        size={20}
+                        showBadge={false}
+                      />
+                      <span className="mention-option-name">
+                        @{member.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               {attachments.length > 0 ? (
                 <div className="attachment-row">
                   {attachments.map((attachment) => (
@@ -1926,7 +2016,9 @@ export default function App() {
                   placeholder={
                     listening
                       ? 'Listening...'
-                      : `Message ${activeThread.name}`
+                      : activeThread.members?.length
+                        ? 'Message the group — @ a bot to ask it directly'
+                        : `Message ${activeThread.name}`
                   }
                   onChange={handleDraftChange}
                   onKeyDown={handleComposerKeyDown}
