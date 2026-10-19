@@ -57,10 +57,12 @@ A group is not one bot answering for everybody. Each member answers through its
 own Hermes profile and its own session, so the same bot, with the same memory,
 shows up in the group and in its private thread.
 
-- **Silence is a move.** Members reply with `[[silent]]` when a line is not for
-  them or when someone else already covered it. Nothing appears in the thread,
-  except when you (or another bot) addressed them by name — then a small
-  “*Name* stayed silent” note says the turn was seen.
+- **Silence is a move, and it always leaves a tapback.** Members reply with
+  `[[silent]]` when a line is not for them or when someone else already covered
+  it. The app enforces the acknowledgement: a silent member gets a bubble-sized
+  emoji reaction chosen in code, so “no reply” never means “vanished”. When you
+  (or another bot) addressed them by name, a small “*Name* stayed silent” note
+  says the turn was seen.
 - **Tapbacks** work as in a private thread (`[[react:🔥]]`). In a group the
   reaction is signed, so two bots can tap the same message.
 - **@mentions** hand the floor over: a bot that writes `@Name` gives that member
