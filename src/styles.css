@@ -2327,3 +2327,195 @@ button:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── model picker (composer) ─────────────────────────────────────────────── */
+
+.composer-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 0 40px;
+}
+
+.model-picker {
+  position: relative;
+}
+
+.model-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 230px;
+  padding: 4px 9px;
+  border: 1px solid rgba(242, 239, 229, 0.1);
+  border-radius: 999px;
+  background: rgba(242, 239, 229, 0.035);
+  color: #a9a69d;
+  font-family: inherit;
+  font-size: 11.5px;
+  letter-spacing: -0.004em;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.model-chip:hover,
+.model-chip.is-open {
+  border-color: rgba(242, 239, 229, 0.2);
+  background: rgba(242, 239, 229, 0.08);
+  color: #e4e1d7;
+}
+
+.model-chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.model-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-chip-caret {
+  flex: 0 0 auto;
+  font-size: 9px;
+  opacity: 0.6;
+}
+
+.model-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: 310px;
+  max-height: 360px;
+  border: 1px solid rgba(242, 239, 229, 0.12);
+  border-radius: 14px;
+  background: #232326;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.model-menu-head {
+  padding: 8px 8px 7px;
+  border-bottom: 1px solid rgba(242, 239, 229, 0.08);
+}
+
+.model-search {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid rgba(242, 239, 229, 0.1);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  color: #e4e1d7;
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.model-search:focus {
+  border-color: rgba(242, 239, 229, 0.24);
+}
+
+.model-list {
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.model-group {
+  padding: 2px 0 4px;
+}
+
+.model-group-name {
+  display: block;
+  margin: 6px 8px 3px;
+  color: #6f6f76;
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.model-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #d8d5cb;
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.model-option:hover {
+  background: rgba(242, 239, 229, 0.06);
+}
+
+.model-option.is-active {
+  background: rgba(242, 239, 229, 0.1);
+  color: #f2efe5;
+}
+
+.model-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-provider,
+.model-tag {
+  flex: 0 0 auto;
+  color: #8d8b84;
+  font-size: 10px;
+}
+
+.model-tag {
+  padding: 1px 6px;
+  border: 1px solid rgba(242, 239, 229, 0.16);
+  border-radius: 999px;
+}
+
+.model-note {
+  margin: 10px 12px;
+  color: #8d8b84;
+  font-size: 11.5px;
+}
+
+.model-error {
+  margin: 10px 12px;
+  color: #ff9a92;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+/* A reply being written: same bubble as a finished one, so the text does not
+   jump when the turn ends. */
+.bubble.is-streaming {
+  white-space: pre-wrap;
+}
+
+.stream-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  background: currentColor;
+  vertical-align: text-bottom;
+  animation: stream-caret-blink 1s steps(2, start) infinite;
+}
+
+@keyframes stream-caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
