@@ -44,6 +44,7 @@ import {
   MAX_MEMBER_LINES,
   mentionsIn,
   readGroupTurn,
+  silentReaction,
   stripSilentMarkers,
 } from './group';
 import { avatarColor, PRIMARY_AVATAR_COLOR } from './profileColor';
@@ -1453,13 +1454,23 @@ export default function App() {
       );
 
       // Every member in a wave answered the same conversation. Tapbacks land
-      // on that state, before any of the wave's lines are appended.
+      // on that state, before any of the wave's lines are appended. A member
+      // that stayed silent still reacts: the code forces a tapback, it is not
+      // left to the model's goodwill.
+      const reactionSeed =
+        [...history].reverse().find((message) => message.role !== 'event')?.id ??
+        '';
       let reactionHistory = history;
       for (const outcome of outcomes) {
-        if (!outcome.turn?.emoji) continue;
+        const turn = outcome.turn;
+        if (!turn) continue;
+        const emoji = turn.silent
+          ? silentReaction(outcome.floor.member.id, reactionSeed)
+          : turn.emoji;
+        if (!emoji) continue;
         reactionHistory = attachGroupReaction(
           reactionHistory,
-          outcome.turn.emoji,
+          emoji,
           outcome.floor.member.name,
         );
         reacted = true;

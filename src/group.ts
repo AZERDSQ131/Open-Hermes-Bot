@@ -9,6 +9,31 @@ import { extractReaction } from './reactions';
 /** Reply with this alone to sit a turn out. */
 export const SILENT_MARKER = '[[silent]]';
 
+// Silence still leaves a trace: the app itself taps an emoji on the message,
+// so a bot that has nothing to say acknowledges it instead of vanishing.
+const SILENT_REACTIONS = [
+  '👀',
+  '👍',
+  '✅',
+  '🙌',
+  '🔥',
+  '🫡',
+  '👌',
+  '💡',
+  '🎯',
+  '🤝',
+];
+
+/** The tapback a silent member leaves; stable per bot and per message. */
+export function silentReaction(memberId: string, messageId: string): string {
+  const seed = `${memberId}:${messageId}`;
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+  return SILENT_REACTIONS[hash % SILENT_REACTIONS.length];
+}
+
 const SILENT = /\[\[\s*silent\s*\]\]/gi;
 // A marker split across streaming chunks must not flash its syntax on screen,
 // including the very first `[[s`.
@@ -88,8 +113,8 @@ export function groupInstructions(groupName: string, members: GroupMember[]): st
     `Sidekick group chat: you are one member of “${groupName}”, talking with ${roster} and the person.`,
     'Each member answers on their own. You never write another member\'s words, and you never invent a line from the person.',
     'A turn has exactly three moves. Choose one:',
-    `1. Stay silent. Reply with exactly ${SILENT_MARKER} and nothing else when the line is not for you, when someone else already answered it, when you agree with what was said, or when you have nothing that adds something. Silence is a normal, frequent choice in a group — most turns do not need every bot.`,
-    `2. React. Start with a tapback marker like [[react:👍]] (one emoji) when a reaction says everything. ${SILENT_MARKER} and a reaction are alternatives: do not use both.`,
+    `1. Stay silent. Reply with exactly ${SILENT_MARKER} and nothing else when the line is not for you, when someone else already answered it, when you agree with what was said, or when you have nothing that adds something. A silent member is still acknowledged: the app leaves a tapback on the message for you. Silence is a normal, frequent choice in a group — most turns do not need every bot.`,
+    `2. React. Start with a tapback marker like [[react:👍]] (one emoji) when a reaction says everything. Do not combine ${SILENT_MARKER} with a tapback: silence already leaves one.`,
     '3. Speak. Write a short group message in your own voice. Say something the group does not already have: an answer, a fact, an objection, a decision. Do not restate the question or summarise the others.',
     'To talk to one member directly, write @TheirName inside your message. That member will get the next turn, so mention only a bot you actually want to answer you. Never mention a bot only as decoration.',
     'If the person asks the whole group a question, the members who know the answer should speak; the rest should stay silent rather than pad the thread.',
