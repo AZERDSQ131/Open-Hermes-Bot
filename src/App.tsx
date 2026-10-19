@@ -299,6 +299,8 @@ export default function App() {
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [listening, setListening] = useState(false);
   const [mentionIndex, setMentionIndex] = useState(0);
+  // Escape closes the roster without changing what was typed.
+  const [mentionHidden, setMentionHidden] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [logoOpen, setLogoOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -411,7 +413,7 @@ export default function App() {
   // same way the bots address each other.
   const mentionMatch = useMemo(() => {
     const members = activeThread?.members;
-    if (!members?.length) return null;
+    if (!members?.length || mentionHidden) return null;
     const found = /(^|\s)@([\p{L}\p{N}_ -]{0,32})$/u.exec(draft);
     if (!found) return null;
     const query = found[2].trimStart().toLowerCase();
@@ -424,7 +426,7 @@ export default function App() {
       end: draft.length,
       suggestions,
     };
-  }, [activeThread?.members, draft]);
+  }, [activeThread?.members, draft, mentionHidden]);
   const activeMention = mentionMatch
     ? mentionIndex % mentionMatch.suggestions.length
     : 0;
@@ -973,6 +975,7 @@ export default function App() {
   function handleDraftChange(event: ChangeEvent<HTMLTextAreaElement>) {
     setDraft(event.target.value);
     setMentionIndex(0);
+    setMentionHidden(false);
     autoSize(event.target);
   }
 
@@ -983,6 +986,7 @@ export default function App() {
     )}`;
     setDraft(next);
     setMentionIndex(0);
+    setMentionHidden(false);
     window.requestAnimationFrame(() => {
       const input = composerRef.current;
       if (!input) return;
@@ -1563,6 +1567,11 @@ export default function App() {
   function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (mentionMatch) {
       const count = mentionMatch.suggestions.length;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setMentionHidden(true);
+        return;
+      }
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault();
         const step = event.key === 'ArrowDown' ? 1 : -1;
