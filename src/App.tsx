@@ -952,10 +952,21 @@ export default function App() {
     }
     const nextName = nameDraft.trim();
     if (nextName && nextName !== activeThread.name) {
+      const isBot = activeThread.avatar.kind !== 'group';
       setThreads((current) =>
-        current.map((thread) =>
-          thread.id === activeThread.id ? { ...thread, name: nextName } : thread,
-        ),
+        current.map((thread) => {
+          if (thread.id === activeThread.id) {
+            return { ...thread, name: nextName };
+          }
+          if (!isBot || !thread.members) return thread;
+          let changed = false;
+          const members = thread.members.map((member) => {
+            if (member.id !== activeThread.id) return member;
+            changed = true;
+            return { ...member, name: nextName };
+          });
+          return changed ? { ...thread, members } : thread;
+        }),
       );
     }
     setRenaming(false);
