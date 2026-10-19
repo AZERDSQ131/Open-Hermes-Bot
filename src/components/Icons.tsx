@@ -191,6 +191,21 @@ export function TrashIcon({ size = 15, className }: IconProps) {
   );
 }
 
+export function ChevronLeftIcon({ size = 15, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      strokeWidth="2"
+      className={className}
+      {...base}
+    >
+      <path d="m14.5 5.5-6.5 6.5 6.5 6.5" />
+    </svg>
+  );
+}
+
 export function ArrowUpIcon({ size = 18, className }: IconProps) {
   return (
     <svg

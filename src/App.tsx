@@ -26,7 +26,7 @@ import {
   SearchIcon,
 } from './components/Icons';
 import type { HermesStatus } from './hermes';
-import { SettingsDialog } from './components/SettingsDialog';
+import { SettingsView } from './components/SettingsView';
 import { LogoEditor } from './components/LogoEditor';
 import { ThreadContextMenu } from './components/ThreadContextMenu';
 import {
@@ -275,6 +275,14 @@ export default function App() {
     setContextMenu(null);
     setSidebarOpen(false);
     composerRef.current?.blur();
+  }
+
+  function openSettings() {
+    setContextMenu(null);
+    setLogoOpen(false);
+    setRenaming(false);
+    setSidebarOpen(false);
+    setSettingsOpen(true);
   }
 
   function openCreateDialog() {
@@ -550,24 +558,6 @@ export default function App() {
         <div className="sidebar-topbar">
           <button
             type="button"
-            className="topbar-button settings-button"
-            onClick={() => {
-              setContextMenu(null);
-              setLogoOpen(false);
-              setRenaming(false);
-              setSettingsOpen(true);
-            }}
-            aria-label="Settings"
-            title="Settings  ⌘,"
-          >
-            <GearIcon size={18} />
-            <span
-              className={`settings-dot is-${hermesStatus.state}`}
-              aria-hidden="true"
-            />
-          </button>
-          <button
-            type="button"
             className="topbar-button new-chat"
             onClick={openCreateDialog}
             aria-label="Create a bot or group"
@@ -678,6 +668,25 @@ export default function App() {
             <p className="no-results">No agents found</p>
           ) : null}
         </nav>
+
+        <div className="sidebar-footer">
+          <button
+            type="button"
+            className={`settings-entry ${
+              settingsOpen ? 'is-active' : ''
+            }`}
+            onClick={openSettings}
+            aria-label="Settings"
+            title="Settings  ⌘,"
+          >
+            <GearIcon size={16} />
+            <span className="settings-entry-label">Settings</span>
+            <span
+              className={`hermes-dot is-${hermesStatus.state}`}
+              aria-hidden="true"
+            />
+          </button>
+        </div>
       </aside>
 
       <button
@@ -968,7 +977,8 @@ export default function App() {
       ) : null}
 
       {settingsOpen ? (
-        <SettingsDialog
+        <SettingsView
+          status={hermesStatus}
           onClose={() => setSettingsOpen(false)}
           onStatusChange={setHermesStatus}
         />
