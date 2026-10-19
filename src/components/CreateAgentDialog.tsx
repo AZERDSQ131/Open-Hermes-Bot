@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import type { BotStyle, SingleAvatar } from '../data';
+import type { BotStyle, GroupMember, SingleAvatar } from '../data';
 import { profileColor } from '../profileColor';
 import type { BloubShape } from './bloubFrames';
 import { AgentAvatar } from './AgentAvatar';
@@ -10,6 +10,8 @@ import { ColorGrid, ShapeGrid } from './LogoControls';
 export type CreateCandidate = {
   id: string;
   name: string;
+  /** Hermes profile the bot answers for; absent for the default bot. */
+  profile?: string;
   avatar: SingleAvatar;
 };
 
@@ -27,7 +29,7 @@ type CreateAgentDialogProps = {
       customColor?: string;
     },
   ) => Promise<CreateBotOutcome>;
-  onCreateGroup: (input: { name: string; members: BotStyle[] }) => void;
+  onCreateGroup: (input: { name: string; members: GroupMember[] }) => void;
 };
 
 export function toProfileId(name: string) {
@@ -77,11 +79,13 @@ export function CreateAgentDialog({
   const selectedCandidates = candidates.filter((candidate) =>
     selected.includes(candidate.id),
   );
-  const groupMembers: BotStyle[] = selectedCandidates.map((candidate) => ({
-    color: candidate.avatar.color,
-    shape: candidate.avatar.shape,
-    variant: candidate.avatar.variant,
+  const groupMembers: GroupMember[] = selectedCandidates.map((candidate) => ({
+    id: candidate.id,
+    name: candidate.name,
+    profile: candidate.profile,
+    avatar: candidate.avatar,
   }));
+  const groupStyles: BotStyle[] = groupMembers.map((member) => member.avatar);
   const profileId = mode === 'bot' ? toProfileId(name) : '';
   const canCreate =
     name.trim().length > 0 && (mode === 'bot' || selected.length >= 2);
@@ -98,7 +102,7 @@ export function CreateAgentDialog({
   const preview =
     mode === 'group'
       ? selectedCandidates.length >= 2
-        ? { kind: 'group' as const, members: groupMembers }
+        ? { kind: 'group' as const, members: groupStyles }
         : selectedCandidates[0]?.avatar ?? {
             color: '#3d3d44',
             shape: 'cercle' as const,

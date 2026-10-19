@@ -41,7 +41,7 @@ import { LogoEditor } from './components/LogoEditor';
 import { ThreadContextMenu } from './components/ThreadContextMenu';
 import {
   type AvatarSpec,
-  type BotStyle,
+  type GroupMember,
   type Message,
   type Thread,
 } from './data';
@@ -410,7 +410,12 @@ export default function App() {
     return threads.flatMap((thread) => {
       if (thread.avatar.kind === 'group') return [];
       return [
-        { id: thread.id, name: thread.name, avatar: thread.avatar },
+        {
+          id: thread.id,
+          name: thread.name,
+          profile: thread.profile,
+          avatar: thread.avatar,
+        },
       ];
     });
   }, [threads]);
@@ -681,11 +686,15 @@ export default function App() {
     return { ok: true };
   }
 
-  function handleCreateGroup(input: { name: string; members: BotStyle[] }) {
+  function handleCreateGroup(input: { name: string; members: GroupMember[] }) {
     addThread({
       id: `group-${uid()}`,
       name: input.name,
-      avatar: { kind: 'group', members: input.members },
+      members: input.members,
+      avatar: {
+        kind: 'group',
+        members: input.members.map((member) => member.avatar),
+      },
       preview: 'Start a conversation',
       time: 'Now',
       chatTime: 'Now',
