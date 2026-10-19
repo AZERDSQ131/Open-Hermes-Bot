@@ -860,25 +860,47 @@ export default function App() {
     const id = editingThread.id;
     const avatar = input.avatar;
     setThreads((current) =>
-      current.map((thread) =>
-        thread.id === id
-          ? {
-              ...thread,
-              ...input,
-              // The default bot keeps the name it is known by.
-              name: thread.system ? thread.name : input.name,
-              // Editing a group restyles its members; keep the identities used
-              // to attribute group lines in step with the faces on the avatar.
-              members:
-                avatar.kind === 'group' && thread.members
-                  ? thread.members.map((member, index) => ({
-                      ...member,
-                      avatar: avatar.members[index] ?? member.avatar,
-                    }))
-                  : thread.members,
-            }
-          : thread,
-      ),
+      current.map((thread) => {
+        if (thread.id === id) {
+          return {
+            ...thread,
+            ...input,
+            // The default bot keeps the name it is known by.
+            name: thread.system ? thread.name : input.name,
+            // Editing a group restyles its members; keep the identities used
+            // to attribute group lines in step with the faces on the avatar.
+            members:
+              avatar.kind === 'group' && thread.members
+                ? thread.members.map((member, index) => ({
+                    ...member,
+                    avatar: avatar.members[index] ?? member.avatar,
+                  }))
+                : thread.members,
+          };
+        }
+        // A bot renamed or restyled here keeps the same identity in the groups
+        // it belongs to — the roster is a view of the bots, not a copy.
+        if (avatar.kind === 'group' || !thread.members) return thread;
+        let changed = false;
+        const members = thread.members.map((member) => {
+          if (member.id !== id) return member;
+          changed = true;
+          return {
+            ...member,
+            name: input.name,
+            avatar,
+          };
+        });
+        if (!changed) return thread;
+        return {
+          ...thread,
+          members,
+          avatar:
+            thread.avatar.kind === 'group'
+              ? { kind: 'group', members: members.map((m) => m.avatar) }
+              : thread.avatar,
+        };
+      }),
     );
     setEditingId(null);
   }
