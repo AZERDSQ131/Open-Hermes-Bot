@@ -2345,23 +2345,29 @@ button:focus-visible {
   margin-right: 6px;
 }
 
-/* Just the model's name in the row: no pill, no fill — the text is the control.
-   It shares the row with the input, so it is capped and ellipsised rather than
-   pushing the send button out of the composer. */
+/* Just the model's name in the row: same size and colour as the composer's
+   placeholder, no pill and no fill. Hovering draws an outline the way a button
+   would, without moving anything — the outline is painted, not laid out. */
 .composer-main .model-chip {
-  max-width: 190px;
+  max-width: 220px;
   padding: 0;
   border: 0;
-  border-radius: 0;
+  border-radius: 8px;
   background: none;
-  color: #8d8a82;
+  color: #83838a;
+  font-size: 15.5px;
+  font-weight: 400;
+  letter-spacing: -0.006em;
+  line-height: 22px;
 }
 
 .composer-main .model-chip:hover,
 .composer-main .model-chip.is-open {
   border: 0;
   background: none;
-  color: #e4e1d7;
+  color: #83838a;
+  outline: 1px solid rgba(242, 239, 229, 0.16);
+  outline-offset: 4px;
 }
 
 /* Anchored right, the 310px menu opens inside the window instead of running
@@ -2407,12 +2413,6 @@ button:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.model-chip-caret {
-  flex: 0 0 auto;
-  font-size: 9px;
-  opacity: 0.6;
 }
 
 .model-menu {
