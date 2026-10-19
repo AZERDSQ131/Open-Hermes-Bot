@@ -235,6 +235,9 @@ function formatFileSize(bytes: number) {
 export default function App() {
   const [threads, setThreads] = useState<Thread[]>(() => [chiefOfStaffThread()]);
   const [activeId, setActiveId] = useState('');
+  // A reply lands after the person may have moved on: unread is decided against
+  // the thread that is open now, not the one that was open at send time.
+  const activeIdRef = useRef(activeId);
   const [botsLoaded, setBotsLoaded] = useState(false);
   const [botsError, setBotsError] = useState('');
   const [query, setQuery] = useState('');
@@ -323,6 +326,10 @@ export default function App() {
       setActiveId(threads[0].id);
     }
   }, [threads, activeId]);
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
   const activeThread =
     threads.find((thread) => thread.id === activeId) ?? threads[0];
@@ -834,6 +841,7 @@ export default function App() {
                 thinking: false,
                 streaming: undefined,
                 tool: undefined,
+                unread: threadId !== activeIdRef.current,
                 messages: [
                   ...item.messages,
                   { id: uid(), role: 'event', text: message },
@@ -977,6 +985,7 @@ export default function App() {
               tool: undefined,
               preview: reply.replace(/\s+/g, ' ').slice(0, 90),
               chatTime: 'Now',
+              unread: threadId !== activeIdRef.current,
               messages: [
                 ...item.messages,
                 { id: uid(), role: 'assistant', text: reply },
