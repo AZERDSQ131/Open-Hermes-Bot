@@ -10,7 +10,9 @@ import { extractReaction } from './reactions';
 export const SILENT_MARKER = '[[silent]]';
 
 const SILENT = /\[\[\s*silent\s*\]\]/gi;
-const PARTIAL_SILENT = /\[\[\s*silen[^\]]*$/i;
+// A marker split across streaming chunks must not flash its syntax on screen,
+// including the very first `[[s`.
+const PARTIAL_SILENT = /\[\[\s*s(?:i(?:l(?:e(?:n(?:t)?)?)?)?)?[^\]]*$/i;
 
 // A group can talk itself into a loop ("@B" → "@A" → "@B"…). The round stops
 // at this many spoken lines, and no member speaks more than twice per round.
