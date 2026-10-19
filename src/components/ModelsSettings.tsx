@@ -94,7 +94,7 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
 
   const bots = useMemo<Bot[]>(
     () => [
-      { key: 'default', label: 'Primary profile', profile: undefined },
+      { key: 'default', label: 'Chief of Staff', profile: undefined },
       ...(profiles ?? []).map((bot) => ({
         key: bot.name,
         label: bot.title || bot.name,
@@ -216,7 +216,7 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
                 />
                 <span className="models-bot-name">{bot.label}</span>
                 {bot.profile ? null : (
-                  <span className="models-tag">primary</span>
+                  <span className="models-tag">default</span>
                 )}
                 <select
                   className="models-select"

@@ -26,6 +26,11 @@ export type Thread = {
   name: string;
   /** Hermes profile backing this bot, when it is one. */
   profile?: string;
+  /**
+   * The default bot (Chief of Staff), backed by the primary Hermes profile:
+   * always present, always first, and never deletable.
+   */
+  system?: boolean;
   /** Hermes session this conversation lives in, once it has been opened. */
   sessionId?: string;
   /** Model picked for this conversation; absent means the bot's own. */

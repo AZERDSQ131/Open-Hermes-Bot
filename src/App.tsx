@@ -30,7 +30,7 @@ import {
 } from './components/Icons';
 import type { HermesProfile, HermesStatus } from './hermes';
 import { defaultModelPick } from './modelPrefs';
-import { avatarColor } from './profileColor';
+import { avatarColor, PRIMARY_AVATAR_COLOR } from './profileColor';
 import { SettingsView } from './components/SettingsView';
 import { LogoEditor } from './components/LogoEditor';
 import { ThreadContextMenu } from './components/ThreadContextMenu';
@@ -101,6 +101,28 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+// The primary Hermes profile lives at ~/.hermes itself, not under profiles/, so
+// the gateway never lists it. It is still the default bot: a permanent thread
+// that talks to the root API paths and cannot be deleted.
+const CHIEF_ID = 'system:chief-of-staff';
+
+function chiefOfStaffThread(): Thread {
+  return {
+    id: CHIEF_ID,
+    name: 'Chief of Staff',
+    avatar: {
+      color: PRIMARY_AVATAR_COLOR,
+      shape: 'cercle',
+      variant: 'neutral',
+    },
+    preview: 'Default bot',
+    time: '',
+    chatTime: '',
+    messages: [],
+    system: true,
+  };
+}
+
 // A bot in Hermes becomes a thread here: the profile name is the identity, the
 // title and colour are the ones Hermes already shows for it.
 function threadForBot(profile: HermesProfile): Thread {
@@ -144,8 +166,14 @@ function mergeBots(
       !listed.has(thread.profile) &&
       pending.has(thread.profile),
   );
-  const local = current.filter((thread) => !thread.profile);
-  return [...bots, ...waiting, ...local];
+  // The default bot is not a listed profile: it is carried across refreshes by
+  // hand and stays at the head of the list.
+  const chief =
+    current.find((thread) => thread.system) ?? chiefOfStaffThread();
+  const local = current.filter(
+    (thread) => !thread.profile && !thread.system,
+  );
+  return [chief, ...bots, ...waiting, ...local];
 }
 
 /** A bridge call that never comes back must not leave a dialog spinning. */
@@ -181,7 +209,7 @@ function formatFileSize(bytes: number) {
 
 
 export default function App() {
-  const [threads, setThreads] = useState<Thread[]>([]);
+  const [threads, setThreads] = useState<Thread[]>(() => [chiefOfStaffThread()]);
   const [activeId, setActiveId] = useState('');
   const [botsLoaded, setBotsLoaded] = useState(false);
   const [botsError, setBotsError] = useState('');
@@ -288,7 +316,9 @@ export default function App() {
   const orderedThreads = useMemo(
     () =>
       [...threads].sort(
-        (a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)),
+        (a, b) =>
+          Number(Boolean(b.system)) - Number(Boolean(a.system)) ||
+          Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)),
       ),
     [threads],
   );
@@ -637,7 +667,8 @@ export default function App() {
   }
 
   function deleteThread(id: string) {
-    if (threads.length <= 1) return;
+    const target = threads.find((thread) => thread.id === id);
+    if (target?.system || threads.length <= 1) return;
     const index = orderedThreads.findIndex((thread) => thread.id === id);
     const fallback =
       orderedThreads[index + 1] ?? orderedThreads[index - 1] ?? null;
@@ -668,7 +699,14 @@ export default function App() {
     const id = editingThread.id;
     setThreads((current) =>
       current.map((thread) =>
-        thread.id === id ? { ...thread, ...input } : thread,
+        thread.id === id
+          ? {
+              ...thread,
+              ...input,
+              // The default bot keeps the name it is known by.
+              name: thread.system ? thread.name : input.name,
+            }
+          : thread,
       ),
     );
     setEditingId(null);
@@ -1443,7 +1481,7 @@ export default function App() {
           thread={contextThread}
           x={contextMenu.x}
           y={contextMenu.y}
-          canDelete={threads.length > 1}
+          canDelete={threads.length > 1 && !contextThread.system}
           canPin={contextThread.pinned || pinnedCount < MAX_PINNED}
           pinLimit={MAX_PINNED}
           onPin={() => togglePin(contextThread.id)}
@@ -1457,6 +1495,7 @@ export default function App() {
       {editingThread ? (
         <EditAgentDialog
           thread={editingThread}
+          nameLocked={Boolean(editingThread.system)}
           onClose={() => setEditingId(null)}
           onSave={saveEditedAgent}
         />

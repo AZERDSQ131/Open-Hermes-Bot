@@ -154,7 +154,13 @@ export function ThreadContextMenu({
         role="menuitem"
         className="context-menu-item is-danger"
         disabled={!canDelete}
-        title={canDelete ? undefined : 'Keep at least one agent'}
+        title={
+          canDelete
+            ? undefined
+            : thread.system
+              ? 'The default bot cannot be deleted'
+              : 'Keep at least one agent'
+        }
         onClick={() => run(onDelete)}
       >
         <span className="context-menu-icon">

@@ -6,12 +6,15 @@ import { ColorGrid, ShapeGrid } from './LogoControls';
 
 type EditAgentDialogProps = {
   thread: Thread;
+  /** The default bot's name is part of the app, not a local label. */
+  nameLocked?: boolean;
   onClose: () => void;
   onSave: (input: { name: string; avatar: AvatarSpec }) => void;
 };
 
 export function EditAgentDialog({
   thread,
+  nameLocked,
   onClose,
   onSave,
 }: EditAgentDialogProps) {
@@ -27,9 +30,10 @@ export function EditAgentDialog({
     : avatar;
 
   useEffect(() => {
+    if (nameLocked) return;
     nameRef.current?.focus();
     nameRef.current?.select();
-  }, []);
+  }, [nameLocked]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -78,7 +82,11 @@ export function EditAgentDialog({
               <h2 id="edit-agent-title">
                 {isGroup ? 'Edit group' : 'Edit bot'}
               </h2>
-              <p>Update its name and logo.</p>
+              <p>
+                {nameLocked
+                  ? 'Its name is fixed — update its logo.'
+                  : 'Update its name and logo.'}
+              </p>
             </div>
             <button
               type="button"
@@ -110,6 +118,7 @@ export function EditAgentDialog({
               value={name}
               maxLength={40}
               spellCheck={false}
+              disabled={nameLocked}
               onChange={(event) => setName(event.target.value)}
             />
           </label>
