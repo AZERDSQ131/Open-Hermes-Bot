@@ -821,6 +821,22 @@ button:focus-visible {
   letter-spacing: -0.005em;
 }
 
+/* Sidebar empty of real bots: the chat pane explains and offers the one
+   action that fixes it. */
+
+.no-bots {
+  padding: 0 24px;
+}
+
+.no-bots p {
+  max-width: 34ch;
+  line-height: 1.5;
+}
+
+.no-bots-action {
+  margin-top: 20px;
+}
+
 /* -------------------------------------------------------------- composer */
 
 .composer-dock {
