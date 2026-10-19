@@ -9,8 +9,8 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
     height: 860,
-    minWidth: 960,
-    minHeight: 640,
+    minWidth: 420,
+    minHeight: 520,
     show: false,
     backgroundColor: '#1b1b1d',
     title: 'Sidekick',
