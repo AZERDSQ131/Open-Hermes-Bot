@@ -8,7 +8,7 @@ const {
 } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 
 app.setName('Sidekick');
 
@@ -25,6 +25,10 @@ let tunnelError = '';
 
 function settingsPath() {
   return path.join(app.getPath('userData'), 'hermes-connection.json');
+}
+
+function tunnelPidPath() {
+  return path.join(app.getPath('userData'), 'hermes-tunnel.pid');
 }
 
 function readStore() {
@@ -102,6 +106,42 @@ function stopTunnel() {
   }
   tunnel = null;
   tunnelError = '';
+  try {
+    fs.rmSync(tunnelPidPath(), { force: true });
+  } catch {
+    // The PID file is best-effort cleanup.
+  }
+}
+
+// A hard kill (SIGKILL, crashed process) skips stopTunnel and would leave the
+// ssh child holding the local port. Reap it from the PID file on next start.
+function reapOrphanTunnel() {
+  const file = tunnelPidPath();
+  let pid = 0;
+  try {
+    pid = Number.parseInt(fs.readFileSync(file, 'utf8').trim(), 10);
+  } catch {
+    return;
+  }
+  if (Number.isInteger(pid) && pid > 0) {
+    try {
+      const probe = spawnSync('ps', ['-p', String(pid), '-o', 'command='], {
+        encoding: 'utf8',
+      });
+      const command = (probe.stdout || '').trim();
+      const isOurTunnel =
+        command.includes('ssh') &&
+        command.includes(`-L 127.0.0.1:${LOCAL_PORT}:`);
+      if (isOurTunnel) process.kill(pid, 'SIGTERM');
+    } catch {
+      // Already gone: nothing to reap.
+    }
+  }
+  try {
+    fs.rmSync(file, { force: true });
+  } catch {
+    // Ignore cleanup failures.
+  }
 }
 
 function startTunnel(connection) {
@@ -134,6 +174,11 @@ function startTunnel(connection) {
     if (tunnel === state) tunnel = null;
   });
   tunnel = state;
+  try {
+    fs.writeFileSync(tunnelPidPath(), String(child.pid), { mode: 0o600 });
+  } catch {
+    // The PID file is only used to reap orphans.
+  }
   return state;
 }
 
@@ -268,6 +313,7 @@ ipcMain.handle('hermes:connect', async () => {
   }
 
   connectionStatus = { state: 'connecting' };
+  reapOrphanTunnel();
   startTunnel(connection);
   const probe = await waitForTunnel(apiKey);
 
@@ -344,7 +390,21 @@ function buildMenu() {
   );
 }
 
+function shutdown() {
+  stopTunnel();
+}
+
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(signal, () => {
+    shutdown();
+    app.quit();
+  });
+}
+
+app.on('will-quit', shutdown);
+
 app.whenReady().then(() => {
+  reapOrphanTunnel();
   buildMenu();
   if (process.platform === 'darwin' && app.dock) {
     app.dock.setIcon(path.join(__dirname, '..', 'build', 'icon.png'));
