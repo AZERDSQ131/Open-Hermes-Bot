@@ -529,14 +529,8 @@ export default function App() {
                       <AgentAvatar
                         avatar={thread.avatar}
                         size={68}
-                        showBadge={false}
+                        unread={thread.unread}
                       />
-                      {thread.unread ? (
-                        <span
-                          className="pinned-unread"
-                          aria-label="Unread"
-                        />
-                      ) : null}
                     </span>
                     <span className="pinned-name">{thread.name}</span>
                   </button>
@@ -567,17 +561,11 @@ export default function App() {
                   avatar={thread.avatar}
                   size={40}
                   className="thread-avatar"
+                  unread={thread.unread}
                 />
                 <span className="thread-copy">
                   <span className="thread-heading">
                     <span className="thread-name">{thread.name}</span>
-                    {thread.unread ? (
-                      <span
-                        className="thread-unread"
-                        aria-label="Unread"
-                        title="Unread"
-                      />
-                    ) : null}
                     <span className="thread-time">{thread.time}</span>
                   </span>
                   <span className={`thread-preview ${thread.thinking ? 'is-typing' : ''}`}>
