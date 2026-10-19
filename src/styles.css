@@ -2887,6 +2887,10 @@ button:focus-visible {
     padding: 0 16px 16px;
   }
 
+  .group-roster {
+    padding: 8px 16px 0;
+  }
+
   .composer-dock {
     padding: 8px 16px 16px;
   }
