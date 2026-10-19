@@ -17,6 +17,7 @@ import {
   type CreateCandidate,
 } from './components/CreateAgentDialog';
 import { EditAgentDialog } from './components/EditAgentDialog';
+import { ModelPicker } from './components/ModelPicker';
 import {
   ArrowUpIcon,
   FileIcon,
@@ -39,9 +40,6 @@ import {
   type Message,
   type Thread,
 } from './data';
-
-const REPLY_TEXT =
-  "On it. I'll take the first pass tonight and leave everything in your review queue by morning.";
 
 const MAX_PINNED = 3;
 
@@ -104,6 +102,12 @@ export default function App() {
     state: 'disconnected',
   });
 
+  // Which thread the turn in flight belongs to: streamed text must land in the
+  // conversation it was asked from, even if the person switches away.
+  const requestThread = useRef<{ requestId: string; threadId: string } | null>(
+    null,
+  );
+
   const searchRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -111,7 +115,6 @@ export default function App() {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const logoRef = useRef<HTMLDivElement>(null);
   const renameCancelled = useRef(false);
-  const timers = useRef<number[]>([]);
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
   const activeThread =
@@ -165,8 +168,33 @@ export default function App() {
   }, [threads]);
 
   useEffect(() => {
+    const bridge = window.hermes;
+    if (!bridge?.onChatDelta) return;
+
+    const applyToThread = (requestId: string, update: (thread: Thread) => Thread) => {
+      const pending = requestThread.current;
+      if (!pending || pending.requestId !== requestId) return;
+      setThreads((current) =>
+        current.map((thread) =>
+          thread.id === pending.threadId ? update(thread) : thread,
+        ),
+      );
+    };
+
+    const offDelta = bridge.onChatDelta(({ requestId, text }) =>
+      applyToThread(requestId, (thread) => ({
+        ...thread,
+        streaming: `${thread.streaming ?? ''}${text}`,
+        tool: undefined,
+      })),
+    );
+    const offTool = bridge.onChatTool?.(({ requestId, tool }) =>
+      applyToThread(requestId, (thread) => ({ ...thread, tool })),
+    );
+
     return () => {
-      timers.current.forEach((timer) => window.clearTimeout(timer));
+      offDelta?.();
+      offTool?.();
     };
   }, []);
 
@@ -513,11 +541,12 @@ export default function App() {
     autoSize(event.target);
   }
 
-  function sendMessage() {
+  async function sendMessage() {
     const text = draft.trim();
-    if (!text || !activeThread) return;
+    const thread = activeThread;
+    if (!text || !thread || thread.thinking) return;
 
-    const threadId = activeThread.id;
+    const threadId = thread.id;
     const outgoing = attachments.length
       ? `${text}\n\nAttached: ${attachments
           .map((attachment) => attachment.name)
@@ -526,15 +555,17 @@ export default function App() {
     const userMessage: Message = { id: uid(), role: 'user', text: outgoing };
 
     setThreads((current) =>
-      current.map((thread) =>
-        thread.id === threadId
+      current.map((item) =>
+        item.id === threadId
           ? {
-              ...thread,
-              messages: [...thread.messages, userMessage],
+              ...item,
+              messages: [...item.messages, userMessage],
               thinking: true,
+              streaming: '',
+              tool: undefined,
               preview: text,
             }
-          : thread,
+          : item,
       ),
     );
 
@@ -545,25 +576,98 @@ export default function App() {
       composerRef.current.style.height = '40px';
     }
 
-    const timer = window.setTimeout(() => {
+    // Whatever goes wrong, the thread has to come back to rest with a reason
+    // the person can read — never a spinner that stays forever.
+    const fail = (message: string) => {
       setThreads((current) =>
-        current.map((thread) =>
-          thread.id === threadId
+        current.map((item) =>
+          item.id === threadId
             ? {
-                ...thread,
+                ...item,
                 thinking: false,
-                preview: REPLY_TEXT,
+                streaming: undefined,
+                tool: undefined,
                 messages: [
-                  ...thread.messages,
-                  { id: uid(), role: 'assistant', text: REPLY_TEXT },
+                  ...item.messages,
+                  { id: uid(), role: 'event', text: message },
                 ],
               }
-            : thread,
+            : item,
         ),
       );
-    }, 2300);
+    };
 
-    timers.current.push(timer);
+    const bridge = window.hermes;
+    if (!bridge?.sendChat) {
+      fail(
+        'Not connected to Hermes yet — open Settings, connect, then send this again.',
+      );
+      return;
+    }
+
+    let sessionId = thread.sessionId;
+    if (!sessionId) {
+      const created = await bridge.createSession({
+        profile: thread.profile,
+        title: thread.name,
+      });
+      if (!created.ok || !created.sessionId) {
+        fail(created.error ?? 'Could not open a conversation with this bot.');
+        return;
+      }
+      sessionId = created.sessionId;
+      setThreads((current) =>
+        current.map((item) =>
+          item.id === threadId ? { ...item, sessionId } : item,
+        ),
+      );
+    }
+
+    const requestId = uid();
+    requestThread.current = { requestId, threadId };
+
+    const result = await bridge.sendChat({
+      requestId,
+      sessionId,
+      message: outgoing,
+      profile: thread.profile,
+      model: thread.model,
+      provider: thread.modelProvider,
+    });
+
+    if (requestThread.current?.requestId === requestId) {
+      requestThread.current = null;
+    }
+
+    if (!result.ok) {
+      fail(result.error ?? 'The bot could not answer this one.');
+      return;
+    }
+
+    const reply = (result.text ?? '').trim();
+    if (!reply) {
+      fail('The bot finished without saying anything.');
+      return;
+    }
+
+    setThreads((current) =>
+      current.map((item) =>
+        item.id === threadId
+          ? {
+              ...item,
+              thinking: false,
+              streaming: undefined,
+              tool: undefined,
+              preview: reply.replace(/\s+/g, ' ').slice(0, 90),
+              chatTime: 'Now',
+              messages: [
+                ...item.messages,
+                { id: uid(), role: 'assistant', text: reply },
+              ],
+            }
+          : item,
+      ),
+    );
   }
 
   function handleSubmit(event: FormEvent) {
@@ -872,15 +976,28 @@ export default function App() {
                 )}
 
                 {activeThread.thinking ? (
-                  <div className="thinking-row">
-                    <AgentAvatar
-                      avatar={activeThread.avatar}
-                      size={38}
-                      className="thinking-avatar"
-                      showBadge={false}
-                    />
-                    <span className="thinking-label">Thinking</span>
-                  </div>
+                  activeThread.streaming ? (
+                    <div className="message-row assistant">
+                      <div className="bubble bubble-assistant is-streaming">
+                        {activeThread.streaming}
+                        <span className="stream-caret" aria-hidden="true" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="thinking-row">
+                      <AgentAvatar
+                        avatar={activeThread.avatar}
+                        size={38}
+                        className="thinking-avatar"
+                        showBadge={false}
+                      />
+                      <span className="thinking-label">
+                        {activeThread.tool
+                          ? `Using ${activeThread.tool}…`
+                          : 'Thinking'}
+                      </span>
+                    </div>
+                  )
                 ) : (
                   <div className="chat-tail" />
                 )}
@@ -996,6 +1113,30 @@ export default function App() {
                     <MicIcon size={18} />
                   </button>
                 )}
+              </div>
+
+              <div className="composer-tools">
+                <ModelPicker
+                  profile={activeThread.profile}
+                  value={activeThread.model}
+                  provider={activeThread.modelProvider}
+                  label={activeThread.modelLabel}
+                  disabled={activeThread.thinking}
+                  onChange={(pick) =>
+                    setThreads((current) =>
+                      current.map((thread) =>
+                        thread.id === activeThread.id
+                          ? {
+                              ...thread,
+                              model: pick.model,
+                              modelProvider: pick.provider,
+                              modelLabel: pick.label,
+                            }
+                          : thread,
+                      ),
+                    )
+                  }
+                />
               </div>
             </form>
           </div>
