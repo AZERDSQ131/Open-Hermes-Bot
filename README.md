@@ -1,0 +1,43 @@
+# Sidekick
+
+A macOS Electron clone of the multi-agent chat interface: dark sidebar, Bloub agent
+avatars, cream user bubbles and a floating composer.
+
+## Run it
+
+```bash
+npm install
+npm run dev
+```
+
+`npm run dev` starts Vite and opens the Electron window with native macOS traffic
+lights and a hidden inset title bar.
+
+```bash
+npm run build   # typecheck + production renderer build
+npm start       # build, then launch the production app
+```
+
+## Structure
+
+```
+electron/main.js        Electron shell, window chrome, dock icon
+src/App.tsx             Sidebar, chat, composer and interactions
+src/components/         Bloub avatars, create dialog, logo editor, icons
+src/data.ts             Demo agents and transcripts
+src/styles.css          Design system and layout
+build/                  App icon (.icns + .png) and icon source
+```
+
+The interface is self-contained. The `+` button creates either a bot (with its own
+Bloub shape and color) or a group of existing bots. In the header, click the name to
+rename the agent, or the logo to change its shape and color — for a group, each member
+is styled from its own tab. Searching, switching agents, attaching files and sending
+messages also work locally. The agent reply is mocked, so no backend or API key is
+needed.
+
+## Credits
+
+The avatar geometry comes from [Bloub](https://github.com/jeremy-prt/bloub) by
+Jérémy Perret (MIT). The generated frames are in
+`src/components/bloubFrames.ts`; see `THIRD_PARTY_NOTICES.md`.
