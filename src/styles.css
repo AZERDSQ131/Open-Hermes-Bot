@@ -784,6 +784,19 @@ button:focus-visible {
   left: auto;
 }
 
+.mention {
+  padding: 0 3px;
+  border-radius: 5px;
+  background: rgba(132, 137, 255, 0.18);
+  color: #c3c7ff;
+  font-weight: 600;
+}
+
+.bubble-user .mention {
+  background: rgba(72, 68, 190, 0.12);
+  color: #4742bd;
+}
+
 .message-row.assistant .bubble-wrap {
   max-width: 84%;
 }

@@ -17,6 +17,7 @@ import {
   type CreateCandidate,
 } from './components/CreateAgentDialog';
 import { EditAgentDialog } from './components/EditAgentDialog';
+import { MentionText } from './components/MentionText';
 import { ModelPicker } from './components/ModelPicker';
 import {
   ArrowUpIcon,
@@ -1733,7 +1734,10 @@ export default function App() {
                           </span>
                         ) : null}
                         <div className={`bubble bubble-${message.role}`}>
-                          {message.text}
+                          <MentionText
+                            text={message.text}
+                            members={activeThread.members}
+                          />
                         </div>
                         {message.reaction ? (
                           <span
@@ -1790,7 +1794,10 @@ export default function App() {
                           </span>
                         ) : null}
                         <div className="bubble bubble-assistant is-streaming">
-                          {streamingText}
+                          <MentionText
+                            text={streamingText}
+                            members={activeThread.members}
+                          />
                         </div>
                       </div>
                     </div>
