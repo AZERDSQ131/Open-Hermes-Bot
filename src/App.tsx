@@ -801,7 +801,40 @@ export default function App() {
     const fallback =
       orderedThreads[index + 1] ?? orderedThreads[index - 1] ?? null;
 
-    setThreads((current) => current.filter((thread) => thread.id !== id));
+    setThreads((current) =>
+      current
+        .filter((thread) => thread.id !== id)
+        .map((thread) => {
+          if (!target || !thread.members?.length) return thread;
+          const members = thread.members.filter(
+            (member) =>
+              member.id !== target.id &&
+              (!target.profile || member.profile !== target.profile),
+          );
+          if (members.length === thread.members.length) return thread;
+          // A bot that leaves the sidebar leaves its groups too, with a note
+          // where it used to speak rather than a member that cannot answer.
+          return {
+            ...thread,
+            members,
+            avatar:
+              thread.avatar.kind === 'group'
+                ? {
+                    kind: 'group',
+                    members: members.map((member) => member.avatar),
+                  }
+                : thread.avatar,
+            messages: [
+              ...thread.messages,
+              {
+                id: uid(),
+                role: 'event',
+                text: `${target.name} left the group.`,
+              },
+            ],
+          };
+        }),
+    );
 
     if (activeId === id) {
       if (fallback) setActiveId(fallback.id);
@@ -945,7 +978,29 @@ export default function App() {
     const threadId = thread.id;
     const members = thread.members ?? [];
     const bridge = window.hermes;
-    if (members.length === 0) return;
+    if (members.length === 0) {
+      setThreads((current) =>
+        current.map((item) =>
+          item.id === threadId
+            ? {
+                ...item,
+                messages: [
+                  ...item.messages,
+                  { id: uid(), role: 'user', text: outgoing },
+                  {
+                    id: uid(),
+                    role: 'event',
+                    text: 'This group has no bots left — create one and add it to a new group.',
+                  },
+                ],
+              }
+            : item,
+        ),
+      );
+      setDraft('');
+      clearAttachments();
+      return;
+    }
 
     const roundId = uid();
     groupRound.current.set(threadId, roundId);
@@ -1212,7 +1267,7 @@ export default function App() {
 
     // A group speaks with many voices: it gets its own relay, not the single
     // bot turn below.
-    if (thread.members?.length) {
+    if (thread.avatar.kind === 'group') {
       const outgoing = attachments.length
         ? `${text}\n\nAttached: ${attachments
             .map((attachment) => attachment.name)
@@ -2052,7 +2107,7 @@ export default function App() {
                   onKeyDown={handleComposerKeyDown}
                   aria-label={`Message ${activeThread.name}`}
                 />
-                {activeThread.members?.length ? (
+                {activeThread.avatar.kind === 'group' ? (
                   <span
                     className="group-model-note"
                     title="Each member answers on its own default model"
