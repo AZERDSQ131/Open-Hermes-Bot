@@ -797,7 +797,13 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
   if (!message.trim()) return { ok: false, error: 'Empty message' };
 
   const body = { message };
-  if (payload?.model) body.model = String(payload.model);
+  if (payload?.model) {
+    body.model = String(payload.model);
+    // The session row remembers the model of its last turn, and Hermes prefers
+    // it over a plain `model` in the body. A lock makes the model the picker
+    // shows the one that actually runs, including when it changes mid-thread.
+    body.require_model_lock = true;
+  }
   if (payload?.provider) body.provider = String(payload.provider);
 
   const controller = new AbortController();

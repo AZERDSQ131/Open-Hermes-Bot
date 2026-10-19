@@ -75,6 +75,30 @@ function rememberPreferredModel(profile: string | undefined, pick: PreferredMode
   }
 }
 
+// The model a profile is configured with, looked up once per app run. The send
+// path needs it when no default or pick exists, so the turn cannot keep running
+// the model a previous turn left on the session while the chip shows another.
+const configuredModelCache = new Map<string, PreferredModel>();
+
+async function configuredModelFor(
+  profile?: string,
+): Promise<PreferredModel | null> {
+  const key = profile || 'default';
+  const cached = configuredModelCache.get(key);
+  if (cached) return cached;
+  const bridge = window.hermes;
+  if (!bridge?.models) return null;
+  const inventory = await withTimeout(bridge.models({ profile }), 6000);
+  if (!inventory?.ok || !inventory.current) return null;
+  const resolved: PreferredModel = {
+    model: inventory.current,
+    provider: inventory.currentProvider ?? '',
+    label: inventory.current,
+  };
+  configuredModelCache.set(key, resolved);
+  return resolved;
+}
+
 // A configured model can be out of quota while a free one on the same provider
 // still answers. That is not a conversation-ending failure, so the first turn
 // rescues itself; the picker then shows the model that actually replied.
@@ -854,11 +878,16 @@ export default function App() {
       requestThread.current = { requestId, threadId };
 
       // Order of intent: this conversation's pick, the default Settings gives
-      // this bot, then the model it last remembered.
-      const fallback = thread.model
+      // this bot, the model it last remembered, then the model the profile is
+      // configured with. The last step keeps the chip and the turn on the same
+      // model once a default has been cleared.
+      let fallback = thread.model
         ? null
         : (defaultModelPick(thread.profile) ??
             readPreferredModel(thread.profile));
+      if (!thread.model && !fallback) {
+        fallback = await configuredModelFor(thread.profile);
+      }
       const ask = (pick: PreferredModel | null) =>
         bridge.sendChat({
           requestId,
