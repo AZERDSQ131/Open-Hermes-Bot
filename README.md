@@ -40,8 +40,9 @@ The model chip in the composer lists the models the bot's providers offer and se
 the picked one with each turn; “Bot default” leaves the choice to Hermes. A pick is
 remembered per bot, so the next conversation starts on the model that last answered
 rather than on one that just ran out of quota. When the configured model does run
-out, the first turn retries on a free model from the same provider and says so in
-the thread instead of dying on a dead end. A turn that stops producing events — a
+out — or a model picked by hand does — the turn retries on a free model from the
+same provider and says so in the thread instead of dying on a dead end. The pick
+is only made the bot's default when the turn was running on “Bot default”. A turn that stops producing events — a
 refused key, an exhausted quota — ends with a readable line in the conversation
 instead of a spinner that never stops.
 
