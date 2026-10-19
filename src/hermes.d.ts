@@ -27,10 +27,18 @@ export type HermesBridge = {
     apiKey?: string;
     clearKey?: boolean;
   }) => Promise<{ ok: boolean; error?: string; settings?: HermesSettings }>;
-  importKey: () => Promise<{ ok: boolean; error?: string; keyLength?: number }>;
+  importKey: (payload: {
+    sshHost: string;
+  }) => Promise<{ ok: boolean; error?: string; keyLength?: number }>;
+  test: (payload: {
+    sshHost: string;
+    apiPort: number;
+    apiKey?: string;
+  }) => Promise<HermesStatus>;
   connect: () => Promise<HermesStatus>;
   disconnect: () => Promise<HermesStatus>;
   status: () => Promise<HermesStatus>;
+  localPort: () => Promise<number>;
 };
 
 declare global {

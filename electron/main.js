@@ -14,8 +14,10 @@ app.setName('Sidekick');
 
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 
-// Local loopback port forwarded to the remote Hermes API server.
-const LOCAL_PORT = 18742;
+// Local loopback ports forwarded to the remote Hermes API server. The live
+// tunnel feeds the app; the test tunnel is ephemeral and never persisted.
+const LIVE_LOCAL_PORT = 18742;
+const TEST_LOCAL_PORT = 18743;
 const TUNNEL_TIMEOUT_MS = 15000;
 const DEFAULT_CONNECTION = { sshHost: 'jetson', apiPort: 8642 };
 
@@ -99,11 +101,18 @@ function sanitizePort(value) {
   return Number.isInteger(port) && port > 0 && port < 65536 ? port : null;
 }
 
-function stopTunnel() {
-  if (tunnel?.child) {
-    tunnel.child.removeAllListeners('exit');
-    tunnel.child.kill('SIGTERM');
+function killTunnel(state) {
+  if (!state?.child) return;
+  try {
+    state.child.removeAllListeners('exit');
+    state.child.kill('SIGTERM');
+  } catch {
+    // The process is already gone.
   }
+}
+
+function stopTunnel() {
+  killTunnel(tunnel);
   tunnel = null;
   tunnelError = '';
   try {
@@ -131,7 +140,7 @@ function reapOrphanTunnel() {
       const command = (probe.stdout || '').trim();
       const isOurTunnel =
         command.includes('ssh') &&
-        command.includes(`-L 127.0.0.1:${LOCAL_PORT}:`);
+        command.includes(`-L 127.0.0.1:${LIVE_LOCAL_PORT}:`);
       if (isOurTunnel) process.kill(pid, 'SIGTERM');
     } catch {
       // Already gone: nothing to reap.
@@ -144,8 +153,7 @@ function reapOrphanTunnel() {
   }
 }
 
-function startTunnel(connection) {
-  stopTunnel();
+function spawnTunnel(connection, localPort) {
   const args = [
     '-o',
     'BatchMode=yes',
@@ -157,10 +165,10 @@ function startTunnel(connection) {
     'ServerAliveInterval=30',
     '-N',
     '-L',
-    `127.0.0.1:${LOCAL_PORT}:127.0.0.1:${connection.apiPort}`,
+    `127.0.0.1:${localPort}:127.0.0.1:${connection.apiPort}`,
     connection.sshHost,
   ];
-  const state = { child: null, stderr: '' };
+  const state = { child: null, stderr: '', localPort, dead: false, error: '' };
   const child = spawn('ssh', args, { stdio: ['ignore', 'ignore', 'pipe'] });
   state.child = child;
   child.stderr.on('data', (chunk) => {
@@ -168,26 +176,35 @@ function startTunnel(connection) {
     tunnelError = state.stderr.trim();
   });
   child.on('error', (error) => {
+    state.dead = true;
+    state.error = error.message;
     tunnelError = error.message;
   });
   child.on('exit', () => {
+    state.dead = true;
     if (tunnel === state) tunnel = null;
   });
+  return state;
+}
+
+function startLiveTunnel(connection) {
+  stopTunnel();
+  const state = spawnTunnel(connection, LIVE_LOCAL_PORT);
   tunnel = state;
   try {
-    fs.writeFileSync(tunnelPidPath(), String(child.pid), { mode: 0o600 });
+    fs.writeFileSync(tunnelPidPath(), String(state.child.pid), { mode: 0o600 });
   } catch {
     // The PID file is only used to reap orphans.
   }
   return state;
 }
 
-async function probeHealth(apiKey) {
+async function probeHealth(apiKey, localPort) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 4000);
   try {
     const response = await fetch(
-      `http://127.0.0.1:${LOCAL_PORT}/health/detailed`,
+      `http://127.0.0.1:${localPort}/health/detailed`,
       {
         headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
         signal: controller.signal,
@@ -205,18 +222,49 @@ async function probeHealth(apiKey) {
   }
 }
 
-async function waitForTunnel(apiKey) {
+async function waitForTunnel(state, apiKey) {
   const started = Date.now();
   let last = null;
   while (Date.now() - started < TUNNEL_TIMEOUT_MS) {
-    if (!tunnel) {
-      return { ok: false, status: 0, error: tunnelError || 'SSH tunnel closed' };
+    if (!state || state.dead) {
+      return {
+        ok: false,
+        status: 0,
+        error:
+          state?.error ||
+          state?.stderr.trim() ||
+          tunnelError ||
+          'SSH tunnel closed',
+      };
     }
-    last = await probeHealth(apiKey);
+    last = await probeHealth(apiKey, state.localPort);
     if (last.ok || last.status === 401) return last;
     await new Promise((resolve) => setTimeout(resolve, 400));
   }
   return last ?? { ok: false, status: 0, error: 'Tunnel timeout' };
+}
+
+function statusFromProbe(probe, sshHost) {
+  if (probe.ok) {
+    const body = probe.body ?? {};
+    return {
+      state: 'connected',
+      version: body.version,
+      platform: body.platform,
+      gateway: body.gateway_state,
+      sshHost,
+    };
+  }
+  if (probe.status === 401) {
+    return {
+      state: 'error',
+      message: 'API key rejected by the Hermes API server',
+    };
+  }
+  return {
+    state: 'error',
+    message: probe.error || tunnelError || `HTTP ${probe.status || '?'}`,
+  };
 }
 
 function runSsh(host, command, timeoutMs = 20000) {
@@ -282,10 +330,10 @@ ipcMain.handle('hermes:settings:save', (_event, payload) => {
   return { ok: true, settings: publicSettings() };
 });
 
-ipcMain.handle('hermes:key:import', async () => {
-  const connection = storedConnection();
+ipcMain.handle('hermes:key:import', async (_event, payload) => {
+  const host = sanitizeHost(payload?.sshHost) || storedConnection().sshHost;
   const result = await runSsh(
-    connection.sshHost,
+    host,
     'grep -m1 -E \'^API_SERVER_KEY=\' "$HOME/.hermes/.env" 2>/dev/null | cut -d= -f2-',
   );
   if (!result.ok || !result.stdout.trim()) {
@@ -314,27 +362,31 @@ ipcMain.handle('hermes:connect', async () => {
 
   connectionStatus = { state: 'connecting' };
   reapOrphanTunnel();
-  startTunnel(connection);
-  const probe = await waitForTunnel(apiKey);
-
-  if (!probe.ok) {
-    const message =
-      probe.status === 401
-        ? 'API key rejected by the Hermes API server'
-        : probe.error || tunnelError || `HTTP ${probe.status || '?'}`;
-    connectionStatus = { state: 'error', message };
-    return connectionStatus;
-  }
-
-  const body = probe.body ?? {};
-  connectionStatus = {
-    state: 'connected',
-    version: body.version,
-    platform: body.platform,
-    gateway: body.gateway_state,
-    sshHost: connection.sshHost,
-  };
+  const state = startLiveTunnel(connection);
+  const probe = await waitForTunnel(state, apiKey);
+  connectionStatus = statusFromProbe(probe, connection.sshHost);
   return connectionStatus;
+});
+
+// Probe unsaved values on a throwaway tunnel: nothing is persisted and an
+// already-connected app keeps its own tunnel untouched.
+ipcMain.handle('hermes:test', async (_event, payload) => {
+  const host = sanitizeHost(payload?.sshHost);
+  const port = sanitizePort(payload?.apiPort);
+  if (!host) return { state: 'error', message: 'Invalid SSH host' };
+  if (!port) return { state: 'error', message: 'Invalid API port' };
+  const typedKey = typeof payload?.apiKey === 'string' ? payload.apiKey.trim() : '';
+  const apiKey = typedKey || storedApiKey();
+  if (!apiKey) {
+    return { state: 'error', message: 'Enter the API key or import it first' };
+  }
+  const ephemeral = spawnTunnel({ sshHost: host, apiPort: port }, TEST_LOCAL_PORT);
+  try {
+    const probe = await waitForTunnel(ephemeral, apiKey);
+    return statusFromProbe(probe, host);
+  } finally {
+    killTunnel(ephemeral);
+  }
 });
 
 ipcMain.handle('hermes:disconnect', () => {
@@ -344,6 +396,8 @@ ipcMain.handle('hermes:disconnect', () => {
 });
 
 ipcMain.handle('hermes:status', () => connectionStatus);
+
+ipcMain.handle('hermes:local-port', () => LIVE_LOCAL_PORT);
 
 function createWindow() {
   const win = new BrowserWindow({
