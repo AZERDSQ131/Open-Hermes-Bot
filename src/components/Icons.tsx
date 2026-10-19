@@ -42,6 +42,23 @@ export function PlusIcon({ size = 20, className }: IconProps) {
   );
 }
 
+export function FileIcon({ size = 24, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      strokeWidth="1.7"
+      className={className}
+      {...base}
+    >
+      <path d="M6.5 3.5h7L18.5 8.5v12h-12z" />
+      <path d="M13.5 3.5v5h5" />
+      <path d="M9.5 13.5h6M9.5 17h4" />
+    </svg>
+  );
+}
+
 export function MenuIcon({ size = 19, className }: IconProps) {
   return (
     <svg
