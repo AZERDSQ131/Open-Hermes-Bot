@@ -456,7 +456,6 @@ function liveTunnelOrError() {
 async function apiCall(pathname, { method = 'GET', body, profile, timeoutMs = 30000 } = {}) {
   const live = liveTunnelOrError();
   if (live.error) return { ok: false, status: 0, error: live.error };
-
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -876,9 +875,11 @@ print(json.dumps({"title": now_title, "color": now_color}, separators=(",", ":")
 
 // A bot IS a Hermes profile: a directory under ~/.hermes/profiles carrying the
 // files that make it one. Hermes lists any directory with a config.yaml,
-// profile.yaml, .env or SOUL.md in it, and the multiplexed gateway starts
-// serving it as soon as the directory is there — measured: reachable on the
-// first request after the rename.
+// profile.yaml, .env or SOUL.md in it, but listing is not serving: the gateway
+// answers /p/<name>/ only for the profiles it holds adapters for, so a profile
+// written to disk behind its back answers "Unknown or unconfigured profile"
+// until the next rescan (30 s) — or forever, when the name carries a tombstone
+// from an earlier delete, which makes Hermes treat the directory as dead.
 //
 // `hermes profile create` builds that properly but costs ~9 s of work per bot
 // (config migration, wrapper alias, bookkeeping), and cloning the primary
@@ -901,6 +902,11 @@ DESC="$3"
 COLOR="$4"
 P="$ROOT/profiles/$NAME"
 STAGING="$ROOT/profiles/.$NAME.staging-sidekick"
+
+# Reusing a deleted bot's name is normal, but Hermes keeps a tombstone at
+# profiles/.deleted/<name> and skips every profile carrying one — the bot would
+# exist and never be served. Creating the bot revives the name.
+rm -f "$ROOT/profiles/.deleted/$NAME"
 
 # Already there: nothing to build, and the caller adopts it as it stands.
 if [ -e "$P" ]; then
@@ -939,10 +945,22 @@ ${META_PYTHON}PY
 mv "$STAGING" "$P"
 trap - EXIT
 
-# Deliberately no readiness probe here: the gateway needs ~15 s to notice a
-# new profile and start serving it, and waiting for that is what made the
-# dialog sit there. The bot exists the moment the rename lands; Hermes picks it
-# up on its next scan, exactly as it does for bots made in its own app.
+# Ask the gateway to hot-serve the new profile so the first message does not
+# 404 while the 30 s rescan waits; bounded to 3 s and silent on failure, since
+# the bot already exists either way.
+python3 - "$ROOT" "$NAME" <<'PY' >/dev/null 2>&1 || true
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+sys.path.insert(0, str(root / "hermes-agent"))
+try:
+    from gateway.control_socket import request_serve_profile_hot
+    request_serve_profile_hot(root, sys.argv[2], timeout=3.0)
+except Exception:
+    pass
+PY
+
 META=$(python3 - "$P/profile.yaml" <<'PY'
 ${READ_META_PYTHON}PY
 )
