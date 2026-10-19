@@ -30,21 +30,6 @@ export type HermesBotCreateResult = {
   exists?: boolean;
   /** The colour the profile's metadata holds for this bot, if any. */
   color?: string;
-  /** Started as a background job; poll `createBotStatus`. */
-  running?: boolean;
-};
-
-export type HermesBotCreateStatus = {
-  state: 'running' | 'done' | 'error' | 'unreachable';
-  /** What the server is doing right now, in the script's own words. */
-  step?: string;
-  name?: string;
-  reachable?: boolean;
-  httpCode?: string;
-  /** What the profile metadata holds, read back from the server. */
-  color?: string;
-  title?: string;
-  error?: string;
 };
 
 export type HermesBridge = {
@@ -71,9 +56,6 @@ export type HermesBridge = {
     description?: string;
     color?: string;
   }) => Promise<HermesBotCreateResult>;
-  createBotStatus: (payload: {
-    name: string;
-  }) => Promise<HermesBotCreateStatus>;
   connect: () => Promise<HermesStatus>;
   disconnect: () => Promise<HermesStatus>;
   status: () => Promise<HermesStatus>;

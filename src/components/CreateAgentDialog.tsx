@@ -15,13 +15,6 @@ export type CreateCandidate = {
 
 export type CreateBotOutcome = { ok: true } | { ok: false; error: string };
 
-export type CreateBotProgress = {
-  /** Seconds since the server picked the job up. */
-  elapsed: number;
-  /** What the server is doing, in its own words. */
-  step: string;
-};
-
 type CreateAgentDialogProps = {
   candidates: CreateCandidate[];
   onClose: () => void;
@@ -33,7 +26,6 @@ type CreateAgentDialogProps = {
       /** Present only when the colour was picked by hand. */
       customColor?: string;
     },
-    onProgress?: (progress: CreateBotProgress) => void,
   ) => Promise<CreateBotOutcome>;
   onCreateGroup: (input: { name: string; members: BotStyle[] }) => void;
 };
@@ -65,7 +57,6 @@ export function CreateAgentDialog({
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [progress, setProgress] = useState<CreateBotProgress | null>(null);
   // The colour starts out as the one Hermes derives from the name, and follows
   // the name until the user picks one — then it is theirs.
   const [colorTouched, setColorTouched] = useState(false);
@@ -131,26 +122,23 @@ export function CreateAgentDialog({
     }
     setBusy(true);
     setError('');
-    setProgress({ elapsed: 0, step: 'sending it to the server' });
     // However this ends — success, refusal, or a call that throws — the button
     // has to come back. A creation that fails silently is worse than one that
     // fails loudly.
     try {
-      const outcome = await onCreateBot(
-        { name: name.trim(), shape, color, customColor: colorTouched ? color : undefined },
-        setProgress,
-      );
-      if (!outcome.ok) {
-        setError(outcome.error);
-        setProgress(null);
-      }
+      const outcome = await onCreateBot({
+        name: name.trim(),
+        shape,
+        color,
+        customColor: colorTouched ? color : undefined,
+      });
+      if (!outcome.ok) setError(outcome.error);
     } catch (reason) {
       setError(
         reason instanceof Error && reason.message
           ? reason.message
           : 'Could not create the bot.',
       );
-      setProgress(null);
     } finally {
       setBusy(false);
     }
@@ -244,21 +232,6 @@ export function CreateAgentDialog({
 
           {error ? <p className="create-error">{error}</p> : null}
 
-          {busy && progress ? (
-            <div className="create-progress" role="status">
-              <span className="create-progress-dot" aria-hidden="true" />
-              <div>
-                <p className="create-progress-line">
-                  {progress.elapsed}s · {progress.step}…
-                </p>
-                <p className="create-hint">
-                  A bot gets its own profile on the server — usually a few
-                  seconds. Closing this window will not interrupt it.
-                </p>
-              </div>
-            </div>
-          ) : null}
-
           {mode === 'bot' ? (
             <>
               <div className="create-section">
@@ -341,9 +314,7 @@ export function CreateAgentDialog({
             disabled={!canCreate || busy}
           >
             {busy
-              ? progress
-                ? `Creating bot… ${progress.elapsed}s`
-                : 'Creating bot…'
+              ? 'Creating bot…'
               : mode === 'bot'
                 ? 'Create bot'
                 : 'Create group'}

@@ -14,7 +14,6 @@ import {
   CreateAgentDialog,
   toProfileId,
   type CreateBotOutcome,
-  type CreateBotProgress,
   type CreateCandidate,
 } from './components/CreateAgentDialog';
 import { EditAgentDialog } from './components/EditAgentDialog';
@@ -329,22 +328,21 @@ export default function App() {
     window.requestAnimationFrame(() => composerRef.current?.focus());
   }
 
-  async function handleCreateBot(
-    input: {
-      name: string;
-      shape: BloubShape;
-      /** The colour to start from, Hermes' own when nothing was picked. */
-      color: string;
-      /** Only set when the person chose a colour on purpose. */
-      customColor?: string;
-    },
-    onProgress?: (progress: CreateBotProgress) => void,
-  ): Promise<CreateBotOutcome> {
+  async function handleCreateBot(input: {
+    name: string;
+    shape: BloubShape;
+    /** The colour to start from, Hermes' own when nothing was picked. */
+    color: string;
+    /** Only set when the person chose a colour on purpose. */
+    customColor?: string;
+  }): Promise<CreateBotOutcome> {
     const bridge = window.hermes;
     let profile: string | undefined;
     let color = input.color;
 
     if (bridge?.createBot) {
+      // One round trip builds the whole profile (~90 ms on the server), so the
+      // dialog has nothing to poll: it closes as soon as this returns.
       const result = await withTimeout(
         bridge.createBot({
           name: toProfileId(input.name),
@@ -352,7 +350,7 @@ export default function App() {
           color: input.customColor,
           description: `Bot created from Sidekick`,
         }),
-        45000,
+        70000,
       );
       if (!result) {
         return {
@@ -369,61 +367,6 @@ export default function App() {
       // is exactly what Hermes paints for the same bot. Only when nothing is
       // stored does the hue derived from the name stand in.
       color = avatarColor(result.color, profile) || color;
-
-      // The profile is built by a detached job on the server, so this only
-      // waits on short status calls: the dialog can show where it is, and the
-      // work survives the window closing.
-      if (result.running && profile && bridge.createBotStatus) {
-        const startedAt = Date.now();
-        let step = 'preparing the profile';
-        let unreachable = 0;
-        try {
-          for (;;) {
-            // A bot now lands in ~15 s, so a slow poll would be a visible part
-            // of the wait.
-            await new Promise((resolve) => setTimeout(resolve, 1200));
-            const elapsed = Math.round((Date.now() - startedAt) / 1000);
-            const status = await withTimeout(
-              bridge.createBotStatus({ name: profile }),
-              15000,
-            );
-            if (status?.step) step = status.step;
-            if (status?.state === 'unreachable') {
-              // The job lives on the server, so a dropped link is not a
-              // failure: keep waiting while it finishes there.
-              unreachable += 1;
-              onProgress?.({ elapsed, step: 'waiting for the server to answer' });
-            } else {
-              unreachable = 0;
-              onProgress?.({ elapsed, step });
-            }
-            if (status?.state === 'done') {
-              color = avatarColor(status.color, profile) || color;
-              break;
-            }
-            if (status?.state === 'error') {
-              return {
-                ok: false,
-                error: status.error ?? 'Could not create the bot',
-              };
-            }
-            if (elapsed > 300) {
-              return {
-                ok: false,
-                error: unreachable
-                  ? 'Sidekick lost touch with the server — the bot is still being created there, so it will be ready next time you open the app.'
-                  : 'The server is still working on this bot. It will appear once it is done.',
-              };
-            }
-          }
-        } catch {
-          return {
-            ok: false,
-            error:
-              'This creation slipped out of reach. The bot may still finish on the server — check again in a minute.',
-          };
-        }
-      }
     }
 
     addThread({

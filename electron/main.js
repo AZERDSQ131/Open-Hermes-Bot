@@ -475,6 +475,7 @@ import yaml
 path = pathlib.Path(sys.argv[1])
 title = sys.argv[2].strip()
 color = sys.argv[3].strip()
+description = sys.argv[4].strip() if len(sys.argv) > 4 else ""
 
 data = {}
 if path.exists():
@@ -484,6 +485,10 @@ if path.exists():
         data = {}
 if not isinstance(data, dict):
     data = {}
+
+if description:
+    data["description"] = description
+    data["description_auto"] = False
 
 ui = data.get("ui_meta") if isinstance(data.get("ui_meta"), dict) else {}
 bots = ui.get("hermes-bots") if isinstance(ui.get("hermes-bots"), dict) else {}
@@ -522,130 +527,149 @@ if not isinstance(bots, dict):
 print(json.dumps({"title": bots.get("title") or "", "color": bots.get("color") or ""}, separators=(",", ":")))
 `;
 
-// A bot is a Hermes profile, and this script runs DETACHED on the Hermes host,
-// reporting through a log the app polls (see createBotStatus): closing the
-// window no longer loses the job, and the dialog can show which step it is on.
-// Every line is machine-read, so keep the prefixes stable.
-//
-// Speed: `hermes profile create --clone-from default` spends its whole time
-// copying the primary profile's skills — 52 MB in 443 small files, ~45 s on
-// this hardware — plus ~9 s of interpreter start-up. So create the empty
-// profile, then hand it only what makes it work: the model config, the
-// credentials, the soul, and the skills as HARD LINKS (same bytes, no second
-// copy, instant, and not a byte of extra disk). Real copies are the fallback
-// when the two profiles ever live on different filesystems.
-//
-// The multiplexed gateway resolves API_SERVER_KEY per routed profile, so the
-// bot stays unreachable until it owns a key of its own: the primary's key is
-// dropped on the way in and a fresh one is minted.
-const CREATE_BOT_SCRIPT = `set -u
-export PATH="$HOME/.local/bin:$PATH"
+// Opening a bot that already exists: read what Hermes shows for it, and only
+// write the title/colour when they actually change, so the colour someone
+// picked in Hermes is never overwritten by a guess. One process, one round
+// trip — this is the difference between 8 seconds and one.
+const ADOPT_BOT_META_PYTHON = `import json
+import os
+import pathlib
+import sys
 
+import yaml
+
+path = pathlib.Path(sys.argv[1])
+title = sys.argv[2].strip()
+color = sys.argv[3].strip()
+
+data = {}
+if path.exists():
+    try:
+        data = yaml.safe_load(path.read_text()) or {}
+    except Exception:
+        data = {}
+if not isinstance(data, dict):
+    data = {}
+
+ui = data.get("ui_meta") if isinstance(data.get("ui_meta"), dict) else {}
+bots = ui.get("hermes-bots") if isinstance(ui.get("hermes-bots"), dict) else {}
+now_title = str(bots.get("title") or "")
+now_color = str(bots.get("color") or "")
+
+changed = False
+if title and title != now_title:
+    bots["title"] = title
+    now_title = title
+    changed = True
+if color and color != now_color:
+    bots["color"] = color
+    now_color = color
+    changed = True
+
+if changed:
+    ui["hermes-bots"] = bots
+    data["ui_meta"] = ui
+    tmp = path.with_name(path.name + ".sidekick-tmp")
+    tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
+    os.replace(tmp, path)
+
+print(json.dumps({"title": now_title, "color": now_color}, separators=(",", ":")))
+`;
+
+// A bot IS a Hermes profile: a directory under ~/.hermes/profiles carrying the
+// files that make it one. Hermes lists any directory with a config.yaml,
+// profile.yaml, .env or SOUL.md in it, and the multiplexed gateway starts
+// serving it as soon as the directory is there — measured: reachable on the
+// first request after the rename.
+//
+// `hermes profile create` builds that properly but costs ~9 s of work per bot
+// (config migration, wrapper alias, bookkeeping), and cloning the primary
+// profile adds 52 MB of skills copied file by file: that is the minute and a
+// half people were waiting. Laying the profile out directly takes ~90 ms, and
+// the skills arrive as HARD LINKS — same bytes, no second copy, nothing extra
+// on disk. Real copies remain the fallback for another filesystem.
+//
+// The tree is built in a staging sibling and published with one rename, so the
+// profile scanner can never adopt a half-built bot. Messaging tokens and the
+// primary's server key stay behind: a bot account belongs to one profile, and
+// each bot mints a key of its own (the gateway resolves it per profile, never
+// through another profile's env).
+const CREATE_BOT_SCRIPT = `set -u
+
+ROOT="$HOME/.hermes"
 NAME="$1"
 TITLE="$2"
 DESC="$3"
 COLOR="$4"
-ROOT="$HOME/.hermes"
 P="$ROOT/profiles/$NAME"
+STAGING="$ROOT/profiles/.$NAME.staging-sidekick"
 
+# Already there: nothing to build, and the caller adopts it as it stands.
 if [ -e "$P" ]; then
-  echo "ERR a profile named $NAME already exists"
+  echo "EXISTS"
   exit 0
 fi
 
-# An attempt that died half way (a dropped link, a killed job) leaves a staging
-# directory behind, and hermes refuses to start over while it is there. Clear
-# ours before retrying, never anyone else's.
-rm -rf "$ROOT/profiles/.$NAME.staging-"* 2>/dev/null
+rm -rf "$STAGING"
+cleanup() { rm -rf "$STAGING"; }
+trap cleanup EXIT
 
-echo "STEP creating the profile"
-CREATE_OUT=$(hermes profile create "$NAME" --description "$DESC" --no-alias 2>&1 </dev/null)
-if [ ! -d "$P" ]; then
-  rm -rf "$ROOT/profiles/.$NAME.staging-"* 2>/dev/null
-  echo "ERR $(printf '%s' "$CREATE_OUT" | tail -1 | cut -c1-240)"
-  exit 0
-fi
+mkdir -p "$STAGING/memories" "$STAGING/sessions" "$STAGING/skills" \
+  "$STAGING/skins" "$STAGING/logs" "$STAGING/plans" "$STAGING/workspace" \
+  "$STAGING/cron" "$STAGING/home"
 
-echo "STEP giving it the primary bot's settings"
-for F in config.yaml SOUL.md AGENTS.md; do
-  if [ -f "$ROOT/$F" ]; then cp -f "$ROOT/$F" "$P/$F"; fi
+if [ -f "$ROOT/config.yaml" ]; then cp -f "$ROOT/config.yaml" "$STAGING/config.yaml"; fi
+if [ -f "$ROOT/SOUL.md" ]; then cp -f "$ROOT/SOUL.md" "$STAGING/SOUL.md"; fi
+for F in memories/MEMORY.md memories/USER.md; do
+  if [ -f "$ROOT/$F" ]; then cp -f "$ROOT/$F" "$STAGING/$F"; fi
 done
-for D in memories cron; do
-  if [ -d "$ROOT/$D" ] && [ ! -d "$P/$D" ]; then cp -a "$ROOT/$D" "$P/$D"; fi
-done
-# Provider credentials live in the primary .env. Two things stay behind: its
-# server key (the bot mints its own below) and every messaging token, because a
-# bot token belongs to one profile only — a copy makes two gateways fight over
-# the same bot. Same rule Hermes applies to its own clones.
+
 if [ -f "$ROOT/.env" ]; then
-  grep -v -E '^(API_SERVER_KEY|GATEWAY_ALLOW_ALL_USERS|GATEWAY_ALLOWED_USERS|GATEWAY_RELAY_[A-Z_]*|TELEGRAM_[A-Z_]*|DISCORD_[A-Z_]*|SLACK_[A-Z_]*|WHATSAPP_[A-Z_]*|SIGNAL_[A-Z_]*|IMESSAGE_[A-Z_]*|MATRIX_[A-Z_]*|TEAMS_[A-Z_]*|WECOM_[A-Z_]*|QQ_[A-Z_]*|SMS_[A-Z_]*)[A-Z_]*=' "$ROOT/.env" > "$P/.env" || true
-  chmod 600 "$P/.env"
+  grep -v -E '^(API_SERVER_KEY|GATEWAY_ALLOW_ALL_USERS|GATEWAY_ALLOWED_USERS|GATEWAY_RELAY_[A-Z_]*|TELEGRAM_[A-Z_]*|DISCORD_[A-Z_]*|SLACK_[A-Z_]*|WHATSAPP_[A-Z_]*|SIGNAL_[A-Z_]*|IMESSAGE_[A-Z_]*|MATRIX_[A-Z_]*|TEAMS_[A-Z_]*|WECOM_[A-Z_]*|QQ_[A-Z_]*|SMS_[A-Z_]*)[A-Z_]*=' "$ROOT/.env" > "$STAGING/.env" || true
 fi
+printf '\\nAPI_SERVER_KEY=%s\\n' "$(openssl rand -hex 32)" >> "$STAGING/.env"
+chmod 600 "$STAGING/.env"
 
-echo "STEP attaching the skills"
 if [ -d "$ROOT/skills" ]; then
-  rm -rf "$P/skills"
-  cp -al "$ROOT/skills" "$P/skills" 2>/dev/null || cp -a "$ROOT/skills" "$P/skills" 2>/dev/null || true
+  rm -rf "$STAGING/skills"
+  cp -al "$ROOT/skills" "$STAGING/skills" 2>/dev/null || cp -a "$ROOT/skills" "$STAGING/skills" 2>/dev/null || true
 fi
 
-echo "STEP giving the bot its own API key"
-if ! grep -q '^API_SERVER_KEY=' "$P/.env" 2>/dev/null; then
-  printf '\\nAPI_SERVER_KEY=%s\\n' "$(openssl rand -hex 32)" >> "$P/.env"
-  chmod 600 "$P/.env"
-fi
-
-echo "STEP saving its name and colour"
-python3 - "$P/profile.yaml" "$TITLE" "$COLOR" <<'PY'
+python3 - "$STAGING/profile.yaml" "$TITLE" "$COLOR" "$DESC" <<'PY'
 ${META_PYTHON}PY
 
-echo "STEP checking the bot answers"
-KEY=$(grep -m1 '^API_SERVER_KEY=' "$P/.env" | cut -d= -f2-)
-CODE=000
-TRY=0
-while [ "$TRY" -lt 5 ]; do
-  CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $KEY" "http://127.0.0.1:8642/p/$NAME/api/sessions" 2>/dev/null || echo 000)
-  [ "$CODE" = "200" ] && break
-  TRY=$((TRY + 1))
-  sleep 1
-done
+mv "$STAGING" "$P"
+trap - EXIT
+
+# Deliberately no readiness probe here: the gateway needs ~15 s to notice a
+# new profile and start serving it, and waiting for that is what made the
+# dialog sit there. The bot exists the moment the rename lands; Hermes picks it
+# up on its next scan, exactly as it does for bots made in its own app.
 META=$(python3 - "$P/profile.yaml" <<'PY'
 ${READ_META_PYTHON}PY
 )
-echo "OK $NAME $CODE $META"
+echo "OK $NAME $META"
 `;
 
-// Deliberately NOT inside ~/.hermes: that tree belongs to Hermes, and keeping
-// our job logs out of it means nothing else can clean them up underneath us.
-// Kept as a shell expression — it must reach the remote shell unquoted so $HOME
-// expands there rather than becoming a directory literally named "$HOME".
-const CREATE_JOB_DIR = '"$HOME/.sidekick/jobs"';
-
-// What a profile says about itself right now: the title Hermes shows, and the
-// colour it paints for the bot. Both come from the same ui_meta the desktop app
-// reads, so Sidekick can never disagree with it. Empty colour means Hermes
-// derives the hue from the name (and so do we).
-async function readBotMeta(host, name) {
-  const path = `$HOME/.hermes/profiles/${name}/profile.yaml`;
-  const reader = Buffer.from(READ_META_PYTHON, 'utf8').toString('base64');
-  const result = await runSsh(
-    host,
-    [
-      `printf %s ${shellQuote(reader)} | base64 -d > /tmp/sidekick-read-${name}.py`,
-      `python3 /tmp/sidekick-read-${name}.py ${shellQuote(path)}`,
-      `rm -f /tmp/sidekick-read-${name}.py`,
-    ].join('\n'),
-  );
-  if (!result.ok) return { title: '', color: '' };
-  const line = result.stdout.trim().split('\n').pop() || '{}';
-  try {
-    const parsed = JSON.parse(line);
-    return {
-      title: String(parsed.title || ''),
-      color: String(parsed.color || ''),
-    };
-  } catch {
-    return { title: '', color: '' };
+// "OK <name> <metadata json>" from the script above.
+function parseCreateOutcome(line) {
+  const rest = line.slice(3).trim();
+  const split = rest.indexOf(' ');
+  const created = split === -1 ? rest : rest.slice(0, split);
+  const rawMeta = split === -1 ? '' : rest.slice(split + 1).trim();
+  let meta = { title: '', color: '' };
+  if (rawMeta) {
+    try {
+      const parsed = JSON.parse(rawMeta);
+      meta = {
+        title: String(parsed.title || ''),
+        color: String(parsed.color || ''),
+      };
+    } catch {
+      meta = { title: '', color: '' };
+    }
   }
+  return { created, meta };
 }
 
 ipcMain.handle('hermes:bot:create', async (_event, payload) => {
@@ -671,172 +695,86 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
 
   // A bot that is already there is not a failure: the earlier attempt may have
   // finished on the server while the app was closed, so hand it back instead of
-  // dead-ending on "already exists".
-  const existing = await runSsh(
-    connection.sshHost,
-    `test -d "$HOME/.hermes/profiles/${name}" && echo EXISTS || echo MISSING`,
-  );
-  if (!existing.ok) {
+  // dead-ending on "already exists". The build script answers EXISTS for that,
+  // so both cases cost the same single round trip.
+  const encoded = Buffer.from(CREATE_BOT_SCRIPT, 'utf8').toString('base64');
+  const remoteScript = `/tmp/sidekick-create-${name}.sh`;
+  const command = [
+    'set -u',
+    `printf %s ${shellQuote(encoded)} | base64 -d > ${remoteScript}`,
+    `bash ${remoteScript} ${shellQuote(name)} ${shellQuote(title)} ${shellQuote(description)} ${shellQuote(color)}`,
+    `rm -f ${remoteScript}`,
+  ].join('\n');
+
+  const result = await runSsh(connection.sshHost, command, 60000);
+  const line =
+    result.stdout
+      .split('\n')
+      .map((entry) => entry.trim())
+      .find(
+        (entry) =>
+          entry.startsWith('OK ') ||
+          entry.startsWith('EXISTS') ||
+          entry.startsWith('ERR '),
+      ) || '';
+
+  if (line.startsWith('OK ')) {
+    const { created, meta } = parseCreateOutcome(line);
     return {
-      ok: false,
-      error:
-        existing.error ||
-        existing.stderr.trim() ||
-        `Could not reach ${connection.sshHost} over SSH`,
+      ok: true,
+      name: created || name,
+      title: meta.title || title || name,
+      color: meta.color,
     };
   }
-  if (existing.stdout.trim() === 'EXISTS') {
-    const before = await readBotMeta(connection.sshHost, name);
+
+  if (line.startsWith('EXISTS')) {
     // The colour Hermes already shows wins. We only write one when the person
     // picked it here, so opening a bot never repaints it behind their back.
-    if (title || color) {
-      const path = `$HOME/.hermes/profiles/${name}/profile.yaml`;
-      const meta = Buffer.from(META_PYTHON, 'utf8').toString('base64');
-      await runSsh(
-        connection.sshHost,
-        [
-          `printf %s ${shellQuote(meta)} | base64 -d > /tmp/sidekick-meta-${name}.py`,
-          `python3 /tmp/sidekick-meta-${name}.py ${shellQuote(path)} ${shellQuote(title || before.title)} ${shellQuote(color)}`,
-          `rm -f /tmp/sidekick-meta-${name}.py`,
-        ].join('\n'),
-      );
+    const profilePath = `$HOME/.hermes/profiles/${name}/profile.yaml`;
+    const adopter = Buffer.from(ADOPT_BOT_META_PYTHON, 'utf8').toString('base64');
+    const adopted = await runSsh(
+      connection.sshHost,
+      [
+        `printf %s ${shellQuote(adopter)} | base64 -d > /tmp/sidekick-adopt-${name}.py`,
+        `python3 /tmp/sidekick-adopt-${name}.py ${shellQuote(profilePath)} ${shellQuote(title)} ${shellQuote(color)}`,
+        `rm -f /tmp/sidekick-adopt-${name}.py`,
+      ].join('\n'),
+    );
+    let before = { title: '', color: '' };
+    try {
+      const parsed = JSON.parse(adopted.stdout.trim().split('\n').pop() || '{}');
+      before = {
+        title: String(parsed.title || ''),
+        color: String(parsed.color || ''),
+      };
+    } catch {
+      before = { title: '', color: '' };
     }
     return {
       ok: true,
       name,
-      title: title || before.title || name,
-      color: color || before.color,
+      title: before.title || title || name,
+      color: before.color,
       exists: true,
     };
   }
 
-  const encoded = Buffer.from(CREATE_BOT_SCRIPT, 'utf8').toString('base64');
-  const command = [
-    'set -u',
-    `mkdir -p ${CREATE_JOB_DIR}`,
-    `script=${CREATE_JOB_DIR}/create-${name}.sh`,
-    `log=${CREATE_JOB_DIR}/create-${name}.log`,
-    `printf %s ${shellQuote(encoded)} | base64 -d > "$script"`,
-    'rm -f "$log"',
-    `nohup bash "$script" ${shellQuote(name)} ${shellQuote(title)} ${shellQuote(description)} ${shellQuote(color)} > "$log" 2>&1 < /dev/null &`,
-    'echo LAUNCHED',
-  ].join('\n');
-
-  const result = await runSsh(connection.sshHost, command, 30000);
-  if (!result.ok || !result.stdout.includes('LAUNCHED')) {
+  if (line.startsWith('ERR ')) {
+    // One line, always: a python traceback belongs in the log, not in a dialog.
     return {
       ok: false,
-      error:
-        result.error ||
-        result.stderr.trim() ||
-        `Could not start the bot on ${connection.sshHost}`,
+      error: line.slice(4).trim().slice(0, 240) || 'Could not create the bot',
     };
   }
 
-  return { ok: true, name, title: title || name, running: true };
-});
-
-// One cheap SSH round-trip per poll: how far the detached job got.
-ipcMain.handle('hermes:bot:status', async (_event, payload) => {
-  const connection = storedConnection();
-  const name = String(payload?.name ?? '').trim().toLowerCase();
-  if (!PROFILE_NAME_RE.test(name)) {
-    return { state: 'error', error: 'Invalid bot name' };
-  }
-
-  const command = [
-    `L=${CREATE_JOB_DIR}/create-${name}.log`,
-    'if [ -f "$L" ]; then',
-    '  echo "LOG:yes"',
-    '  echo "STEP:$(grep "^STEP " "$L" | tail -1 | cut -c6-)"',
-    '  echo "RESULT:$(grep -m1 -e "^OK " -e "^ERR " "$L" | head -1)"',
-    '  M=$(stat -c %Y "$L" 2>/dev/null || echo 0)',
-    '  echo "AGE:$(( $(date +%s) - M ))"',
-    'else',
-    '  echo "LOG:no"',
-    'fi',
-    `test -d "$HOME/.hermes/profiles/${name}" && echo "DIR:yes" || echo "DIR:no"`,
-  ].join('\n');
-
-  const result = await runSsh(connection.sshHost, command);
-  if (!result.ok) {
-    // A poll that cannot reach the host says nothing about the job: the
-    // Tailscale link drops, the bot keeps being built. Report it as such so the
-    // app waits instead of throwing away a creation that is still fine.
-    return {
-      state: 'unreachable',
-      error: result.error || result.stderr.trim() || 'Lost the server',
-    };
-  }
-
-  const field = (key) => {
-    const line = result.stdout
-      .split('\n')
-      .find((entry) => entry.startsWith(`${key}:`));
-    return line ? line.slice(key.length + 1).trim() : '';
+  return {
+    ok: false,
+    error:
+      result.error ||
+      result.stderr.trim() ||
+      `Could not create the bot on ${connection.sshHost}`,
   };
-
-  const outcome = field('RESULT');
-  if (outcome.startsWith('OK ')) {
-    // "OK <name> <http code> <metadata json>"
-    const rest = outcome.slice(3).trim();
-    const split = rest.indexOf(' ');
-    const created = split === -1 ? rest : rest.slice(0, split);
-    const tail = split === -1 ? '' : rest.slice(split + 1).trim();
-    const codeEnd = tail.indexOf(' ');
-    const httpCode = codeEnd === -1 ? tail : tail.slice(0, codeEnd);
-    const rawMeta = codeEnd === -1 ? '' : tail.slice(codeEnd + 1).trim();
-    let meta = { title: '', color: '' };
-    if (rawMeta) {
-      try {
-        const parsed = JSON.parse(rawMeta);
-        meta = {
-          title: String(parsed.title || ''),
-          color: String(parsed.color || ''),
-        };
-      } catch {
-        meta = { title: '', color: '' };
-      }
-    }
-    return {
-      state: 'done',
-      name: created,
-      reachable: httpCode === '200',
-      httpCode,
-      color: meta.color,
-      title: meta.title,
-      step: field('STEP'),
-    };
-  }
-  if (outcome.startsWith('ERR ')) {
-    // One line, always: a python traceback belongs in the log, not in a dialog.
-    const reason = outcome
-      .slice(4)
-      .split('\n')[0]
-      .trim()
-      .slice(0, 240);
-    return {
-      state: 'error',
-      error: reason || 'Could not create the bot',
-    };
-  }
-  if (field('LOG') !== 'yes') {
-    return {
-      state: 'error',
-      error: `The bot job never started on ${connection.sshHost}`,
-    };
-  }
-
-  // A job that stopped writing for minutes is dead, not slow.
-  const age = Number.parseInt(field('AGE'), 10);
-  if (Number.isFinite(age) && age > 300) {
-    return {
-      state: 'error',
-      error: 'The server stopped working on this bot — try again.',
-    };
-  }
-
-  return { state: 'running', step: field('STEP') };
 });
 
 function createWindow() {
