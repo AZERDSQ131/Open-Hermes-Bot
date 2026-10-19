@@ -194,6 +194,16 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
         <div className="models-bots">
           {bots.map((bot) => {
             const current = defaultModelFor(prefs, bot.profile);
+            // A default can point at a model the gateway no longer lists (the
+            // provider was removed, or the list has not loaded yet): keep it
+            // selectable so the row reads what is actually stored.
+            const orphan =
+              current &&
+              !offeredModels.some(
+                (entry) => modelId(entry) === modelId(current),
+              )
+                ? current
+                : null;
             return (
               <div className="models-bot" key={bot.key}>
                 <span
@@ -209,7 +219,7 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
                   className="models-select"
                   aria-label={`Default model for ${bot.label}`}
                   value={current ? modelId(current) : ''}
-                  disabled={!models || Boolean(profilesError)}
+                  disabled={!models}
                   onChange={(event) => {
                     const picked = offeredModels.find(
                       (entry) => modelId(entry) === event.target.value,
@@ -223,6 +233,9 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
                   }}
                 >
                   <option value="">Bot&apos;s own model</option>
+                  {orphan ? (
+                    <option value={modelId(orphan)}>{orphan.model}</option>
+                  ) : null}
                   {offeredModels.map((entry) => (
                     <option key={modelId(entry)} value={modelId(entry)}>
                       {entry.model}
