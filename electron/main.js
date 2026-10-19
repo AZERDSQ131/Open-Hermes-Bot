@@ -522,16 +522,22 @@ if not isinstance(bots, dict):
 print(json.dumps({"title": bots.get("title") or "", "color": bots.get("color") or ""}, separators=(",", ":")))
 `;
 
-// A clone of the default profile takes a minute or two on a Jetson, which is
-// far too long for one request to sit on. So this script runs DETACHED on the
-// Hermes host and reports through a log the app polls (see createBotStatus):
-// closing the window no longer loses the job, and the dialog can show which
-// step it is on. Every line is machine-read, so keep the prefixes stable.
+// A bot is a Hermes profile, and this script runs DETACHED on the Hermes host,
+// reporting through a log the app polls (see createBotStatus): closing the
+// window no longer loses the job, and the dialog can show which step it is on.
+// Every line is machine-read, so keep the prefixes stable.
 //
-// `hermes profile create` seeds an EMPTY .env and the multiplexed gateway
-// resolves API_SERVER_KEY per routed profile (never through another profile's
-// env), so a fresh bot stays unreachable until it owns a key. The clone brings
-// the model/provider credentials; the key we mint ourselves.
+// Speed: `hermes profile create --clone-from default` spends its whole time
+// copying the primary profile's skills — 52 MB in 443 small files, ~45 s on
+// this hardware — plus ~9 s of interpreter start-up. So create the empty
+// profile, then hand it only what makes it work: the model config, the
+// credentials, the soul, and the skills as HARD LINKS (same bytes, no second
+// copy, instant, and not a byte of extra disk). Real copies are the fallback
+// when the two profiles ever live on different filesystems.
+//
+// The multiplexed gateway resolves API_SERVER_KEY per routed profile, so the
+// bot stays unreachable until it owns a key of its own: the primary's key is
+// dropped on the way in and a fresh one is minted.
 const CREATE_BOT_SCRIPT = `set -u
 export PATH="$HOME/.local/bin:$PATH"
 
@@ -547,21 +553,39 @@ if [ -e "$P" ]; then
   exit 0
 fi
 
-# An attempt that died half way (a full disk, a dropped link) leaves a staging
+# An attempt that died half way (a dropped link, a killed job) leaves a staging
 # directory behind, and hermes refuses to start over while it is there. Clear
 # ours before retrying, never anyone else's.
 rm -rf "$ROOT/profiles/.$NAME.staging-"* 2>/dev/null
 
-echo "STEP cloning the default profile"
-CREATE_OUT=$(hermes profile create "$NAME" --clone-from default --description "$DESC" 2>&1 </dev/null)
+echo "STEP creating the profile"
+CREATE_OUT=$(hermes profile create "$NAME" --description "$DESC" --no-alias 2>&1 </dev/null)
 if [ ! -d "$P" ]; then
   rm -rf "$ROOT/profiles/.$NAME.staging-"* 2>/dev/null
-  if printf '%s' "$CREATE_OUT" | grep -q 'No space left on device'; then
-    echo "ERR The server ran out of disk space while copying the bot files. Nothing was kept — free some room on the server and try again."
-  else
-    echo "ERR $(printf '%s' "$CREATE_OUT" | tail -1 | cut -c1-240)"
-  fi
+  echo "ERR $(printf '%s' "$CREATE_OUT" | tail -1 | cut -c1-240)"
   exit 0
+fi
+
+echo "STEP giving it the primary bot's settings"
+for F in config.yaml SOUL.md AGENTS.md; do
+  if [ -f "$ROOT/$F" ]; then cp -f "$ROOT/$F" "$P/$F"; fi
+done
+for D in memories cron; do
+  if [ -d "$ROOT/$D" ] && [ ! -d "$P/$D" ]; then cp -a "$ROOT/$D" "$P/$D"; fi
+done
+# Provider credentials live in the primary .env. Two things stay behind: its
+# server key (the bot mints its own below) and every messaging token, because a
+# bot token belongs to one profile only — a copy makes two gateways fight over
+# the same bot. Same rule Hermes applies to its own clones.
+if [ -f "$ROOT/.env" ]; then
+  grep -v -E '^(API_SERVER_KEY|GATEWAY_ALLOW_ALL_USERS|GATEWAY_ALLOWED_USERS|GATEWAY_RELAY_[A-Z_]*|TELEGRAM_[A-Z_]*|DISCORD_[A-Z_]*|SLACK_[A-Z_]*|WHATSAPP_[A-Z_]*|SIGNAL_[A-Z_]*|IMESSAGE_[A-Z_]*|MATRIX_[A-Z_]*|TEAMS_[A-Z_]*|WECOM_[A-Z_]*|QQ_[A-Z_]*|SMS_[A-Z_]*)[A-Z_]*=' "$ROOT/.env" > "$P/.env" || true
+  chmod 600 "$P/.env"
+fi
+
+echo "STEP attaching the skills"
+if [ -d "$ROOT/skills" ]; then
+  rm -rf "$P/skills"
+  cp -al "$ROOT/skills" "$P/skills" 2>/dev/null || cp -a "$ROOT/skills" "$P/skills" 2>/dev/null || true
 fi
 
 echo "STEP giving the bot its own API key"
@@ -576,7 +600,14 @@ ${META_PYTHON}PY
 
 echo "STEP checking the bot answers"
 KEY=$(grep -m1 '^API_SERVER_KEY=' "$P/.env" | cut -d= -f2-)
-CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $KEY" "http://127.0.0.1:8642/p/$NAME/api/sessions" 2>/dev/null || echo 000)
+CODE=000
+TRY=0
+while [ "$TRY" -lt 5 ]; do
+  CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $KEY" "http://127.0.0.1:8642/p/$NAME/api/sessions" 2>/dev/null || echo 000)
+  [ "$CODE" = "200" ] && break
+  TRY=$((TRY + 1))
+  sleep 1
+done
 META=$(python3 - "$P/profile.yaml" <<'PY'
 ${READ_META_PYTHON}PY
 )
@@ -676,22 +707,6 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
       title: title || before.title || name,
       color: color || before.color,
       exists: true,
-    };
-  }
-
-  // A profile is a full copy of the default one, so a server that is nearly
-  // full fails half way through the copy — after minutes of work, leaving a
-  // staging directory behind. Ask first, and say it in one line.
-  const free = await runSsh(
-    connection.sshHost,
-    `df -Pk "$HOME" | awk 'NR==2 {print $4}'`,
-    15000,
-  );
-  const freeKb = Number.parseInt(free.stdout.trim(), 10);
-  if (free.ok && Number.isFinite(freeKb) && freeKb < 800 * 1024) {
-    return {
-      ok: false,
-      error: `The server only has ${Math.max(0, Math.round(freeKb / 1024))} MB of disk left — a bot needs room to copy its profile. Free some space on the server and try again.`,
     };
   }
 

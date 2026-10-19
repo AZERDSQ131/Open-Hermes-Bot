@@ -379,7 +379,9 @@ export default function App() {
         let unreachable = 0;
         try {
           for (;;) {
-            await new Promise((resolve) => setTimeout(resolve, 2000));
+            // A bot now lands in ~15 s, so a slow poll would be a visible part
+            // of the wait.
+            await new Promise((resolve) => setTimeout(resolve, 1200));
             const elapsed = Math.round((Date.now() - startedAt) / 1000);
             const status = await withTimeout(
               bridge.createBotStatus({ name: profile }),

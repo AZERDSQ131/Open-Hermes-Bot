@@ -252,8 +252,8 @@ export function CreateAgentDialog({
                   {progress.elapsed}s · {progress.step}…
                 </p>
                 <p className="create-hint">
-                  A bot gets its own profile, so the first one takes a minute or
-                  two. Closing this window will not interrupt it.
+                  A bot gets its own profile on the server — usually a few
+                  seconds. Closing this window will not interrupt it.
                 </p>
               </div>
             </div>
