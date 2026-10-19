@@ -43,6 +43,34 @@ import {
 
 const MAX_PINNED = 3;
 
+// A model picked once stays picked: new conversations start on the last one the
+// person chose for that bot, instead of the profile's configured model — which
+// may be the one that just refused to answer.
+type PreferredModel = { model: string; provider: string; label: string };
+
+function preferredModelKey(profile?: string) {
+  return `sidekick.model.${profile || 'default'}`;
+}
+
+function readPreferredModel(profile?: string): PreferredModel | null {
+  try {
+    const raw = window.localStorage.getItem(preferredModelKey(profile));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PreferredModel;
+    return parsed?.model ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberPreferredModel(profile: string | undefined, pick: PreferredModel) {
+  try {
+    window.localStorage.setItem(preferredModelKey(profile), JSON.stringify(pick));
+  } catch {
+    // A full or blocked storage must not break sending.
+  }
+}
+
 function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -630,14 +658,26 @@ export default function App() {
       const requestId = uid();
       requestThread.current = { requestId, threadId };
 
-      const result = await bridge.sendChat({
-        requestId,
-        sessionId,
-        message: outgoing,
-        profile: thread.profile,
-        model: thread.model,
-        provider: thread.modelProvider,
-      });
+      const fallback = thread.model ? null : readPreferredModel(thread.profile);
+      const ask = (pick: PreferredModel | null) =>
+        bridge.sendChat({
+          requestId,
+          sessionId: sessionId as string,
+          message: outgoing,
+          profile: thread.profile,
+          model: pick?.model,
+          provider: pick?.provider,
+        });
+
+      let result = await ask(
+        thread.model
+          ? {
+              model: thread.model,
+              provider: thread.modelProvider ?? '',
+              label: thread.modelLabel ?? thread.model,
+            }
+          : fallback,
+      );
 
       if (requestThread.current?.requestId === requestId) {
         requestThread.current = null;
@@ -1135,7 +1175,14 @@ export default function App() {
                   provider={activeThread.modelProvider}
                   label={activeThread.modelLabel}
                   disabled={activeThread.thinking}
-                  onChange={(pick) =>
+                  onChange={(pick) => {
+                    if (pick.model) {
+                      rememberPreferredModel(activeThread.profile, {
+                        model: pick.model,
+                        provider: pick.provider ?? '',
+                        label: pick.label ?? pick.model,
+                      });
+                    }
                     setThreads((current) =>
                       current.map((thread) =>
                         thread.id === activeThread.id
@@ -1147,8 +1194,8 @@ export default function App() {
                             }
                           : thread,
                       ),
-                    )
-                  }
+                    );
+                  }}
                 />
               </div>
             </form>
