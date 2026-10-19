@@ -21,7 +21,9 @@ const DEFAULT_CONNECTION = {
   sshHost: 'jetson',
   apiPort: 8642,
   localPort: 18742,
-  autoConnect: false,
+  // A stored key is an intent to be connected: starting disconnected only
+  // produced "not connected" on the first message. Settings can opt out.
+  autoConnect: true,
 };
 
 let connectionStatus = { state: 'disconnected' };
@@ -444,6 +446,19 @@ function apiUrl(localPort, profile, pathname) {
   return `http://127.0.0.1:${localPort}${prefix}${pathname}`;
 }
 
+// The app can be opened with no tunnel (auto-connect off, or the server was
+// asleep). Any request that needs Hermes tries once to connect instead of
+// answering "not connected" to someone who never asked to be offline.
+let lastConnectAttempt = 0;
+
+async function ensureConnected() {
+  if (tunnel) return true;
+  if (Date.now() - lastConnectAttempt < 5000) return false;
+  lastConnectAttempt = Date.now();
+  await connectNow().catch(() => undefined);
+  return Boolean(tunnel);
+}
+
 function liveTunnelOrError() {
   if (!tunnel) {
     return { error: 'Not connected to Hermes — open Settings and connect first.' };
@@ -476,6 +491,7 @@ async function apiKeyFor(profile) {
 }
 
 async function apiCall(pathname, { method = 'GET', body, profile, timeoutMs = 30000 } = {}) {
+  if (!tunnel) await ensureConnected();
   const live = liveTunnelOrError();
   if (live.error) return { ok: false, status: 0, error: live.error };
   const apiKey = await apiKeyFor(profile);
@@ -628,6 +644,7 @@ function parseSseFrame(frame) {
 // event long before the turn would end, so the app can stop waiting instead of
 // sitting on a request that the server keeps retrying.
 ipcMain.handle('hermes:chat:send', async (event, payload) => {
+  if (!tunnel) await ensureConnected();
   const live = liveTunnelOrError();
   if (live.error) return { ok: false, error: live.error };
   const apiKey = await apiKeyFor(payload?.profile);
@@ -1014,8 +1031,34 @@ function parseCreateOutcome(line) {
   return { created, meta };
 }
 
+// Creating a bot only needs SSH, so it used to succeed while the app was not
+// connected — the bot appeared in Hermes and the first message failed with
+// "not connected". Creation now needs a live tunnel, and does not report
+// success until the gateway answers for the profile.
+async function waitForBotReady(name, timeoutMs = 12000) {
+  const deadline = Date.now() + timeoutMs;
+  let last = '';
+  while (Date.now() < deadline) {
+    const probe = await apiCall('/api/sessions', { profile: name, timeoutMs: 4000 });
+    if (probe.ok) return { ok: true };
+    last = apiErrorText(probe, `HTTP ${probe.status || 0}`);
+    if (probe.status === 401) return { ok: false, error: last };
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+  return { ok: false, error: last || 'Hermes never answered for this profile' };
+}
+
 ipcMain.handle('hermes:bot:create', async (_event, payload) => {
   const connection = storedConnection();
+  if (!tunnel) {
+    await ensureConnected();
+  }
+  if (!tunnel) {
+    return {
+      ok: false,
+      error: 'Not connected to Hermes — connect in Settings, then create the bot.',
+    };
+  }
   const name = String(payload?.name ?? '').trim().toLowerCase();
   const title = String(payload?.title ?? '').trim();
   const description = String(payload?.description ?? '').trim();
@@ -1064,6 +1107,13 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
     const { created, meta } = parseCreateOutcome(line);
     // The build mints a fresh API_SERVER_KEY: drop any key cached for this name.
     profileKeys.delete(created || name);
+    const ready = await waitForBotReady(created || name);
+    if (!ready.ok) {
+      return {
+        ok: false,
+        error: `“${created || name}” was created but Hermes does not answer for it: ${ready.error}.`,
+      };
+    }
     return {
       ok: true,
       name: created || name,
