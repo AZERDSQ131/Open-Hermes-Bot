@@ -1711,12 +1711,27 @@ export default function App() {
                     </div>
                   ) : (
                     <div
-                      className={`message-row ${message.role}`}
+                      className={`message-row ${message.role} ${
+                        message.authorName ? 'is-group-line' : ''
+                      }`}
                       key={message.id}
                     >
+                      {message.authorName && message.authorAvatar ? (
+                        <AgentAvatar
+                          avatar={message.authorAvatar}
+                          size={30}
+                          className="message-author-avatar"
+                          showBadge={false}
+                        />
+                      ) : null}
                       <div
                         className={`bubble-wrap bubble-wrap-${message.role}`}
                       >
+                        {message.authorName ? (
+                          <span className="message-author">
+                            {message.authorName}
+                          </span>
+                        ) : null}
                         <div className={`bubble bubble-${message.role}`}>
                           {message.text}
                         </div>
@@ -1729,6 +1744,25 @@ export default function App() {
                             {message.reaction}
                           </span>
                         ) : null}
+                        {message.reactions?.length ? (
+                          <span className="reaction-row">
+                            {message.reactions.map((reaction) => (
+                              <span
+                                className="bubble-reaction is-inline"
+                                role="img"
+                                key={`${reaction.by}-${reaction.emoji}`}
+                                aria-label={`${reaction.by ?? 'A bot'} reacted ${reaction.emoji}`}
+                                title={
+                                  reaction.by
+                                    ? `${reaction.by} reacted ${reaction.emoji}`
+                                    : undefined
+                                }
+                              >
+                                {reaction.emoji}
+                              </span>
+                            ))}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   ),
@@ -1736,23 +1770,48 @@ export default function App() {
 
                 {activeThread.thinking ? (
                   streamingText.trim() ? (
-                    <div className="message-row assistant">
-                      <div className="bubble bubble-assistant is-streaming">
-                        {streamingText}
+                    <div
+                      className={`message-row assistant ${
+                        activeThread.speaking ? 'is-group-line' : ''
+                      }`}
+                    >
+                      {activeThread.speaking ? (
+                        <AgentAvatar
+                          avatar={activeThread.speaking.avatar}
+                          size={30}
+                          className="message-author-avatar"
+                          showBadge={false}
+                        />
+                      ) : null}
+                      <div className="bubble-wrap bubble-wrap-assistant">
+                        {activeThread.speaking ? (
+                          <span className="message-author">
+                            {activeThread.speaking.name}
+                          </span>
+                        ) : null}
+                        <div className="bubble bubble-assistant is-streaming">
+                          {streamingText}
+                        </div>
                       </div>
                     </div>
                   ) : (
                     <div className="thinking-row">
                       <AgentAvatar
-                        avatar={activeThread.avatar}
+                        avatar={activeThread.speaking?.avatar ?? activeThread.avatar}
                         size={38}
                         className="thinking-avatar"
                         showBadge={false}
                       />
                       <span className="thinking-label">
-                        {activeThread.tool
-                          ? `Using ${activeThread.tool}…`
-                          : 'Thinking'}
+                        {activeThread.speaking
+                          ? `${activeThread.speaking.name} is ${
+                              activeThread.tool
+                                ? `using ${activeThread.tool}`
+                                : 'thinking'
+                            }…`
+                          : activeThread.tool
+                            ? `Using ${activeThread.tool}…`
+                            : 'Thinking'}
                       </span>
                     </div>
                   )

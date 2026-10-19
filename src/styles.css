@@ -743,7 +743,45 @@ button:focus-visible {
 .bubble-wrap {
   position: relative;
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   max-width: 100%;
+}
+
+.message-row.user .bubble-wrap {
+  align-items: flex-end;
+}
+
+/* Group lines carry their author: a face beside the bubble, a name above it. */
+.message-row.is-group-line {
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.message-author-avatar {
+  flex: none;
+  margin-top: 2px;
+}
+
+.message-author {
+  margin: 0 0 5px 4px;
+  color: #9a9aa2;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.reaction-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.bubble-reaction.is-inline {
+  position: static;
+  bottom: auto;
+  left: auto;
 }
 
 .message-row.assistant .bubble-wrap {
