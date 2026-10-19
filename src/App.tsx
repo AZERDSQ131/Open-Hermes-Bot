@@ -2177,6 +2177,7 @@ export default function App() {
                   }
                   onChange={handleDraftChange}
                   onKeyDown={handleComposerKeyDown}
+                  onBlur={() => setMentionHidden(true)}
                   aria-label={`Message ${activeThread.name}`}
                 />
                 {activeThread.avatar.kind === 'group' ? (
