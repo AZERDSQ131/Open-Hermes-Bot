@@ -1207,29 +1207,6 @@ export default function App() {
                   onKeyDown={handleComposerKeyDown}
                   aria-label={`Message ${activeThread.name}`}
                 />
-                {draft.trim() ? (
-                  <button
-                    type="submit"
-                    className="composer-button send-button"
-                    aria-label="Send message"
-                    title="Send message"
-                  >
-                    <ArrowUpIcon size={18} />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className={`composer-button mic-button ${listening ? 'is-listening' : ''}`}
-                    aria-label="Voice message"
-                    title="Voice message"
-                    onClick={toggleListening}
-                  >
-                    <MicIcon size={18} />
-                  </button>
-                )}
-              </div>
-
-              <div className="composer-tools">
                 <ModelPicker
                   profile={activeThread.profile}
                   value={activeThread.model}
@@ -1258,6 +1235,26 @@ export default function App() {
                     );
                   }}
                 />
+                {draft.trim() ? (
+                  <button
+                    type="submit"
+                    className="composer-button send-button"
+                    aria-label="Send message"
+                    title="Send message"
+                  >
+                    <ArrowUpIcon size={18} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={`composer-button mic-button ${listening ? 'is-listening' : ''}`}
+                    aria-label="Voice message"
+                    title="Voice message"
+                    onClick={toggleListening}
+                  >
+                    <MicIcon size={18} />
+                  </button>
+                )}
               </div>
             </form>
           </div>
