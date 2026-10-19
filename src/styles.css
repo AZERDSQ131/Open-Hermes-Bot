@@ -245,7 +245,6 @@ button:focus-visible {
 }
 
 .pinned-item {
-  --pinned-ring: var(--sidebar);
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -262,8 +261,12 @@ button:focus-visible {
 
 .pinned-item.is-active,
 .pinned-item.is-context {
-  --pinned-ring: var(--row-active);
   background: var(--row-active);
+}
+
+.pinned-item.is-active .bloub-badge,
+.pinned-item.is-context .bloub-badge {
+  border-color: var(--row-active);
 }
 
 .pinned-avatar {
@@ -293,18 +296,6 @@ button:focus-visible {
 
 .pinned-item.is-active .pinned-name {
   color: #f0f0f2;
-}
-
-.pinned-unread {
-  position: absolute;
-  top: 1px;
-  right: 1px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #2f9bf0;
-  box-shadow: 0 0 0 2px var(--pinned-ring);
-  pointer-events: none;
 }
 
 .thread-list {
@@ -388,16 +379,6 @@ button:focus-visible {
   font-weight: 400;
   letter-spacing: 0;
   white-space: nowrap;
-}
-
-.thread-unread {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 auto;
-  align-self: center;
-  border-radius: 50%;
-  background: #2f9bf0;
-  box-shadow: 0 0 0 3px rgba(47, 155, 240, 0.1);
 }
 
 .thread-row.is-unread .thread-preview {
