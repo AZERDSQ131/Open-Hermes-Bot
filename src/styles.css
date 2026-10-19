@@ -1543,6 +1543,11 @@ button:focus-visible {
   color: #ff9a92;
   font-size: 12px;
   line-height: 1.45;
+  /* A server traceback can be a page long: scroll it, never let it take over
+     the dialog. */
+  max-height: 132px;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
 }
 
 .create-label {

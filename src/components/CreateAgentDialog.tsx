@@ -30,6 +30,8 @@ type CreateAgentDialogProps = {
       name: string;
       shape: BloubShape;
       color: string;
+      /** Present only when the colour was picked by hand. */
+      customColor?: string;
     },
     onProgress?: (progress: CreateBotProgress) => void,
   ) => Promise<CreateBotOutcome>;
@@ -130,13 +132,26 @@ export function CreateAgentDialog({
     setBusy(true);
     setError('');
     setProgress({ elapsed: 0, step: 'sending it to the server' });
-    const outcome = await onCreateBot(
-      { name: name.trim(), shape, color },
-      setProgress,
-    );
-    if (!outcome.ok) {
-      setError(outcome.error);
+    // However this ends — success, refusal, or a call that throws — the button
+    // has to come back. A creation that fails silently is worse than one that
+    // fails loudly.
+    try {
+      const outcome = await onCreateBot(
+        { name: name.trim(), shape, color, customColor: colorTouched ? color : undefined },
+        setProgress,
+      );
+      if (!outcome.ok) {
+        setError(outcome.error);
+        setProgress(null);
+      }
+    } catch (reason) {
+      setError(
+        reason instanceof Error && reason.message
+          ? reason.message
+          : 'Could not create the bot.',
+      );
       setProgress(null);
+    } finally {
       setBusy(false);
     }
   }

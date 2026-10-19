@@ -28,6 +28,8 @@ export type HermesBotCreateResult = {
   title?: string;
   /** Already on the server: the earlier attempt outlived the app. */
   exists?: boolean;
+  /** The colour the profile's metadata holds for this bot, if any. */
+  color?: string;
   /** Started as a background job; poll `createBotStatus`. */
   running?: boolean;
 };
@@ -39,6 +41,9 @@ export type HermesBotCreateStatus = {
   name?: string;
   reachable?: boolean;
   httpCode?: string;
+  /** What the profile metadata holds, read back from the server. */
+  color?: string;
+  title?: string;
   error?: string;
 };
 
