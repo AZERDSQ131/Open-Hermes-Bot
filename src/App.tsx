@@ -18,12 +18,15 @@ import { EditAgentDialog } from './components/EditAgentDialog';
 import {
   ArrowUpIcon,
   FileIcon,
+  GearIcon,
   MenuIcon,
   MicIcon,
   MonitorIcon,
   PlusIcon,
   SearchIcon,
 } from './components/Icons';
+import type { HermesStatus } from './hermes';
+import { SettingsDialog } from './components/SettingsDialog';
 import { LogoEditor } from './components/LogoEditor';
 import { ThreadContextMenu } from './components/ThreadContextMenu';
 import {
@@ -82,6 +85,10 @@ export default function App() {
   } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [hermesStatus, setHermesStatus] = useState<HermesStatus>({
+    state: 'disconnected',
+  });
 
   const searchRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -165,9 +172,31 @@ export default function App() {
         setRenaming(false);
         setCreateOpen(true);
       }
+      if (event.key === ',') {
+        event.preventDefault();
+        setContextMenu(null);
+        setLogoOpen(false);
+        setRenaming(false);
+        setSettingsOpen(true);
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const bridge = window.hermes;
+    if (!bridge) return;
+    let cancelled = false;
+    bridge
+      .status()
+      .then((current) => {
+        if (!cancelled) setHermesStatus(current);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -519,6 +548,24 @@ export default function App() {
     <div className={`app ${sidebarOpen ? 'is-sidebar-open' : ''}`}>
       <aside className={`sidebar ${sidebarOpen ? 'is-open' : ''}`}>
         <div className="sidebar-topbar">
+          <button
+            type="button"
+            className="topbar-button settings-button"
+            onClick={() => {
+              setContextMenu(null);
+              setLogoOpen(false);
+              setRenaming(false);
+              setSettingsOpen(true);
+            }}
+            aria-label="Settings"
+            title="Settings  ⌘,"
+          >
+            <GearIcon size={18} />
+            <span
+              className={`settings-dot is-${hermesStatus.state}`}
+              aria-hidden="true"
+            />
+          </button>
           <button
             type="button"
             className="topbar-button new-chat"
@@ -917,6 +964,13 @@ export default function App() {
           thread={editingThread}
           onClose={() => setEditingId(null)}
           onSave={saveEditedAgent}
+        />
+      ) : null}
+
+      {settingsOpen ? (
+        <SettingsDialog
+          onClose={() => setSettingsOpen(false)}
+          onStatusChange={setHermesStatus}
         />
       ) : null}
 
