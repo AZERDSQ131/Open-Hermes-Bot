@@ -14,6 +14,7 @@ import {
   CreateAgentDialog,
   toProfileId,
   type CreateBotOutcome,
+  type CreateBotProgress,
   type CreateCandidate,
 } from './components/CreateAgentDialog';
 import { EditAgentDialog } from './components/EditAgentDialog';
@@ -316,11 +317,10 @@ export default function App() {
     window.requestAnimationFrame(() => composerRef.current?.focus());
   }
 
-  async function handleCreateBot(input: {
-    name: string;
-    shape: BloubShape;
-    color: string;
-  }): Promise<CreateBotOutcome> {
+  async function handleCreateBot(
+    input: { name: string; shape: BloubShape; color: string },
+    onProgress?: (progress: CreateBotProgress) => void,
+  ): Promise<CreateBotOutcome> {
     const bridge = window.hermes;
     let profile: string | undefined;
 
@@ -329,17 +329,51 @@ export default function App() {
         .createBot({
           name: toProfileId(input.name),
           title: input.name,
+          color: input.color,
           description: `Bot created from Sidekick`,
         })
         .catch((reason: Error) => ({
           ok: false,
           error: reason.message,
           name: undefined,
+          exists: false,
+          running: false,
         }));
       if (!result.ok) {
         return { ok: false, error: result.error ?? 'Could not create the bot' };
       }
       profile = result.name;
+
+      // The profile is built by a detached job on the server, so this only
+      // waits on short status calls: the dialog can show where it is, and the
+      // work survives the window closing.
+      if (result.running && profile && bridge.createBotStatus) {
+        const startedAt = Date.now();
+        let step = 'preparing the profile';
+        for (;;) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          const elapsed = Math.round((Date.now() - startedAt) / 1000);
+          const status = await bridge
+            .createBotStatus({ name: profile })
+            .catch(() => null);
+          if (status?.step) step = status.step;
+          onProgress?.({ elapsed, step });
+          if (status?.state === 'done') break;
+          if (status?.state === 'error') {
+            return {
+              ok: false,
+              error: status.error ?? 'Could not create the bot',
+            };
+          }
+          if (elapsed > 300) {
+            return {
+              ok: false,
+              error:
+                'The server is still working on this bot. It will appear once it is done.',
+            };
+          }
+        }
+      }
     }
 
     addThread({
