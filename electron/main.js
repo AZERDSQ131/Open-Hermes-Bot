@@ -640,8 +640,11 @@ ipcMain.handle('hermes:bot:status', async (_event, payload) => {
 
   const result = await runSsh(connection.sshHost, command);
   if (!result.ok) {
+    // A poll that cannot reach the host says nothing about the job: the
+    // Tailscale link drops, the bot keeps being built. Report it as such so the
+    // app waits instead of throwing away a creation that is still fine.
     return {
-      state: 'error',
+      state: 'unreachable',
       error: result.error || result.stderr.trim() || 'Lost the server',
     };
   }

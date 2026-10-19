@@ -350,6 +350,7 @@ export default function App() {
       if (result.running && profile && bridge.createBotStatus) {
         const startedAt = Date.now();
         let step = 'preparing the profile';
+        let unreachable = 0;
         for (;;) {
           await new Promise((resolve) => setTimeout(resolve, 2000));
           const elapsed = Math.round((Date.now() - startedAt) / 1000);
@@ -357,7 +358,15 @@ export default function App() {
             .createBotStatus({ name: profile })
             .catch(() => null);
           if (status?.step) step = status.step;
-          onProgress?.({ elapsed, step });
+          if (status?.state === 'unreachable') {
+            // The job lives on the server, so a dropped link is not a failure:
+            // keep waiting while it finishes there.
+            unreachable += 1;
+            onProgress?.({ elapsed, step: 'waiting for the server to answer' });
+          } else {
+            unreachable = 0;
+            onProgress?.({ elapsed, step });
+          }
           if (status?.state === 'done') break;
           if (status?.state === 'error') {
             return {
@@ -368,8 +377,9 @@ export default function App() {
           if (elapsed > 300) {
             return {
               ok: false,
-              error:
-                'The server is still working on this bot. It will appear once it is done.',
+              error: unreachable
+                ? 'Sidekick lost touch with the server — the bot is still being created there, so it will be ready next time you open the app.'
+                : 'The server is still working on this bot. It will appear once it is done.',
             };
           }
         }

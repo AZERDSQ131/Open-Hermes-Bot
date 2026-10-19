@@ -33,7 +33,7 @@ export type HermesBotCreateResult = {
 };
 
 export type HermesBotCreateStatus = {
-  state: 'running' | 'done' | 'error';
+  state: 'running' | 'done' | 'error' | 'unreachable';
   /** What the server is doing right now, in the script's own words. */
   step?: string;
   name?: string;
