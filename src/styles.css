@@ -2166,10 +2166,6 @@ button:focus-visible {
   background: var(--row-hover);
 }
 
-.model-admin-row.is-default {
-  background: rgba(242, 239, 229, 0.045);
-}
-
 .model-admin-row.is-unlisted {
   color: #74747b;
 }
@@ -2251,26 +2247,84 @@ button:focus-visible {
   color: #e0b341;
 }
 
-.model-admin-default {
+/* bot defaults: one model per bot, chosen from what the picker offers */
+
+.model-admin-section-head {
   display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 6px;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.model-admin-section-head h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.model-admin-section-head span {
+  min-width: 0;
   color: #74747b;
   font-size: 11.5px;
-  cursor: pointer;
 }
 
-.model-admin-default input {
-  width: 14px;
-  height: 14px;
-  margin: 0;
-  accent-color: #f2efe5;
-  cursor: pointer;
+.model-defaults-list {
+  display: flex;
+  flex-direction: column;
 }
 
-.model-admin-row.is-default .model-admin-default {
+.model-default-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 42px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--divider);
+  border-radius: 8px;
+  transition: background-color 120ms ease;
+}
+
+.model-default-row:hover {
+  background: var(--row-hover);
+}
+
+.model-default-bot {
+  min-width: 0;
+  overflow: hidden;
+  color: #b6b6bd;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-default-select {
+  min-width: 0;
+  max-width: 62%;
+  padding: 6px 10px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  outline: none;
+  background: #1a1a1d;
   color: var(--text);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.model-default-select:focus {
+  border-color: rgba(255, 255, 255, 0.26);
+}
+
+.model-default-select:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.model-admin-divider {
+  height: 1px;
+  background: var(--divider);
 }
 
 .model-admin-foot {

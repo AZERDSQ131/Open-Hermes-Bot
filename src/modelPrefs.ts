@@ -11,18 +11,26 @@ export type ModelPrefs = {
   hidden: string[];
   /** Ids pinned to the top of the picker. */
   favorites: string[];
-  /** Model used when a conversation has no pick of its own. */
-  default?: ModelRef;
+  /** Model each bot falls back to, keyed by profile name. */
+  defaults: Record<string, ModelRef>;
 };
 
 const STORAGE_KEY = 'sidekick.models.prefs';
 const CHANGE_EVENT = 'sidekick:models-changed';
 
-const EMPTY: ModelPrefs = { hidden: [], favorites: [] };
+function emptyPrefs(): ModelPrefs {
+  return { hidden: [], favorites: [], defaults: {} };
+}
 
 /** One identity for a model across providers: `provider:model`. */
 export function modelId(ref: { provider: string; model: string }): string {
   return `${ref.provider}:${ref.model}`;
+}
+
+/** The profile key a bot uses: the primary profile is keyed `default`. */
+export function profileKey(profile?: string): string {
+  const name = (profile ?? '').trim();
+  return !name || name === 'default' ? 'default' : name;
 }
 
 function strings(value: unknown): string[] {
@@ -30,35 +38,45 @@ function strings(value: unknown): string[] {
   return value.filter((entry): entry is string => typeof entry === 'string');
 }
 
+function asRef(value: unknown): ModelRef | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const record = value as Partial<ModelRef>;
+  if (typeof record.model !== 'string' || !record.model) return undefined;
+  return {
+    model: record.model,
+    provider: typeof record.provider === 'string' ? record.provider : '',
+  };
+}
+
 function normalize(raw: unknown): ModelPrefs {
-  if (!raw || typeof raw !== 'object') return EMPTY;
+  if (!raw || typeof raw !== 'object') return emptyPrefs();
   const record = raw as Record<string, unknown>;
-  const storedDefault = record.default as Partial<ModelRef> | undefined;
-  const fallback: ModelRef | undefined =
-    storedDefault &&
-    typeof storedDefault.model === 'string' &&
-    storedDefault.model
-      ? {
-          model: storedDefault.model,
-          provider:
-            typeof storedDefault.provider === 'string'
-              ? storedDefault.provider
-              : '',
-        }
-      : undefined;
+  const defaults: Record<string, ModelRef> = {};
+  if (record.defaults && typeof record.defaults === 'object') {
+    for (const [key, value] of Object.entries(
+      record.defaults as Record<string, unknown>,
+    )) {
+      const ref = asRef(value);
+      if (ref) defaults[profileKey(key)] = ref;
+    }
+  }
+  // The first version stored one global default; it belongs to the primary
+  // profile, so nobody loses the model they had already chosen.
+  const legacy = asRef(record.default);
+  if (legacy && !defaults.default) defaults.default = legacy;
   return {
     hidden: strings(record.hidden),
     favorites: strings(record.favorites),
-    default: fallback,
+    defaults,
   };
 }
 
 export function readModelPrefs(): ModelPrefs {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? normalize(JSON.parse(raw)) : EMPTY;
+    return raw ? normalize(JSON.parse(raw)) : emptyPrefs();
   } catch {
-    return EMPTY;
+    return emptyPrefs();
   }
 }
 
@@ -79,16 +97,17 @@ export function setModelVisible(id: string, visible: boolean): ModelPrefs {
     : prefs.hidden.includes(id)
       ? prefs.hidden
       : [...prefs.hidden, id];
-  // Hiding means "stop offering this one": a pinned mark or the default would
+  // Hiding means "stop offering this one": a pinned mark or a bot default would
   // otherwise point at a model the composer no longer lists.
   const favorites = visible
     ? prefs.favorites
     : prefs.favorites.filter((entry) => entry !== id);
-  const defaultModel =
-    !visible && prefs.default && modelId(prefs.default) === id
-      ? undefined
-      : prefs.default;
-  return publish({ ...prefs, hidden, favorites, default: defaultModel });
+  const defaults: Record<string, ModelRef> = {};
+  for (const [profile, ref] of Object.entries(prefs.defaults)) {
+    if (!visible && modelId(ref) === id) continue;
+    defaults[profile] = ref;
+  }
+  return publish({ ...prefs, hidden, favorites, defaults });
 }
 
 export function toggleModelFavorite(id: string): ModelPrefs {
@@ -99,9 +118,16 @@ export function toggleModelFavorite(id: string): ModelPrefs {
   return publish({ ...prefs, favorites });
 }
 
-export function setDefaultModel(ref: ModelRef | null): ModelPrefs {
+/** Sets (or clears, with null) the model one bot falls back to. */
+export function setDefaultModel(
+  profile: string | undefined,
+  ref: ModelRef | null,
+): ModelPrefs {
   const prefs = readModelPrefs();
-  return publish({ ...prefs, default: ref ?? undefined });
+  const defaults = { ...prefs.defaults };
+  if (ref) defaults[profileKey(profile)] = ref;
+  else delete defaults[profileKey(profile)];
+  return publish({ ...prefs, defaults });
 }
 
 export function isHidden(prefs: ModelPrefs, id: string): boolean {
@@ -112,24 +138,33 @@ export function isFavorite(prefs: ModelPrefs, id: string): boolean {
   return prefs.favorites.includes(id);
 }
 
-export function isDefault(prefs: ModelPrefs, ref: ModelRef): boolean {
+export function isDefaultFor(
+  prefs: ModelPrefs,
+  profile: string | undefined,
+  ref: ModelRef,
+): boolean {
+  const current = prefs.defaults[profileKey(profile)];
   return Boolean(
-    prefs.default &&
-      prefs.default.model === ref.model &&
-      prefs.default.provider === ref.provider,
+    current && current.model === ref.model && current.provider === ref.provider,
   );
+}
+
+/** The model a bot falls back to, if the person gave it one. */
+export function defaultModelFor(
+  prefs: ModelPrefs,
+  profile?: string,
+): ModelRef | undefined {
+  return prefs.defaults[profileKey(profile)];
 }
 
 /** The default as the composer wants it: a full pick, label included. */
 export function defaultModelPick(
+  profile?: string,
   prefs: ModelPrefs = readModelPrefs(),
 ): { model: string; provider: string; label: string } | null {
-  if (!prefs.default) return null;
-  return {
-    model: prefs.default.model,
-    provider: prefs.default.provider,
-    label: prefs.default.model,
-  };
+  const ref = defaultModelFor(prefs, profile);
+  if (!ref) return null;
+  return { model: ref.model, provider: ref.provider, label: ref.model };
 }
 
 /** Re-reads on every change so the picker and the settings pane agree. */

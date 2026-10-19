@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { HermesModel, HermesSettings, HermesStatus } from '../hermes';
 import {
-  isDefault,
+  defaultModelFor,
   isFavorite,
   isHidden,
   modelId,
@@ -50,6 +50,8 @@ export function SettingsView({
   const [models, setModels] = useState<HermesModel[] | null>(null);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState('');
+  const [profiles, setProfiles] = useState<string[] | null>(null);
+  const [profilesError, setProfilesError] = useState('');
   const [modelNeedle, setModelNeedle] = useState('');
   const [modelsReload, setModelsReload] = useState(0);
   const [busy, setBusy] = useState<BusyAction>(null);
@@ -114,6 +116,49 @@ export function SettingsView({
       cancelled = true;
     };
   }, [section, bridge, modelsReload]);
+
+  // Bots live on the server, so their names come from there rather than from
+  // the threads this window happens to hold.
+  useEffect(() => {
+    if (section !== 'models' || !bridge?.profiles) return;
+    let cancelled = false;
+    setProfilesError('');
+    bridge
+      .profiles()
+      .then((result) => {
+        if (cancelled) return;
+        if (!result.ok) {
+          setProfilesError(result.error ?? 'Could not list the bots');
+          return;
+        }
+        setProfiles(result.profiles ?? []);
+      })
+      .catch((reason: Error) => {
+        if (!cancelled) setProfilesError(reason.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [section, bridge, modelsReload]);
+
+  const bots = useMemo(
+    () => [
+      { key: 'default', label: 'Primary profile', profile: undefined },
+      ...(profiles ?? []).map((name) => ({
+        key: name,
+        label: name,
+        profile: name,
+      })),
+    ],
+    [profiles],
+  );
+
+  // Only what the picker would offer can become a default: a hidden model is
+  // cleared from every bot when it is hidden.
+  const offeredModels = useMemo(
+    () => (models ?? []).filter((entry) => !isHidden(prefs, modelId(entry))),
+    [models, prefs],
+  );
 
   const modelGroups = useMemo(() => {
     const needle = modelNeedle.trim().toLowerCase();
@@ -597,6 +642,63 @@ export function SettingsView({
               ) : null}
 
               <div className="model-admin">
+                <section className="model-defaults">
+                  <div className="model-admin-section-head">
+                    <h3>Bot defaults</h3>
+                    <span>Used when a conversation has no model picked.</span>
+                  </div>
+
+                  {profilesError ? (
+                    <p className="model-error">{profilesError}</p>
+                  ) : null}
+
+                  <div className="model-defaults-list">
+                    {bots.map((bot) => {
+                      const current = defaultModelFor(prefs, bot.profile);
+                      return (
+                        <div className="model-default-row" key={bot.key}>
+                          <span className="model-default-bot">{bot.label}</span>
+                          <select
+                            className="model-default-select"
+                            aria-label={`Default model for ${bot.label}`}
+                            value={current ? modelId(current) : ''}
+                            disabled={!models}
+                            onChange={(event) => {
+                              const ref = offeredModels.find(
+                                (entry) =>
+                                  modelId(entry) === event.target.value,
+                              );
+                              setDefaultModel(
+                                bot.profile,
+                                ref
+                                  ? {
+                                      model: ref.model,
+                                      provider: ref.provider,
+                                    }
+                                  : null,
+                              );
+                            }}
+                          >
+                            <option value="">
+                              This bot&apos;s configured model
+                            </option>
+                            {offeredModels.map((entry) => (
+                              <option
+                                key={modelId(entry)}
+                                value={modelId(entry)}
+                              >
+                                {entry.model}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                <div className="model-admin-divider" />
+
                 <div className="model-admin-toolbar">
                   <input
                     className="model-admin-search"
@@ -641,12 +743,11 @@ export function SettingsView({
                           const id = modelId(entry);
                           const checked = !isHidden(prefs, id);
                           const favorite = isFavorite(prefs, id);
-                          const picked = isDefault(prefs, entry);
                           return (
                             <div
                               className={`model-admin-row ${
                                 checked ? '' : 'is-unlisted'
-                              } ${picked ? 'is-default' : ''}`}
+                              }`}
                               key={id}
                             >
                               <span className="model-admin-name">
@@ -692,23 +793,6 @@ export function SettingsView({
                               >
                                 <span className="model-switch-knob" />
                               </button>
-                              <label
-                                className="model-admin-default"
-                                title="Use as the default model"
-                              >
-                                <input
-                                  type="radio"
-                                  name="default-model"
-                                  checked={picked}
-                                  onChange={() =>
-                                    setDefaultModel({
-                                      model: entry.model,
-                                      provider: entry.provider,
-                                    })
-                                  }
-                                />
-                                <span>Default</span>
-                              </label>
                             </div>
                           );
                         })}
@@ -726,18 +810,9 @@ export function SettingsView({
 
               <div className="settings-actions model-admin-foot">
                 <span className="settings-hint">
-                  {prefs.default
-                    ? `Default: ${prefs.default.model} — used when a bot has no pick of its own.`
-                    : 'No default — each bot keeps its configured model.'}
+                  A model picked inside a conversation still wins over the bot
+                  default.
                 </span>
-                <button
-                  type="button"
-                  className="settings-text-button"
-                  disabled={!prefs.default}
-                  onClick={() => setDefaultModel(null)}
-                >
-                  Clear default
-                </button>
                 <button
                   type="button"
                   className="settings-text-button"

@@ -160,7 +160,7 @@ export function ModelPicker({
   // Just the name of whatever a send would use: this bot's remembered model,
   // the settings' default, then the profile's configured model — so the chip
   // never has to explain itself with a placeholder.
-  const preferred = defaultModelPick(prefs);
+  const preferred = defaultModelPick(profile, prefs);
   const pinnedName = fallbackLabel ?? preferred?.model ?? defaultModel;
   const chipLabel = value ? (label ?? value) : pinnedName || 'Model';
 
