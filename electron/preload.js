@@ -8,5 +8,9 @@ contextBridge.exposeInMainWorld('hermes', {
   connect: () => ipcRenderer.invoke('hermes:connect'),
   disconnect: () => ipcRenderer.invoke('hermes:disconnect'),
   status: () => ipcRenderer.invoke('hermes:status'),
-  localPort: () => ipcRenderer.invoke('hermes:local-port'),
+  onStatus: (callback) => {
+    const listener = (_event, status) => callback(status);
+    ipcRenderer.on('hermes:status', listener);
+    return () => ipcRenderer.removeListener('hermes:status', listener);
+  },
 });

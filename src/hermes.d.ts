@@ -16,6 +16,8 @@ export type HermesStatus = {
 export type HermesSettings = {
   sshHost: string;
   apiPort: number;
+  localPort: number;
+  autoConnect: boolean;
   hasKey: boolean;
 };
 
@@ -24,6 +26,8 @@ export type HermesBridge = {
   saveSettings: (payload: {
     sshHost: string;
     apiPort: number;
+    localPort?: number;
+    autoConnect?: boolean;
     apiKey?: string;
     clearKey?: boolean;
   }) => Promise<{ ok: boolean; error?: string; settings?: HermesSettings }>;
@@ -38,7 +42,7 @@ export type HermesBridge = {
   connect: () => Promise<HermesStatus>;
   disconnect: () => Promise<HermesStatus>;
   status: () => Promise<HermesStatus>;
-  localPort: () => Promise<number>;
+  onStatus: (callback: (status: HermesStatus) => void) => () => void;
 };
 
 declare global {
