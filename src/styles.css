@@ -719,6 +719,10 @@ button:focus-visible {
   letter-spacing: -0.004em;
   line-height: 1.55;
   overflow-wrap: anywhere;
+  /* The bot's line breaks are meaningful, and a reply must keep them when the
+     streaming bubble becomes a finished message — otherwise the lines collapse
+     and the answer visibly rewrites itself at the end of the turn. */
+  white-space: pre-wrap;
   user-select: text;
   -webkit-user-select: text;
 }
@@ -2541,8 +2545,3 @@ button:focus-visible {
   line-height: 1.45;
 }
 
-/* A reply being written: same bubble as a finished one, so the text does not
-   jump when the turn ends. No caret — the growing text is the only signal. */
-.bubble.is-streaming {
-  white-space: pre-wrap;
-}
