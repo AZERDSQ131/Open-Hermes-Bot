@@ -825,6 +825,7 @@ export default function App() {
   function saveEditedAgent(input: { name: string; avatar: AvatarSpec }) {
     if (!editingThread) return;
     const id = editingThread.id;
+    const avatar = input.avatar;
     setThreads((current) =>
       current.map((thread) =>
         thread.id === id
@@ -833,6 +834,15 @@ export default function App() {
               ...input,
               // The default bot keeps the name it is known by.
               name: thread.system ? thread.name : input.name,
+              // Editing a group restyles its members; keep the identities used
+              // to attribute group lines in step with the faces on the avatar.
+              members:
+                avatar.kind === 'group' && thread.members
+                  ? thread.members.map((member, index) => ({
+                      ...member,
+                      avatar: avatar.members[index] ?? member.avatar,
+                    }))
+                  : thread.members,
             }
           : thread,
       ),
@@ -1770,7 +1780,7 @@ export default function App() {
                 </h2>
                 <p>
                   {activeThread.avatar.kind === 'group'
-                    ? 'Give the crew a job. It works while you sleep.'
+                    ? 'Give the crew a job, or @ a bot to ask it directly. The rest can stay silent.'
                     : 'Give it a job. It works while you sleep.'}
                 </p>
               </div>
@@ -1836,6 +1846,11 @@ export default function App() {
                                 }
                               >
                                 {reaction.emoji}
+                                {reaction.by ? (
+                                  <span className="reaction-by">
+                                    {reaction.by.split(' ')[0]}
+                                  </span>
+                                ) : null}
                               </span>
                             ))}
                           </span>

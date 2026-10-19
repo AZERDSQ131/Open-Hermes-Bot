@@ -824,6 +824,15 @@ button:focus-visible {
   position: static;
   bottom: auto;
   left: auto;
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.reaction-by {
+  color: #a9a9b3;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
 }
 
 .mention {
