@@ -40,6 +40,7 @@ import {
   groupInstructions,
   groupTurnMessage,
   MAX_GROUP_LINES,
+  MAX_GROUP_WAVES,
   MAX_MEMBER_LINES,
   mentionsIn,
   readGroupTurn,
@@ -323,6 +324,9 @@ export default function App() {
   // A group round is more than one request: the round token survives every
   // member's turn and is what a newer message replaces.
   const groupRound = useRef(new Map<string, string>());
+  // Every live group request maps back to its thread, so several members can
+  // stream into the same conversation at once.
+  const groupRequests = useRef(new Map<string, string>());
   // Messages that arrived while a turn was being replaced. A request cancelled
   // before Hermes stored it would otherwise vanish from the model's context.
   const superseded = useRef(new Map<string, string[]>());
@@ -489,29 +493,64 @@ export default function App() {
     const bridge = window.hermes;
     if (!bridge?.onChatDelta) return;
 
-    const applyToThread = (requestId: string, update: (thread: Thread) => Thread) => {
+    // A single-bot turn owns the whole thread; a group has one request per
+    // member, each streaming into its own live row.
+    const applySingle = (requestId: string, update: (thread: Thread) => Thread) => {
       const entry = [...requestThread.current.entries()].find(
         ([, current]) => current === requestId,
       );
-      if (!entry) return;
+      if (!entry) return false;
       const [threadId] = entry;
       setThreads((current) =>
         current.map((thread) =>
           thread.id === threadId ? update(thread) : thread,
         ),
       );
+      return true;
     };
 
-    const offDelta = bridge.onChatDelta(({ requestId, text }) =>
-      applyToThread(requestId, (thread) => ({
-        ...thread,
-        streaming: `${thread.streaming ?? ''}${text}`,
+    const applyLive = (
+      requestId: string,
+      update: (
+        live: NonNullable<Thread['live']>[number],
+      ) => NonNullable<Thread['live']>[number],
+    ) => {
+      const threadId = groupRequests.current.get(requestId);
+      if (!threadId) return;
+      setThreads((current) =>
+        current.map((thread) =>
+          thread.id === threadId
+            ? {
+                ...thread,
+                live: (thread.live ?? []).map((live) =>
+                  live.requestId === requestId ? update(live) : live,
+                ),
+              }
+            : thread,
+        ),
+      );
+    };
+
+    const offDelta = bridge.onChatDelta(({ requestId, text }) => {
+      if (
+        applySingle(requestId, (thread) => ({
+          ...thread,
+          streaming: `${thread.streaming ?? ''}${text}`,
+          tool: undefined,
+        }))
+      ) {
+        return;
+      }
+      applyLive(requestId, (live) => ({
+        ...live,
+        text: `${live.text}${text}`,
         tool: undefined,
-      })),
-    );
-    const offTool = bridge.onChatTool?.(({ requestId, tool }) =>
-      applyToThread(requestId, (thread) => ({ ...thread, tool })),
-    );
+      }));
+    });
+    const offTool = bridge.onChatTool?.(({ requestId, tool }) => {
+      if (applySingle(requestId, (thread) => ({ ...thread, tool }))) return;
+      applyLive(requestId, (live) => ({ ...live, tool }));
+    });
 
     return () => {
       offDelta?.();
@@ -613,13 +652,16 @@ export default function App() {
     // every one and trail behind the text. Streaming jumps, a new message glides.
     scroller.scrollTo({
       top: scroller.scrollHeight,
-      behavior: activeThread?.streaming ? 'auto' : 'smooth',
+      behavior: activeThread?.streaming || activeThread?.live?.length
+        ? 'auto'
+        : 'smooth',
     });
   }, [
     activeId,
     activeThread?.messages.length,
     activeThread?.thinking,
     activeThread?.streaming,
+    activeThread?.live,
   ]);
 
   function clearAttachments() {
@@ -808,6 +850,7 @@ export default function App() {
     const inFlight = requestThread.current.get(id);
     if (inFlight) window.hermes?.cancelChat?.(inFlight);
     requestThread.current.delete(id);
+    cancelGroupRequests(id);
     groupRound.current.delete(id);
 
     setThreads((current) =>
@@ -1007,12 +1050,21 @@ export default function App() {
     });
   }
 
+  /** Stop every live request belonging to a group thread. */
+  function cancelGroupRequests(threadId: string) {
+    for (const [requestId, owner] of groupRequests.current) {
+      if (owner !== threadId) continue;
+      window.hermes?.cancelChat?.(requestId);
+      groupRequests.current.delete(requestId);
+    }
+  }
+
   /**
-   * One group turn is a small relay: the person speaks, members take the floor
-   * one by one, and each decides whether to stay out, react, or speak. A bot
-   * that says `@Name` hands the next turn over, until the round budget runs
-   * out. Every member answers through its own Hermes session, so it is the
-   * same bot with the same memory as in its private thread.
+   * A group turn is one parallel wave per exchange: every member gets the new
+   * line at the same time and answers on its own clock. Members that stayed
+   * silent are not polled again; a member that named another bot hands the next
+   * wave to it. Reactions and lines are settled once the wave is complete, in
+   * roster order, so the transcript stays stable however the requests finish.
    */
   async function sendGroupMessage(
     thread: Thread,
@@ -1049,10 +1101,9 @@ export default function App() {
     const roundId = uid();
     groupRound.current.set(threadId, roundId);
     const isCurrent = () => groupRound.current.get(threadId) === roundId;
-
-    // A newer message in the same group replaces the round in flight.
-    const inFlight = requestThread.current.get(threadId);
-    if (inFlight) bridge?.cancelChat?.(inFlight);
+    // A newer message replaces the whole round, not just the member whose
+    // request happened to be newest.
+    cancelGroupRequests(threadId);
 
     stickToBottom.current = true;
     const userMessage: Message = { id: uid(), role: 'user', text: outgoing };
@@ -1065,9 +1116,9 @@ export default function App() {
               ...item,
               messages: history,
               thinking: true,
-              streaming: '',
+              streaming: undefined,
               tool: undefined,
-              speaking: undefined,
+              live: [],
               preview,
             }
           : item,
@@ -1079,7 +1130,6 @@ export default function App() {
     if (composerRef.current) composerRef.current.style.height = '40px';
 
     const finish = () => {
-      requestThread.current.delete(threadId);
       groupRound.current.delete(threadId);
     };
 
@@ -1095,7 +1145,7 @@ export default function App() {
         ...item,
         thinking: false,
         streaming: undefined,
-        speaking: undefined,
+        live: [],
         messages: [
           ...item.messages,
           {
@@ -1111,8 +1161,14 @@ export default function App() {
     // Naming bots hands them the floor; saying nothing to anyone asks the whole
     // group, and each member is free to stay silent.
     const asked = mentionsIn(outgoing, members);
-    type Floor = { member: GroupMember; addressed: boolean; mentionedBy?: string };
-    const queue: Floor[] = (asked.length ? asked : members).map((member) => ({
+    type Floor = {
+      member: GroupMember;
+      addressed: boolean;
+      mentionedBy?: string;
+    };
+    // Every member receives the new line at once. A named bot is told it was
+    // addressed; the others see the same room and decide to stay out.
+    let wave: Floor[] = members.map((member) => ({
       member,
       addressed: asked.includes(member),
     }));
@@ -1121,121 +1177,217 @@ export default function App() {
     let lines = 0;
     let reacted = false;
     let lastLine = '';
+    let waves = 0;
 
-    while (queue.length > 0 && lines < MAX_GROUP_LINES) {
-      if (!isCurrent()) return;
-      const floor = queue.shift() as Floor;
-      const member = floor.member;
-      if ((spoken.get(member.id) ?? 0) >= MAX_MEMBER_LINES) continue;
+    type Outcome = {
+      floor: Floor;
+      turn?: ReturnType<typeof readGroupTurn>;
+      error?: string;
+      note?: string;
+      canceled?: boolean;
+    };
 
-      const requestId = uid();
-      requestThread.current.set(threadId, requestId);
+    while (
+      wave.length > 0 &&
+      lines < MAX_GROUP_LINES &&
+      waves < MAX_GROUP_WAVES
+    ) {
+      waves += 1;
+      const seen = new Set<string>();
+      const active = wave
+        .filter((floor) => {
+          if (seen.has(floor.member.id)) return false;
+          seen.add(floor.member.id);
+          return (spoken.get(floor.member.id) ?? 0) < MAX_MEMBER_LINES;
+        })
+        .slice(0, MAX_GROUP_LINES - lines);
+      if (active.length === 0) break;
+
+      const tasks = active.map((floor) => ({ floor, requestId: uid() }));
+      for (const task of tasks) {
+        groupRequests.current.set(task.requestId, threadId);
+      }
       sync((item) => ({
         ...item,
         thinking: true,
-        streaming: '',
+        streaming: undefined,
         tool: undefined,
-        speaking: member,
+        live: tasks.map(({ floor, requestId }) => ({
+          requestId,
+          member: floor.member,
+          text: '',
+        })),
       }));
 
-      try {
-        let sessionId = sessions[member.id];
-        if (!sessionId) {
-          const created = await bridge.createSession({
-            profile: member.profile,
-            // The prefix keeps a group session from ever resuming a private
-            // conversation with a title that happens to look the same.
-            title: `Group · ${thread.name} · ${member.name}`,
-          });
-          if (!isCurrent()) return;
-          if (!created.ok || !created.sessionId) {
-            history = [
-              ...history,
-              {
-                id: uid(),
-                role: 'event',
-                text: `${member.name} could not join the group: ${created.error ?? 'no session'}`,
-              },
-            ];
-            sync((item) => ({ ...item, messages: history }));
-            continue;
-          }
-          sessionId = created.sessionId;
-          sessions[member.id] = sessionId;
-          sync((item) => ({ ...item, messages: history, sessions }));
-        }
-
-        const configured = defaultModelPick(member.profile);
-        let pick = configured ?? readPreferredModel(member.profile);
-        if (!pick) pick = await configuredModelFor(member.profile);
-        if (!isCurrent()) return;
-
-        const wire = groupTurnMessage({
-          groupName: thread.name,
-          members,
-          speaker: member,
-          history,
-          addressed: floor.addressed,
-          mentionedBy: floor.mentionedBy,
-        });
-        const instructions = groupInstructions(thread.name, members);
-        const ask = (modelPick: PreferredModel | null) =>
-          bridge.sendChat({
-            requestId,
-            sessionId: sessionId as string,
-            message: wire,
-            profile: member.profile,
-            model: modelPick?.model,
-            provider: modelPick?.provider,
-            instructions,
-          });
-
-        let result = await ask(pick);
-        if (!isCurrent()) return;
-        // Same rescue as a private thread: an exhausted model must not take a
-        // whole member out of the conversation.
-        if (!result.ok && isQuotaFailure(result.error)) {
-          const failed = pick?.model ?? 'The configured model';
-          const rescue = await freeModelFor(member.profile);
-          if (rescue && rescue.model !== pick?.model) {
-            result = await ask(rescue);
-            if (!isCurrent()) return;
-            if (result.ok) {
-              // Same rule as a private thread: only a model that was not
-              // picked on purpose becomes the bot's remembered fallback.
-              if (!configured) rememberPreferredModel(member.profile, rescue);
-              history = [
-                ...history,
-                {
-                  id: uid(),
-                  role: 'event',
-                  text: `${failed} is out of quota — ${member.name} answered with ${rescue.model} instead.`,
-                },
-              ];
-              sync((item) => ({ ...item, messages: history }));
+      // Sessions are opened next to each other, then every member answers at
+      // the same time: nobody waits for the bot before them.
+      const joinErrors = new Map<string, string>();
+      await Promise.all(
+        active.map(async (floor) => {
+          const member = floor.member;
+          if (sessions[member.id]) return;
+          try {
+            const created = await bridge.createSession({
+              profile: member.profile,
+              // The prefix keeps a group session from ever resuming a private
+              // conversation with a title that happens to look the same.
+              title: `Group · ${thread.name} · ${member.name}`,
+            });
+            if (created.ok && created.sessionId) {
+              sessions[member.id] = created.sessionId;
+            } else {
+              joinErrors.set(
+                member.id,
+                created.error ?? 'the session could not be opened',
+              );
             }
+          } catch (reason) {
+            joinErrors.set(
+              member.id,
+              reason instanceof Error && reason.message
+                ? reason.message
+                : 'the session could not be opened',
+            );
           }
-        }
-        if (!result.ok) {
-          if (result.canceled) return;
+        }),
+      );
+      if (!isCurrent()) return;
+      sync((item) => ({ ...item, sessions }));
+
+      const outcomes = await Promise.all(
+        tasks.map(async ({ floor, requestId }): Promise<Outcome> => {
+          const member = floor.member;
+          const joined = joinErrors.get(member.id);
+          if (joined) {
+            return {
+              floor,
+              error: `${member.name} could not join the group: ${joined}`,
+            };
+          }
+          try {
+            const configured = defaultModelPick(member.profile);
+            let pick = configured ?? readPreferredModel(member.profile);
+            if (!pick) pick = await configuredModelFor(member.profile);
+            if (!isCurrent()) return { floor, canceled: true };
+
+            const wire = groupTurnMessage({
+              groupName: thread.name,
+              members,
+              speaker: member,
+              history,
+              addressed: floor.addressed,
+              mentionedBy: floor.mentionedBy,
+            });
+            const instructions = groupInstructions(thread.name, members);
+            const ask = (modelPick: PreferredModel | null) =>
+              bridge.sendChat({
+                requestId,
+                sessionId: sessions[member.id],
+                message: wire,
+                profile: member.profile,
+                model: modelPick?.model,
+                provider: modelPick?.provider,
+                instructions,
+              });
+
+            let result = await ask(pick);
+            if (!isCurrent()) return { floor, canceled: true };
+            let note: string | undefined;
+            if (!result.ok && isQuotaFailure(result.error)) {
+              const failed = pick?.model ?? 'The configured model';
+              const rescue = await freeModelFor(member.profile);
+              if (rescue && rescue.model !== pick?.model) {
+                result = await ask(rescue);
+                if (!isCurrent()) return { floor, canceled: true };
+                if (result.ok) {
+                  // Same rule as a private thread: only a model that was not
+                  // picked on purpose becomes the bot's remembered fallback.
+                  if (!configured) {
+                    rememberPreferredModel(member.profile, rescue);
+                  }
+                  note = `${failed} is out of quota — ${member.name} answered with ${rescue.model} instead.`;
+                }
+              }
+            }
+            if (!result.ok) {
+              if (result.canceled) return { floor, canceled: true };
+              return {
+                floor,
+                error: `${member.name} could not answer: ${result.error ?? 'unknown error'}`,
+              };
+            }
+            return {
+              floor,
+              turn: readGroupTurn(result.text ?? '', members),
+              note,
+            };
+          } catch (reason) {
+            if (!isCurrent()) return { floor, canceled: true };
+            return {
+              floor,
+              error: `${member.name} could not answer: ${
+                reason instanceof Error && reason.message
+                  ? reason.message
+                  : 'something broke'
+              }`,
+            };
+          }
+        }),
+      );
+
+      if (!isCurrent()) return;
+      for (const task of tasks) {
+        groupRequests.current.delete(task.requestId);
+      }
+
+      // Settle in roster order: the transcript does not depend on which model
+      // happened to answer first.
+      const order = new Map(
+        members.map((member, index) => [member.id, index]),
+      );
+      outcomes.sort(
+        (left, right) =>
+          (order.get(left.floor.member.id) ?? 0) -
+          (order.get(right.floor.member.id) ?? 0),
+      );
+
+      // Every member in a wave answered the same conversation. Tapbacks land
+      // on that state, before any of the wave's lines are appended.
+      let reactionHistory = history;
+      for (const outcome of outcomes) {
+        if (!outcome.turn?.emoji) continue;
+        reactionHistory = attachGroupReaction(
+          reactionHistory,
+          outcome.turn.emoji,
+          outcome.floor.member.name,
+        );
+        reacted = true;
+      }
+      history = reactionHistory;
+
+      const next: Floor[] = [];
+      for (const outcome of outcomes) {
+        const member = outcome.floor.member;
+        if (outcome.canceled) return;
+        if (outcome.note) {
           history = [
             ...history,
-            {
-              id: uid(),
-              role: 'event',
-              text: `${member.name} could not answer: ${result.error ?? 'unknown error'}`,
-            },
+            { id: uid(), role: 'event', text: outcome.note },
           ];
-          sync((item) => ({ ...item, messages: history, streaming: '' }));
+        }
+        if (outcome.error) {
+          history = [
+            ...history,
+            { id: uid(), role: 'event', text: outcome.error },
+          ];
           continue;
         }
-
-        const turn = readGroupTurn(result.text ?? '', members);
+        const turn = outcome.turn;
+        if (!turn) continue;
         if (turn.silent) {
-          // Silence is the normal case, but a bot asked by name owes the room
-          // a visible "no" — otherwise the person waits for an answer that is
-          // never coming.
-          if (floor.addressed || floor.mentionedBy) {
+          // Silence is normal, but a bot asked by name owes the room a visible
+          // "no" — otherwise the person waits for an answer that never comes.
+          if (outcome.floor.addressed || outcome.floor.mentionedBy) {
             history = [
               ...history,
               {
@@ -1245,15 +1397,9 @@ export default function App() {
               },
             ];
           }
-          sync((item) => ({ ...item, messages: history, streaming: '' }));
           continue;
         }
-
-        if (turn.emoji) {
-          history = attachGroupReaction(history, turn.emoji, member.name);
-          reacted = true;
-        }
-        if (turn.text) {
+        if (turn.text && lines < MAX_GROUP_LINES) {
           history = [
             ...history,
             {
@@ -1270,30 +1416,17 @@ export default function App() {
           lastLine = turn.text;
           for (const mentioned of turn.mentions) {
             if (mentioned.id === member.id) continue;
-            queue.push({
+            next.push({
               member: mentioned,
               addressed: false,
               mentionedBy: member.name,
             });
           }
         }
-        sync((item) => ({ ...item, messages: history, streaming: '' }));
-      } catch (reason) {
-        if (!isCurrent()) return;
-        history = [
-          ...history,
-          {
-            id: uid(),
-            role: 'event',
-            text: `${member.name} could not answer: ${
-              reason instanceof Error && reason.message
-                ? reason.message
-                : 'something broke'
-            }`,
-          },
-        ];
-        sync((item) => ({ ...item, messages: history, streaming: '' }));
       }
+
+      sync((item) => ({ ...item, messages: history, live: [] }));
+      wave = next;
     }
 
     if (!isCurrent()) return;
@@ -1310,7 +1443,7 @@ export default function App() {
       thinking: false,
       streaming: undefined,
       tool: undefined,
-      speaking: undefined,
+      live: [],
       sessions,
       preview: lastLine
         ? lastLine.replace(/\s+/g, ' ').slice(0, 90)
@@ -1871,28 +2004,6 @@ export default function App() {
           </div>
         </header>
 
-        {activeThread.members?.length ? (
-          <div className="group-roster" aria-label="Group members">
-            {activeThread.members.map((member) => (
-              <span
-                className={`group-roster-member ${
-                  activeThread.thinking && activeThread.speaking?.id === member.id
-                    ? 'is-speaking'
-                    : ''
-                }`}
-                key={member.id}
-              >
-                <AgentAvatar
-                  avatar={member.avatar}
-                  size={20}
-                  showBadge={false}
-                />
-                <span className="group-roster-name">{member.name}</span>
-              </span>
-            ))}
-          </div>
-        ) : null}
-
         <div
           className="chat-scroll"
           ref={scrollRef}
@@ -2001,52 +2112,89 @@ export default function App() {
                 )}
 
                 {activeThread.thinking ? (
-                  streamingText.trim() ? (
-                    <div
-                      className={`message-row assistant ${
-                        activeThread.speaking ? 'is-group-line' : ''
-                      }`}
-                    >
-                      {activeThread.speaking ? (
+                  activeThread.avatar.kind === 'group' ? (
+                    activeThread.live?.length ? (
+                      <div className="group-live">
+                        {activeThread.live.map((live) => {
+                          const liveText = stripSilentMarkers(
+                            stripReactionMarkers(live.text),
+                          );
+                          return liveText.trim() ? (
+                            <div
+                              className="message-row assistant is-group-line"
+                              key={live.requestId}
+                            >
+                              <AgentAvatar
+                                avatar={live.member.avatar}
+                                size={30}
+                                className="message-author-avatar"
+                                showBadge={false}
+                              />
+                              <div className="bubble-wrap bubble-wrap-assistant">
+                                <span className="message-author">
+                                  {live.member.name}
+                                </span>
+                                <div className="bubble bubble-assistant is-streaming">
+                                  <MentionText
+                                    text={liveText}
+                                    members={activeThread.members}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              className="thinking-row"
+                              key={live.requestId}
+                            >
+                              <AgentAvatar
+                                avatar={live.member.avatar}
+                                size={34}
+                                className="thinking-avatar"
+                                showBadge={false}
+                              />
+                              <span className="thinking-label">
+                                {live.tool
+                                  ? `${live.member.name} is using ${live.tool}…`
+                                  : `${live.member.name} is thinking…`}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="thinking-row">
                         <AgentAvatar
-                          avatar={activeThread.speaking.avatar}
-                          size={30}
-                          className="message-author-avatar"
+                          avatar={activeThread.avatar}
+                          size={38}
+                          className="thinking-avatar"
                           showBadge={false}
                         />
-                      ) : null}
+                        <span className="thinking-label">
+                          The group is thinking…
+                        </span>
+                      </div>
+                    )
+                  ) : streamingText.trim() ? (
+                    <div className="message-row assistant">
                       <div className="bubble-wrap bubble-wrap-assistant">
-                        {activeThread.speaking ? (
-                          <span className="message-author">
-                            {activeThread.speaking.name}
-                          </span>
-                        ) : null}
                         <div className="bubble bubble-assistant is-streaming">
-                          <MentionText
-                            text={streamingText}
-                            members={activeThread.members}
-                          />
+                          {streamingText}
                         </div>
                       </div>
                     </div>
                   ) : (
                     <div className="thinking-row">
                       <AgentAvatar
-                        avatar={activeThread.speaking?.avatar ?? activeThread.avatar}
+                        avatar={activeThread.avatar}
                         size={38}
                         className="thinking-avatar"
                         showBadge={false}
                       />
                       <span className="thinking-label">
-                        {activeThread.speaking
-                          ? `${activeThread.speaking.name} is ${
-                              activeThread.tool
-                                ? `using ${activeThread.tool}`
-                                : 'thinking'
-                            }…`
-                          : activeThread.tool
-                            ? `Using ${activeThread.tool}…`
-                            : 'Thinking'}
+                        {activeThread.tool
+                          ? `Using ${activeThread.tool}…`
+                          : 'Thinking'}
                       </span>
                     </div>
                   )
@@ -2180,14 +2328,7 @@ export default function App() {
                   onBlur={() => setMentionHidden(true)}
                   aria-label={`Message ${activeThread.name}`}
                 />
-                {activeThread.avatar.kind === 'group' ? (
-                  <span
-                    className="group-model-note"
-                    title="Each member answers on its own default model"
-                  >
-                    Group
-                  </span>
-                ) : (
+                {activeThread.avatar.kind === 'group' ? null : (
                 <ModelPicker
                   profile={activeThread.profile}
                   value={activeThread.model}

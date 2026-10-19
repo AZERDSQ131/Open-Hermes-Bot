@@ -16,8 +16,10 @@ const PARTIAL_SILENT = /\[\[\s*s(?:i(?:l(?:e(?:n(?:t)?)?)?)?)?[^\]]*$/i;
 
 // A group can talk itself into a loop ("@B" → "@A" → "@B"…). The round stops
 // at this many spoken lines, and no member speaks more than twice per round.
+// Each @mention opens one more parallel wave, capped so a chain still ends.
 export const MAX_GROUP_LINES = 8;
 export const MAX_MEMBER_LINES = 2;
+export const MAX_GROUP_WAVES = 4;
 
 export function stripSilentMarkers(text: string): string {
   return text.replace(SILENT, '').replace(PARTIAL_SILENT, '');

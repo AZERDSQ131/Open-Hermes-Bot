@@ -35,6 +35,17 @@ export type Reaction = {
   by?: string;
 };
 
+/**
+ * A group member whose answer is arriving right now. Several of these exist
+ * at once: a group turn asks every member in parallel, not one by one.
+ */
+export type LiveGroupTurn = {
+  requestId: string;
+  member: GroupMember;
+  text: string;
+  tool?: string;
+};
+
 export type Message =
   | {
       id: string;
@@ -73,8 +84,8 @@ export type Thread = {
    * stays the same bot, with its own memory, across the whole conversation.
    */
   sessions?: Record<string, string>;
-  /** Group member currently composing a line. */
-  speaking?: GroupMember;
+  /** Group members composing at this moment — one row per live request. */
+  live?: LiveGroupTurn[];
   /** Model picked for this conversation; absent means the bot's own. */
   model?: string;
   modelProvider?: string;
