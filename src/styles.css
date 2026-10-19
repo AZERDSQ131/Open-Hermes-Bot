@@ -2179,28 +2179,53 @@ button:focus-visible {
   text-decoration-color: rgba(255, 255, 255, 0.2);
 }
 
-.model-admin-toggle {
-  display: flex;
+.model-admin-name {
   min-width: 0;
   flex: 1 1 auto;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.model-admin-toggle input {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-  margin: 0;
-  accent-color: #f2efe5;
-  cursor: pointer;
-}
-
-.model-admin-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The on/off that decides whether a model appears in the picker at all. */
+.model-switch {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  transition: background-color 140ms ease;
+}
+
+.model-switch:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.model-switch.is-on {
+  background: #f2efe5;
+}
+
+.model-switch.is-on:hover {
+  background: #fffdf6;
+}
+
+.model-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #b6b6bd;
+  transition:
+    transform 140ms ease,
+    background-color 140ms ease;
+}
+
+.model-switch.is-on .model-switch-knob {
+  background: #1d1d1f;
+  transform: translateX(14px);
 }
 
 .model-admin-star {

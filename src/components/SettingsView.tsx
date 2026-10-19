@@ -649,21 +649,12 @@ export function SettingsView({
                               } ${picked ? 'is-default' : ''}`}
                               key={id}
                             >
-                              <label className="model-admin-toggle">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={(event) =>
-                                    setModelVisible(id, event.target.checked)
-                                  }
-                                />
-                                <span className="model-admin-name">
-                                  {entry.model}
-                                </span>
-                                {entry.current ? (
-                                  <span className="model-tag">current</span>
-                                ) : null}
-                              </label>
+                              <span className="model-admin-name">
+                                {entry.model}
+                              </span>
+                              {entry.current ? (
+                                <span className="model-tag">current</span>
+                              ) : null}
                               <button
                                 type="button"
                                 className={`model-admin-star ${
@@ -683,6 +674,23 @@ export function SettingsView({
                                 onClick={() => toggleModelFavorite(id)}
                               >
                                 <StarIcon filled={favorite} />
+                              </button>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={checked}
+                                aria-label={`List ${entry.model} in the picker`}
+                                title={
+                                  checked
+                                    ? 'Listed in the model picker'
+                                    : 'Hidden from the model picker'
+                                }
+                                className={`model-switch ${
+                                  checked ? 'is-on' : ''
+                                }`}
+                                onClick={() => setModelVisible(id, !checked)}
+                              >
+                                <span className="model-switch-knob" />
                               </button>
                               <label
                                 className="model-admin-default"
