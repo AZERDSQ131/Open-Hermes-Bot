@@ -28,14 +28,13 @@ import {
   PlusIcon,
   SearchIcon,
 } from './components/Icons';
-import type { HermesStatus } from './hermes';
+import type { HermesProfile, HermesStatus } from './hermes';
 import { defaultModelPick } from './modelPrefs';
 import { avatarColor } from './profileColor';
 import { SettingsView } from './components/SettingsView';
 import { LogoEditor } from './components/LogoEditor';
 import { ThreadContextMenu } from './components/ThreadContextMenu';
 import {
-  THREADS,
   type AvatarSpec,
   type BotStyle,
   type Message,
@@ -102,6 +101,53 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+// A bot in Hermes becomes a thread here: the profile name is the identity, the
+// title and colour are the ones Hermes already shows for it.
+function threadForBot(profile: HermesProfile): Thread {
+  return {
+    id: `bot:${profile.name}`,
+    name: profile.title?.trim() || profile.name,
+    profile: profile.name,
+    avatar: {
+      color: avatarColor(profile.color, profile.name),
+      shape: 'cercle',
+      variant: 'neutral',
+    },
+    preview: '',
+    time: '',
+    chatTime: '',
+    messages: [],
+  };
+}
+
+// Real bots only: anything the gateway no longer serves leaves the sidebar, and
+// threads without a profile (groups) stay where they are.
+function mergeBots(
+  current: Thread[],
+  profiles: HermesProfile[],
+  pending: Set<string>,
+): Thread[] {
+  const listed = new Set(profiles.map((profile) => profile.name));
+  const existing = new Map(
+    current
+      .filter((thread) => thread.profile)
+      .map((thread) => [thread.profile as string, thread]),
+  );
+  const bots = profiles.map(
+    (profile) => existing.get(profile.name) ?? threadForBot(profile),
+  );
+  // A bot just created can be ready to answer before the gateway lists it; it
+  // stays visible until the list catches up instead of vanishing on a refresh.
+  const waiting = current.filter(
+    (thread) =>
+      thread.profile &&
+      !listed.has(thread.profile) &&
+      pending.has(thread.profile),
+  );
+  const local = current.filter((thread) => !thread.profile);
+  return [...bots, ...waiting, ...local];
+}
+
 /** A bridge call that never comes back must not leave a dialog spinning. */
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   return Promise.race([
@@ -135,8 +181,10 @@ function formatFileSize(bytes: number) {
 
 
 export default function App() {
-  const [threads, setThreads] = useState<Thread[]>(THREADS);
-  const [activeId, setActiveId] = useState('sales-outbound');
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [activeId, setActiveId] = useState('');
+  const [botsLoaded, setBotsLoaded] = useState(false);
+  const [botsError, setBotsError] = useState('');
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState('');
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
@@ -173,7 +221,56 @@ export default function App() {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const logoRef = useRef<HTMLDivElement>(null);
   const renameCancelled = useRef(false);
+  // Profiles created here but not yet reported by the gateway.
+  const pendingBots = useRef(new Set<string>());
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  // The sidebar is the real inventory: bots come from the gateway, never from
+  // seed data. Refetched when the connection settles, so a reconnect picks up
+  // bots created or removed on the machine meanwhile.
+  useEffect(() => {
+    const bridge = window.hermes;
+    if (!bridge?.profiles) {
+      setBotsLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    bridge
+      .profiles()
+      .then((result) => {
+        if (cancelled) return;
+        if (result.ok && result.profiles) {
+          const listed = new Set(
+            (result.profiles ?? []).map((profile) => profile.name),
+          );
+          for (const name of [...pendingBots.current]) {
+            if (listed.has(name)) pendingBots.current.delete(name);
+          }
+          setBotsError('');
+          setThreads((current) =>
+            mergeBots(current, result.profiles ?? [], pendingBots.current),
+          );
+        } else {
+          setBotsError(result.error ?? 'Could not reach Hermes');
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setBotsLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hermesStatus.state]);
+
+  // A deleted bot can take the open conversation with it; land on the first
+  // one that still exists instead of showing an empty window.
+  useEffect(() => {
+    if (threads.length === 0) return;
+    if (!threads.some((thread) => thread.id === activeId)) {
+      setActiveId(threads[0].id);
+    }
+  }, [threads, activeId]);
 
   const activeThread =
     threads.find((thread) => thread.id === activeId) ?? threads[0];
@@ -182,10 +279,11 @@ export default function App() {
   // same order as the send path: the default chosen for this bot, then the
   // model it last remembered. The chip needs it so it cannot promise another
   // model than the one the next turn will use.
-  const activeFallbackLabel = activeThread.model
-    ? undefined
-    : (defaultModelPick(activeThread.profile) ??
-        readPreferredModel(activeThread.profile))?.model;
+  const activeFallbackLabel =
+    !activeThread || activeThread.model
+      ? undefined
+      : (defaultModelPick(activeThread.profile) ??
+          readPreferredModel(activeThread.profile))?.model;
 
   const orderedThreads = useMemo(
     () =>
@@ -473,6 +571,7 @@ export default function App() {
         return { ok: false, error: result.error ?? 'Could not create the bot' };
       }
       profile = result.name;
+      if (profile) pendingBots.current.add(profile);
       // The colour the server keeps for this profile is the one to wear: that
       // is exactly what Hermes paints for the same bot. Only when nothing is
       // stored does the hue derived from the name stand in.
@@ -584,6 +683,7 @@ export default function App() {
   }
 
   function startRenaming() {
+    if (!activeThread) return;
     setNameDraft(activeThread.name);
     renameCancelled.current = false;
     setLogoOpen(false);
@@ -591,6 +691,7 @@ export default function App() {
   }
 
   function commitRename() {
+    if (!activeThread) return;
     if (renameCancelled.current) {
       renameCancelled.current = false;
       setRenaming(false);
@@ -1000,6 +1101,7 @@ export default function App() {
         onClick={() => setSidebarOpen(false)}
       />
 
+      {activeThread ? (
       <main className="chat">
         <header className="chat-header">
           <div className="chat-header-inner">
@@ -1306,6 +1408,35 @@ export default function App() {
           </div>
         </div>
       </main>
+      ) : (
+        <main className="chat">
+          <div className="empty-state no-bots">
+            <h2>
+              {!botsLoaded
+                ? 'Looking for your bots…'
+                : botsError
+                  ? 'Hermes is out of reach'
+                  : 'No bots yet'}
+            </h2>
+            <p>
+              {!botsLoaded
+                ? 'Asking Hermes which bots you have.'
+                : botsError
+                  ? botsError
+                  : 'Bots live in Hermes. Create one and it appears here.'}
+            </p>
+            {botsLoaded ? (
+              <button
+                type="button"
+                className="button-primary no-bots-action"
+                onClick={botsError ? openSettings : openCreateDialog}
+              >
+                {botsError ? 'Open Connection' : 'Create a bot'}
+              </button>
+            ) : null}
+          </div>
+        </main>
+      )}
 
       {contextMenu && contextThread ? (
         <ThreadContextMenu
