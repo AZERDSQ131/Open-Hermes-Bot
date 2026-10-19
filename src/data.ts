@@ -80,7 +80,6 @@ export const THREADS: Thread[] = [
     preview: 'Overnight pipeline generation and outbound',
     time: '11:03 PM',
     chatTime: '11:03 PM',
-    thinking: true,
     messages: [
       {
         id: 'sales-1',
