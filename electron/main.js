@@ -434,6 +434,149 @@ ipcMain.handle('hermes:disconnect', () => {
 
 ipcMain.handle('hermes:status', () => connectionStatus);
 
+
+// ------------------------------------------------------------------ bots
+
+// A bot IS a Hermes profile. These names are reserved by Hermes itself
+// (hermes_constants.PROFILE_ID_RE + hermes_cli.profiles._RESERVED_NAMES), so we
+// refuse them early instead of surfacing a confusing remote failure.
+const PROFILE_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const RESERVED_PROFILE_NAMES = new Set([
+  'hermes',
+  'default',
+  'test',
+  'tmp',
+  'root',
+  'sudo',
+]);
+
+function shellQuote(value) {
+  return `'${String(value ?? '').replace(/'/g, `'\\''`)}'`;
+}
+
+// Runs on the Hermes host. `hermes profile create` seeds an EMPTY .env, and the
+// multiplexed gateway resolves API_SERVER_KEY per routed profile (never through
+// another profile's env), so a fresh bot is unreachable until it owns a key.
+// The clone brings the model/provider credentials; the key we mint ourselves.
+const CREATE_BOT_SCRIPT = `set -u
+export PATH="$HOME/.local/bin:$PATH"
+
+NAME="$1"
+TITLE="$2"
+DESC="$3"
+ROOT="$HOME/.hermes"
+P="$ROOT/profiles/$NAME"
+
+if [ -e "$P" ]; then
+  echo "ERR a profile named $NAME already exists"
+  exit 0
+fi
+
+CREATE_OUT=$(hermes profile create "$NAME" --clone-from default --description "$DESC" 2>&1 </dev/null)
+if [ ! -d "$P" ]; then
+  echo "ERR $(printf '%s' "$CREATE_OUT" | tail -1)"
+  exit 0
+fi
+
+if ! grep -q '^API_SERVER_KEY=' "$P/.env" 2>/dev/null; then
+  printf '\\nAPI_SERVER_KEY=%s\\n' "$(openssl rand -hex 32)" >> "$P/.env"
+  chmod 600 "$P/.env"
+fi
+
+python3 - "$P/profile.yaml" "$TITLE" <<'PY'
+import os
+import pathlib
+import sys
+
+import yaml
+
+path = pathlib.Path(sys.argv[1])
+title = sys.argv[2].strip()
+
+data = {}
+if path.exists():
+    try:
+        data = yaml.safe_load(path.read_text()) or {}
+    except Exception:
+        data = {}
+if not isinstance(data, dict):
+    data = {}
+
+ui = data.get("ui_meta") if isinstance(data.get("ui_meta"), dict) else {}
+bots = ui.get("hermes-bots") if isinstance(ui.get("hermes-bots"), dict) else {}
+if title:
+    bots["title"] = title
+ui["hermes-bots"] = bots
+data["ui_meta"] = ui
+
+tmp = path.with_name(path.name + ".sidekick-tmp")
+tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
+os.replace(tmp, path)
+PY
+
+KEY=$(grep -m1 '^API_SERVER_KEY=' "$P/.env" | cut -d= -f2-)
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $KEY" "http://127.0.0.1:8642/p/$NAME/api/sessions" 2>/dev/null || echo 000)
+echo "OK $NAME $CODE"
+`;
+
+ipcMain.handle('hermes:bot:create', async (_event, payload) => {
+  const connection = storedConnection();
+  const name = String(payload?.name ?? '').trim().toLowerCase();
+  const title = String(payload?.title ?? '').trim();
+  const description = String(payload?.description ?? '').trim();
+
+  if (!PROFILE_NAME_RE.test(name)) {
+    return {
+      ok: false,
+      error:
+        'A bot name becomes a Hermes profile id: lowercase letters, digits, dashes or underscores only.',
+    };
+  }
+  if (RESERVED_PROFILE_NAMES.has(name)) {
+    return {
+      ok: false,
+      error: `"${name}" is reserved by Hermes — pick another name.`,
+    };
+  }
+
+  const encoded = Buffer.from(CREATE_BOT_SCRIPT, 'utf8').toString('base64');
+  const command = `echo ${shellQuote(encoded)} | base64 -d | bash -s -- ${shellQuote(name)} ${shellQuote(title)} ${shellQuote(description)}`;
+  const result = await runSsh(connection.sshHost, command, 240000);
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      error:
+        result.error ||
+        result.stderr.trim() ||
+        `Could not reach ${connection.sshHost} over SSH`,
+    };
+  }
+
+  const lastLine =
+    result.stdout
+      .trim()
+      .split('\n')
+      .filter((line) => line.trim())
+      .pop() ?? '';
+
+  if (!lastLine.startsWith('OK ')) {
+    return {
+      ok: false,
+      error: lastLine.replace(/^ERR\s*/, '').trim() || 'Could not create the bot',
+    };
+  }
+
+  const [, created, httpCode] = lastLine.split(' ');
+  return {
+    ok: true,
+    name: created,
+    title: title || created,
+    reachable: httpCode === '200',
+    httpCode,
+  };
+});
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,

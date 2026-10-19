@@ -21,6 +21,15 @@ export type HermesSettings = {
   hasKey: boolean;
 };
 
+export type HermesBotCreateResult = {
+  ok: boolean;
+  error?: string;
+  name?: string;
+  title?: string;
+  reachable?: boolean;
+  httpCode?: string;
+};
+
 export type HermesBridge = {
   getSettings: () => Promise<HermesSettings>;
   saveSettings: (payload: {
@@ -39,6 +48,11 @@ export type HermesBridge = {
     apiPort: number;
     apiKey?: string;
   }) => Promise<HermesStatus>;
+  createBot: (payload: {
+    name: string;
+    title?: string;
+    description?: string;
+  }) => Promise<HermesBotCreateResult>;
   connect: () => Promise<HermesStatus>;
   disconnect: () => Promise<HermesStatus>;
   status: () => Promise<HermesStatus>;

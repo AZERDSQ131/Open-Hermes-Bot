@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('hermes', {
   saveSettings: (payload) => ipcRenderer.invoke('hermes:settings:save', payload),
   importKey: (payload) => ipcRenderer.invoke('hermes:key:import', payload),
   test: (payload) => ipcRenderer.invoke('hermes:test', payload),
+  createBot: (payload) => ipcRenderer.invoke('hermes:bot:create', payload),
   connect: () => ipcRenderer.invoke('hermes:connect'),
   disconnect: () => ipcRenderer.invoke('hermes:disconnect'),
   status: () => ipcRenderer.invoke('hermes:status'),
