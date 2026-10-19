@@ -706,13 +706,16 @@ export default function App() {
       );
 
       // Move to a free model rather than showing a dead end, then make that
-      // switch visible in the thread: the chip and the note must agree.
+      // switch visible in the thread: the chip and the note must agree. An
+      // explicit pick is the person's choice, so it is not overwritten as the
+      // bot's default — only the thread falls back for now.
       if (!result.ok && isQuotaFailure(result.error)) {
+        const failed = thread.model ?? fallback?.model ?? 'The configured model';
         const rescue = await freeModelFor(thread.profile);
-        if (rescue && rescue.model !== (thread.model ?? fallback?.model)) {
+        if (rescue && rescue.model !== failed) {
           result = await ask(rescue);
           if (result.ok) {
-            rememberPreferredModel(thread.profile, rescue);
+            if (!thread.model) rememberPreferredModel(thread.profile, rescue);
             setThreads((current) =>
               current.map((item) =>
                 item.id === threadId
@@ -726,7 +729,7 @@ export default function App() {
                         {
                           id: uid(),
                           role: 'event',
-                          text: `The configured model is out of quota — answered with ${rescue.model} instead.`,
+                          text: `${failed} is out of quota — answered with ${rescue.model} instead.`,
                         },
                       ],
                     }
