@@ -760,7 +760,8 @@ button:focus-visible {
 
 .message-author-avatar {
   flex: none;
-  margin-top: 2px;
+  /* Line the face up with the bubble, not with the name above it. */
+  margin-top: 18px;
 }
 
 .message-author {

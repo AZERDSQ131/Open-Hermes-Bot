@@ -2182,7 +2182,7 @@ export default function App() {
                       {message.authorName && message.authorAvatar ? (
                         <AgentAvatar
                           avatar={message.authorAvatar}
-                          size={30}
+                          size={52}
                           className="message-author-avatar"
                           showBadge={false}
                         />
@@ -2254,7 +2254,7 @@ export default function App() {
                             >
                               <AgentAvatar
                                 avatar={live.member.avatar}
-                                size={30}
+                                size={52}
                                 className="message-author-avatar"
                                 showBadge={false}
                               />
