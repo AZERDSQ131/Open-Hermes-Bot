@@ -2355,7 +2355,7 @@ button:focus-visible {
   padding: 4px 10px;
   margin-left: -10px;
   border: 0;
-  border-radius: 0;
+  border-radius: 999px;
   background: none;
   color: #83838a;
   font-size: 15.5px;
@@ -2367,9 +2367,9 @@ button:focus-visible {
 .composer-main .model-chip:hover,
 .composer-main .model-chip.is-open {
   border: 0;
-  border-radius: 0;
+  border-radius: 999px;
   /* Brighter than the composer behind it (#262628), well short of the text:
-     a square tint, no line around it. */
+     a rounded tint, no line around it. */
   background: rgba(242, 239, 229, 0.07);
   color: #83838a;
   outline: none;
