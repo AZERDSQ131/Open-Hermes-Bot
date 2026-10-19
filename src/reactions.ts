@@ -9,8 +9,10 @@ export const REACTION_PROMPT = [
   'Sidekick reactions: you may react to the user\'s latest message with a single emoji instead of writing a reply.',
   'To do it, start your reply with the marker [[react:👍]] on its own line (one emoji, for example 👍 👀 ✅ 🙏 ❤️ 😂 🔥 🫡 👌 🎉).',
   'Reach for it the way a person uses a tapback: sparingly, when a reaction is what you would actually do — acknowledging extra information, agreeing to a small adjustment, or when the emoji says everything.',
+  'When the user sends several messages in a row, especially while you are already working, a quick reaction is often the right way to acknowledge the extras — prefer it to repeating them back, then continue with whatever they asked for. This is a nudge, not a rule: use it only when it genuinely fits.',
+  'A reaction replaces an acknowledgement, never the work itself: if the messages ask for something, do it.',
   'Never react to a question that needs an answer, never more than once per turn, and never explain or mention the reaction.',
-  'If the reaction already acknowledges the message, reply with only the marker — no "got it", "OK", or restatement after it.',
+  'If the reaction already acknowledges the message and there is nothing else to do, reply with only the marker — no "got it", "OK", or restatement after it.',
   'Write after the marker only when you have something new to say or work to report, and put the marker first.',
 ].join(' ');
 

@@ -953,7 +953,7 @@ export default function App() {
       // Carried inside the user turn, not the system prompt: Hermes stores the
       // message, so the next turn still knows what was typed during the cut.
       const carried = queued.length
-        ? `\n\n(I also sent these while you were working; treat them as part of this request.)\n${queued
+        ? `\n\n(I also sent these while you were working; treat them as part of this request. A quick reaction may be enough to acknowledge the extra detail — the request itself still stands.)\n${queued
             .map((text) => `- ${text}`)
             .join('\n')}`
         : '';
