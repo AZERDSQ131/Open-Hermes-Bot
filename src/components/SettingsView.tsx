@@ -1,6 +1,18 @@
-import { useEffect, useState } from 'react';
-import type { HermesSettings, HermesStatus } from '../hermes';
-import { ChevronLeftIcon } from './Icons';
+import { useEffect, useMemo, useState } from 'react';
+import type { HermesModel, HermesSettings, HermesStatus } from '../hermes';
+import {
+  isDefault,
+  isFavorite,
+  isHidden,
+  modelId,
+  setDefaultModel,
+  setModelVisible,
+  toggleModelFavorite,
+  useModelPrefs,
+} from '../modelPrefs';
+import { ChevronLeftIcon, StarIcon } from './Icons';
+
+type Section = 'connection' | 'models';
 
 type SettingsViewProps = {
   status: HermesStatus;
@@ -34,7 +46,14 @@ export function SettingsView({
   const [apiKey, setApiKey] = useState('');
   const [hasKey, setHasKey] = useState(false);
   const [advanced, setAdvanced] = useState(false);
+  const [section, setSection] = useState<Section>('connection');
+  const [models, setModels] = useState<HermesModel[] | null>(null);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState('');
+  const [modelNeedle, setModelNeedle] = useState('');
+  const [modelsReload, setModelsReload] = useState(0);
   const [busy, setBusy] = useState<BusyAction>(null);
+  const prefs = useModelPrefs();
   const [tested, setTested] = useState<{
     fingerprint: string;
     status: HermesStatus;
@@ -67,6 +86,54 @@ export function SettingsView({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [busy, onClose]);
+
+  // The inventory is only fetched when the Models section is open, and again
+  // whenever Refresh is pressed: the gateway answers slowly over the tunnel.
+  useEffect(() => {
+    if (section !== 'models' || !bridge?.models) return;
+    let cancelled = false;
+    setModelsLoading(true);
+    setModelsError('');
+    bridge
+      .models({})
+      .then((result) => {
+        if (cancelled) return;
+        if (!result.ok) {
+          setModelsError(result.error ?? 'Could not list the models');
+          return;
+        }
+        setModels(result.models ?? []);
+      })
+      .catch((reason: Error) => {
+        if (!cancelled) setModelsError(reason.message);
+      })
+      .finally(() => {
+        if (!cancelled) setModelsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [section, bridge, modelsReload]);
+
+  const modelGroups = useMemo(() => {
+    const needle = modelNeedle.trim().toLowerCase();
+    const byProvider = new Map<string, HermesModel[]>();
+    for (const entry of models ?? []) {
+      if (needle && !entry.model.toLowerCase().includes(needle)) continue;
+      const key = entry.providerName || entry.provider;
+      const list = byProvider.get(key) ?? [];
+      list.push(entry);
+      byProvider.set(key, list);
+    }
+    // Kept in the gateway's order: a row must not jump under the cursor when
+    // its star is clicked. Favourites float to the top of the composer only.
+    return [...byProvider.entries()];
+  }, [models, modelNeedle]);
+
+  const totalModels = models?.length ?? 0;
+  const hiddenModels = models
+    ? models.filter((entry) => isHidden(prefs, modelId(entry))).length
+    : 0;
 
   const draftFingerprint = fingerprint(host, port, apiKey);
   const testStatus =
@@ -233,16 +300,31 @@ export function SettingsView({
           <span className="settings-nav-group">Hermes</span>
           <button
             type="button"
-            className="settings-nav-item is-active"
-            aria-current="page"
+            className={`settings-nav-item ${
+              section === 'connection' ? 'is-active' : ''
+            }`}
+            aria-current={section === 'connection' ? 'page' : undefined}
+            onClick={() => setSection('connection')}
           >
             Connection
+          </button>
+          <button
+            type="button"
+            className={`settings-nav-item ${
+              section === 'models' ? 'is-active' : ''
+            }`}
+            aria-current={section === 'models' ? 'page' : undefined}
+            onClick={() => setSection('models')}
+          >
+            Models
           </button>
         </nav>
       </aside>
 
       <main className="settings-pane">
         <div className="settings-pane-inner">
+          {section === 'connection' ? (
+          <>
           <header className="connection-head">
             <div className="connection-head-copy">
               <h2>Connection</h2>
@@ -480,6 +562,187 @@ export function SettingsView({
                   : 'Save & connect'}
             </button>
           </div>
+          </>
+          ) : (
+            <>
+              <header className="connection-head">
+                <div className="connection-head-copy">
+                  <h2>Models</h2>
+                  <p>
+                    Choose what the composer offers. Unticked models stay in
+                    Hermes — they just disappear from the picker.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="settings-action"
+                  disabled={!bridge?.models || modelsLoading}
+                  onClick={() => setModelsReload((count) => count + 1)}
+                >
+                  {modelsLoading ? 'Loading…' : 'Refresh'}
+                </button>
+              </header>
+
+              {bridge?.models ? null : (
+                <p className="settings-warning">
+                  Model settings are only available inside the desktop app.
+                </p>
+              )}
+
+              {bridge?.models && status.state !== 'connected' ? (
+                <p className="settings-warning">
+                  The tunnel is closed. Connect from the Connection section to
+                  list the models — your choices are kept.
+                </p>
+              ) : null}
+
+              <div className="model-admin">
+                <div className="model-admin-toolbar">
+                  <input
+                    className="model-admin-search"
+                    type="search"
+                    value={modelNeedle}
+                    placeholder="Search models"
+                    spellCheck={false}
+                    onChange={(event) => setModelNeedle(event.target.value)}
+                  />
+                  <span className="model-admin-count">
+                    {modelsLoading
+                      ? 'Reading the gateway…'
+                      : `${totalModels - hiddenModels} of ${totalModels} shown`}
+                  </span>
+                </div>
+
+                {modelsError ? (
+                  <p className="model-error">{modelsError}</p>
+                ) : null}
+
+                {!models && modelsLoading ? (
+                  <p className="model-note">Loading models…</p>
+                ) : null}
+
+                <div className="model-admin-list">
+                  {modelGroups.map(([providerName, entries]) => {
+                    const shown = entries.filter(
+                      (entry) => !isHidden(prefs, modelId(entry)),
+                    ).length;
+                    return (
+                      <section
+                        className="model-admin-group"
+                        key={providerName}
+                      >
+                        <header className="model-admin-group-head">
+                          <span>{providerName}</span>
+                          <span>
+                            {shown}/{entries.length}
+                          </span>
+                        </header>
+                        {entries.map((entry) => {
+                          const id = modelId(entry);
+                          const checked = !isHidden(prefs, id);
+                          const favorite = isFavorite(prefs, id);
+                          const picked = isDefault(prefs, entry);
+                          return (
+                            <div
+                              className={`model-admin-row ${
+                                checked ? '' : 'is-unlisted'
+                              } ${picked ? 'is-default' : ''}`}
+                              key={id}
+                            >
+                              <label className="model-admin-toggle">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(event) =>
+                                    setModelVisible(id, event.target.checked)
+                                  }
+                                />
+                                <span className="model-admin-name">
+                                  {entry.model}
+                                </span>
+                                {entry.current ? (
+                                  <span className="model-tag">current</span>
+                                ) : null}
+                              </label>
+                              <button
+                                type="button"
+                                className={`model-admin-star ${
+                                  favorite ? 'is-on' : ''
+                                }`}
+                                aria-pressed={favorite}
+                                aria-label={
+                                  favorite
+                                    ? `Remove ${entry.model} from favorites`
+                                    : `Add ${entry.model} to favorites`
+                                }
+                                title={
+                                  favorite
+                                    ? 'Remove from favorites'
+                                    : 'Add to favorites'
+                                }
+                                onClick={() => toggleModelFavorite(id)}
+                              >
+                                <StarIcon filled={favorite} />
+                              </button>
+                              <label
+                                className="model-admin-default"
+                                title="Use as the default model"
+                              >
+                                <input
+                                  type="radio"
+                                  name="default-model"
+                                  checked={picked}
+                                  onChange={() =>
+                                    setDefaultModel({
+                                      model: entry.model,
+                                      provider: entry.provider,
+                                    })
+                                  }
+                                />
+                                <span>Default</span>
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </section>
+                    );
+                  })}
+                </div>
+
+                {models && modelGroups.length === 0 ? (
+                  <p className="model-note">
+                    No authenticated provider offers a model yet.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="settings-actions model-admin-foot">
+                <span className="settings-hint">
+                  {prefs.default
+                    ? `Default: ${prefs.default.model} — used when a bot has no pick of its own.`
+                    : 'No default — each bot keeps its configured model.'}
+                </span>
+                <button
+                  type="button"
+                  className="settings-text-button"
+                  disabled={!prefs.default}
+                  onClick={() => setDefaultModel(null)}
+                >
+                  Clear default
+                </button>
+                <button
+                  type="button"
+                  className="settings-text-button"
+                  disabled={prefs.hidden.length === 0}
+                  onClick={() => {
+                    for (const id of prefs.hidden) setModelVisible(id, true);
+                  }}
+                >
+                  Show all models
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </main>
     </div>

@@ -206,6 +206,26 @@ export function ChevronLeftIcon({ size = 15, className }: IconProps) {
   );
 }
 
+export function StarIcon({
+  size = 13,
+  className,
+  filled = false,
+}: IconProps & { filled?: boolean }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      strokeWidth="1.7"
+      className={className}
+      {...base}
+      fill={filled ? 'currentColor' : 'none'}
+    >
+      <path d="M12 3.9l2.5 5.1 5.6.8-4 3.9.95 5.6L12 16.6l-5.05 2.7.95-5.6-4-3.9 5.6-.8z" />
+    </svg>
+  );
+}
+
 export function ArrowUpIcon({ size = 18, className }: IconProps) {
   return (
     <svg

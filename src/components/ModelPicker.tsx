@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { HermesModel } from '../hermes';
+import {
+  defaultModelPick,
+  isFavorite,
+  isHidden,
+  modelId,
+  useModelPrefs,
+} from '../modelPrefs';
+import { StarIcon } from './Icons';
 
 type ModelPickerProps = {
   /** Profile whose inventory to offer; the primary profile when absent. */
@@ -9,6 +17,12 @@ type ModelPickerProps = {
   provider?: string;
   /** What the chip shows when a model is picked. */
   label?: string;
+  /**
+   * The model a message would actually use when nothing is picked here —
+   * the thread's pick, this bot's remembered model, then the settings default.
+   * The gatekeeper resolves it, so the chip cannot drift from the send path.
+   */
+  fallbackLabel?: string;
   disabled?: boolean;
   /** Only a live tunnel can list models; without one the chip stays generic. */
   connected?: boolean;
@@ -26,6 +40,7 @@ export function ModelPicker({
   value,
   provider,
   label,
+  fallbackLabel,
   disabled,
   connected = true,
   onChange,
@@ -38,6 +53,7 @@ export function ModelPicker({
   const [loading, setLoading] = useState(false);
   const [needle, setNeedle] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
+  const prefs = useModelPrefs();
 
   useEffect(() => {
     if (!open) return;
@@ -105,20 +121,35 @@ export function ModelPicker({
     };
   }, [connected, models, bridge, profile]);
 
+  // Settings curate the inventory: hidden models never reach the menu, and
+  // favourites float above the provider groups instead of being repeated there.
+  const needleLower = needle.trim().toLowerCase();
+  const visible = useMemo(
+    () =>
+      (models ?? []).filter(
+        (entry) =>
+          !isHidden(prefs, modelId(entry)) &&
+          (!needleLower || entry.model.toLowerCase().includes(needleLower)),
+      ),
+    [models, needleLower, prefs],
+  );
+
+  const favoriteEntries = useMemo(
+    () => visible.filter((entry) => isFavorite(prefs, modelId(entry))),
+    [visible, prefs],
+  );
+
   const groups = useMemo(() => {
-    const needleLower = needle.trim().toLowerCase();
     const byProvider = new Map<string, HermesModel[]>();
-    for (const model of models ?? []) {
-      if (needleLower && !model.model.toLowerCase().includes(needleLower)) {
-        continue;
-      }
+    for (const model of visible) {
+      if (isFavorite(prefs, modelId(model))) continue;
       const key = model.providerName || model.provider;
       const list = byProvider.get(key) ?? [];
       list.push(model);
       byProvider.set(key, list);
     }
     return [...byProvider.entries()];
-  }, [models, needle]);
+  }, [visible, prefs]);
 
   function pick(next: Pick) {
     onChange(next);
@@ -126,9 +157,12 @@ export function ModelPicker({
     setNeedle('');
   }
 
-  // Just the name: the configured model when nothing is picked, so the chip
+  // Just the name of whatever a send would use: this bot's remembered model,
+  // the settings' default, then the profile's configured model — so the chip
   // never has to explain itself with a placeholder.
-  const chipLabel = value ? (label ?? value) : defaultModel || 'Model';
+  const preferred = defaultModelPick(prefs);
+  const pinnedName = fallbackLabel ?? preferred?.model ?? defaultModel;
+  const chipLabel = value ? (label ?? value) : pinnedName || 'Model';
 
   return (
     <div className="model-picker" ref={rootRef}>
@@ -141,8 +175,8 @@ export function ModelPicker({
         title={
           value
             ? `${value}${provider ? ` · ${provider}` : ''}`
-            : defaultModel
-              ? `${defaultModel} · this bot's configured model`
+            : pinnedName
+              ? `${pinnedName} · the model used when none is picked`
               : 'The model this bot is configured with'
         }
         onClick={() => setOpen((current) => !current)}
@@ -177,10 +211,40 @@ export function ModelPicker({
                 onClick={() => pick({})}
               >
                 <span className="model-name">
-                  {defaultModel || 'Configured model'}
+                  {pinnedName || 'Configured model'}
                 </span>
                 <span className="model-provider">default</span>
               </button>
+
+              {favoriteEntries.length ? (
+                <div className="model-group">
+                  <span className="model-group-name">Favorites</span>
+                  {favoriteEntries.map((entry) => {
+                    const active =
+                      entry.model === value && entry.provider === provider;
+                    return (
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={active}
+                        key={`${entry.provider}:${entry.model}`}
+                        className={`model-option ${active ? 'is-active' : ''}`}
+                        title={entry.model}
+                        onClick={() =>
+                          pick({
+                            model: entry.model,
+                            provider: entry.provider,
+                            label: entry.model,
+                          })
+                        }
+                      >
+                        <span className="model-name">{entry.model}</span>
+                        <StarIcon filled className="model-star" />
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
 
               {groups.map(([providerName, entries]) => (
                 <div className="model-group" key={providerName}>
@@ -214,7 +278,7 @@ export function ModelPicker({
                 </div>
               ))}
 
-              {groups.length === 0 ? (
+              {groups.length === 0 && favoriteEntries.length === 0 ? (
                 <p className="model-note">
                   No authenticated provider offers a model yet.
                 </p>

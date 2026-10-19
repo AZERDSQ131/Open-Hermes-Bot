@@ -2076,6 +2076,185 @@ button:focus-visible {
   font-size: 12px;
 }
 
+/* models: the settings pane that curates the picker's inventory */
+
+.model-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 0 4px;
+}
+
+.model-admin-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.model-admin-search {
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 8px 11px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  outline: none;
+  background: #1a1a1d;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.model-admin-search:focus {
+  border-color: rgba(255, 255, 255, 0.26);
+}
+
+.model-admin-count {
+  flex: 0 0 auto;
+  color: #7d7d84;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.model-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.model-admin-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.model-admin-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 2px;
+  color: #6f6f76;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.model-admin-group-head span:last-child {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+}
+
+.model-admin-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 6px 0 8px;
+  border-bottom: 1px solid var(--divider);
+  border-radius: 8px;
+  color: #b6b6bd;
+  font-size: 13px;
+  transition: background-color 120ms ease;
+}
+
+.model-admin-row:hover {
+  background: var(--row-hover);
+}
+
+.model-admin-row.is-default {
+  background: rgba(242, 239, 229, 0.045);
+}
+
+.model-admin-row.is-unlisted {
+  color: #74747b;
+}
+
+.model-admin-row.is-unlisted .model-admin-name {
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 255, 255, 0.2);
+}
+
+.model-admin-toggle {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.model-admin-toggle input {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: #f2efe5;
+  cursor: pointer;
+}
+
+.model-admin-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-admin-star {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  color: #6f6f76;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.model-admin-star:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #d8d5cb;
+}
+
+.model-admin-star.is-on {
+  color: #e0b341;
+}
+
+.model-admin-default {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  color: #74747b;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.model-admin-default input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #f2efe5;
+  cursor: pointer;
+}
+
+.model-admin-row.is-default .model-admin-default {
+  color: var(--text);
+}
+
+.model-admin-foot {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 14px;
+}
+
+/* the favourite mark inside the composer's menu */
+.model-star {
+  flex: 0 0 auto;
+  color: #e0b341;
+}
+
 .settings-text-button {
   padding: 0;
   color: #b9b9c0;
