@@ -37,9 +37,17 @@ Chat is real once the app is connected to a Hermes host (Settings → API key): 
 first message in a conversation opens a Hermes session for that bot, and every turn
 is streamed back into an assistant bubble, so the bot keeps the thread's memory.
 The model chip in the composer lists the models the bot's providers offer and sends
-the picked one with each turn; “Bot default” leaves the choice to Hermes. A turn
-that stops producing events — a refused key, an exhausted quota — ends with a
-readable line in the conversation instead of a spinner that never stops.
+the picked one with each turn; “Bot default” leaves the choice to Hermes. A pick is
+remembered per bot, so the next conversation starts on the model that last answered
+rather than on one that just ran out of quota. When the configured model does run
+out, the first turn retries on a free model from the same provider and says so in
+the thread instead of dying on a dead end. A turn that stops producing events — a
+refused key, an exhausted quota — ends with a readable line in the conversation
+instead of a spinner that never stops.
+
+Conversations survive a restart: reopening a thread recreates its session by title,
+and if Hermes already has a session under that title the app resumes it instead of
+failing with “Title already in use”.
 
 ## Credits
 
