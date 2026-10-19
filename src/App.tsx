@@ -1121,7 +1121,9 @@ export default function App() {
         if (!sessionId) {
           const created = await bridge.createSession({
             profile: member.profile,
-            title: `${thread.name} · ${member.name}`,
+            // The prefix keeps a group session from ever resuming a private
+            // conversation with a title that happens to look the same.
+            title: `Group · ${thread.name} · ${member.name}`,
           });
           if (!isCurrent()) return;
           if (!created.ok || !created.sessionId) {
