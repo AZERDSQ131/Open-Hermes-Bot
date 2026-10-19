@@ -2542,23 +2542,7 @@ button:focus-visible {
 }
 
 /* A reply being written: same bubble as a finished one, so the text does not
-   jump when the turn ends. */
+   jump when the turn ends. No caret — the growing text is the only signal. */
 .bubble.is-streaming {
   white-space: pre-wrap;
-}
-
-.stream-caret {
-  display: inline-block;
-  width: 2px;
-  height: 1em;
-  margin-left: 2px;
-  background: currentColor;
-  vertical-align: text-bottom;
-  animation: stream-caret-blink 1s steps(2, start) infinite;
-}
-
-@keyframes stream-caret-blink {
-  50% {
-    opacity: 0;
-  }
 }
