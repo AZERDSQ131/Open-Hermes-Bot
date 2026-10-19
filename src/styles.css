@@ -1523,7 +1523,9 @@ button:focus-visible {
 
   .chat-header-inner {
     gap: 8px;
-    padding: 0 10px;
+    /* Clear the macOS traffic lights (red/yellow/green) now that the
+       sidebar no longer occupies the top-left corner. */
+    padding: 0 10px 0 84px;
   }
 
   .chat-inner {
