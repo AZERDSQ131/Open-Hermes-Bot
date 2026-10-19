@@ -24,6 +24,8 @@ export type Message =
 export type Thread = {
   id: string;
   name: string;
+  /** Hermes profile backing this bot, when it is one. */
+  profile?: string;
   avatar: AvatarSpec;
   preview: string;
   time: string;

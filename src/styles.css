@@ -1534,6 +1534,17 @@ button:focus-visible {
   line-height: 1.4;
 }
 
+.create-error {
+  margin: 10px 0 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 95, 87, 0.28);
+  border-radius: 9px;
+  background: rgba(255, 95, 87, 0.08);
+  color: #ff9a92;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .create-label {
   margin-bottom: 7px;
 }

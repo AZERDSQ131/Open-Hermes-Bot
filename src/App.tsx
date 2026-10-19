@@ -12,6 +12,8 @@ import { AgentAvatar } from './components/AgentAvatar';
 import type { BloubShape } from './components/bloubFrames';
 import {
   CreateAgentDialog,
+  toProfileId,
+  type CreateBotOutcome,
   type CreateCandidate,
 } from './components/CreateAgentDialog';
 import { EditAgentDialog } from './components/EditAgentDialog';
@@ -314,24 +316,47 @@ export default function App() {
     window.requestAnimationFrame(() => composerRef.current?.focus());
   }
 
-  function handleCreateBot(input: {
+  async function handleCreateBot(input: {
     name: string;
     shape: BloubShape;
     color: string;
-  }) {
+  }): Promise<CreateBotOutcome> {
+    const bridge = window.hermes;
+    let profile: string | undefined;
+
+    if (bridge?.createBot) {
+      const result = await bridge
+        .createBot({
+          name: toProfileId(input.name),
+          title: input.name,
+          description: `Bot created from Sidekick`,
+        })
+        .catch((reason: Error) => ({
+          ok: false,
+          error: reason.message,
+          name: undefined,
+        }));
+      if (!result.ok) {
+        return { ok: false, error: result.error ?? 'Could not create the bot' };
+      }
+      profile = result.name;
+    }
+
     addThread({
       id: `agent-${uid()}`,
       name: input.name,
+      profile,
       avatar: {
         color: input.color,
         shape: input.shape,
         variant: 'neutral',
       },
-      preview: 'Start a conversation',
+      preview: profile ? `Hermes profile ${profile}` : 'Start a conversation',
       time: 'Now',
       chatTime: 'Now',
       messages: [],
     });
+    return { ok: true };
   }
 
   function handleCreateGroup(input: { name: string; members: BotStyle[] }) {

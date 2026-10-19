@@ -12,12 +12,29 @@ export type CreateCandidate = {
   avatar: SingleAvatar;
 };
 
+export type CreateBotOutcome = { ok: true } | { ok: false; error: string };
+
 type CreateAgentDialogProps = {
   candidates: CreateCandidate[];
   onClose: () => void;
-  onCreateBot: (input: { name: string; shape: BloubShape; color: string }) => void;
+  onCreateBot: (input: {
+    name: string;
+    shape: BloubShape;
+    color: string;
+  }) => Promise<CreateBotOutcome>;
   onCreateGroup: (input: { name: string; members: BotStyle[] }) => void;
 };
+
+export function toProfileId(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64);
+}
 
 const DEFAULT_COLOR =
   BLOUB_COLOR_OPTIONS.find((color) => color.name === 'Indigo')?.hex ?? '#5b5bda';
@@ -33,6 +50,8 @@ export function CreateAgentDialog({
   const [shape, setShape] = useState<BloubShape>('cercle');
   const [color, setColor] = useState(DEFAULT_COLOR);
   const [selected, setSelected] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -55,6 +74,7 @@ export function CreateAgentDialog({
     shape: candidate.avatar.shape,
     variant: candidate.avatar.variant,
   }));
+  const profileId = mode === 'bot' ? toProfileId(name) : '';
   const canCreate =
     name.trim().length > 0 && (mode === 'bot' || selected.length >= 2);
 
@@ -76,13 +96,19 @@ export function CreateAgentDialog({
     );
   }
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!canCreate) return;
-    if (mode === 'bot') {
-      onCreateBot({ name: name.trim(), shape, color });
-    } else {
+    if (!canCreate || busy) return;
+    if (mode !== 'bot') {
       onCreateGroup({ name: name.trim(), members: groupMembers });
+      return;
+    }
+    setBusy(true);
+    setError('');
+    const outcome = await onCreateBot({ name: name.trim(), shape, color });
+    if (!outcome.ok) {
+      setError(outcome.error);
+      setBusy(false);
     }
   }
 
@@ -151,14 +177,28 @@ export function CreateAgentDialog({
               ref={nameRef}
               type="text"
               value={name}
-              maxLength={40}
+              maxLength={64}
               spellCheck={false}
+              disabled={busy}
               placeholder={
                 mode === 'bot' ? 'e.g. Research assistant' : 'e.g. Launch crew'
               }
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => {
+                setName(event.target.value);
+                setError('');
+              }}
             />
           </label>
+
+          {mode === 'bot' ? (
+            <p className="create-hint">
+              {profileId
+                ? `Creates the Hermes profile “${profileId}” on the connected machine.`
+                : 'A bot lives as a Hermes profile on the connected machine.'}
+            </p>
+          ) : null}
+
+          {error ? <p className="create-error">{error}</p> : null}
 
           {mode === 'bot' ? (
             <>
@@ -217,11 +257,24 @@ export function CreateAgentDialog({
         </div>
 
         <div className="modal-actions">
-          <button type="button" className="button-ghost" onClick={onClose}>
+          <button
+            type="button"
+            className="button-ghost"
+            disabled={busy}
+            onClick={onClose}
+          >
             Cancel
           </button>
-          <button type="submit" className="button-primary" disabled={!canCreate}>
-            {mode === 'bot' ? 'Create bot' : 'Create group'}
+          <button
+            type="submit"
+            className="button-primary"
+            disabled={!canCreate || busy}
+          >
+            {busy
+              ? 'Creating bot…'
+              : mode === 'bot'
+                ? 'Create bot'
+                : 'Create group'}
           </button>
         </div>
       </form>
