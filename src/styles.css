@@ -739,6 +739,55 @@ button:focus-visible {
   color: #1c1b19;
 }
 
+/* The bubble keeps the width budget; the tapback floats on its corner. */
+.bubble-wrap {
+  position: relative;
+  display: flex;
+  max-width: 100%;
+}
+
+.message-row.assistant .bubble-wrap {
+  max-width: 84%;
+}
+
+.message-row.user .bubble-wrap {
+  max-width: 72%;
+}
+
+.bubble-wrap .bubble {
+  max-width: 100%;
+}
+
+.bubble-reaction {
+  position: absolute;
+  bottom: -9px;
+  left: -9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 6px;
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+  background: #34343a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  font-size: 14px;
+  line-height: 1;
+  animation: reaction-pop 220ms cubic-bezier(0.2, 0.9, 0.3, 1.35);
+}
+
+@keyframes reaction-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .chat-event {
   margin: 26px 0 22px;
   color: #86868d;

@@ -30,6 +30,11 @@ import {
 } from './components/Icons';
 import type { HermesProfile, HermesStatus } from './hermes';
 import { defaultModelPick } from './modelPrefs';
+import {
+  extractReaction,
+  REACTION_PROMPT,
+  stripReactionMarkers,
+} from './reactions';
 import { avatarColor, PRIMARY_AVATAR_COLOR } from './profileColor';
 import { SettingsView } from './components/SettingsView';
 import { LogoEditor } from './components/LogoEditor';
@@ -123,6 +128,18 @@ async function freeModelFor(profile?: string): Promise<PreferredModel | null> {
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
+}
+
+// A tapback belongs on the user's latest message: the one the bot was answering.
+function attachReaction(messages: Message[], emoji?: string): Message[] {
+  if (!emoji) return messages;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role !== 'user') continue;
+    return messages.map((message, at) =>
+      at === index ? { ...message, reaction: emoji } : message,
+    );
+  }
+  return messages;
 }
 
 // The primary Hermes profile lives at ~/.hermes itself, not under profiles/, so
@@ -333,6 +350,10 @@ export default function App() {
 
   const activeThread =
     threads.find((thread) => thread.id === activeId) ?? threads[0];
+  // The protocol marker is plumbing, not copy: a streaming bubble never shows it.
+  const streamingText = activeThread?.streaming
+    ? stripReactionMarkers(activeThread.streaming)
+    : '';
 
   // What a message would use with nothing picked in this conversation, in the
   // same order as the send path: the default chosen for this bot, then the
@@ -863,6 +884,7 @@ export default function App() {
     // A thrown bridge call used to leave the spinner up forever; every exit
     // from here has to settle the thread.
     let reply = '';
+    let reaction: string | undefined;
     try {
       let sessionId = thread.sessionId;
       if (!sessionId) {
@@ -904,6 +926,7 @@ export default function App() {
           profile: thread.profile,
           model: pick?.model,
           provider: pick?.provider,
+          instructions: REACTION_PROMPT,
         });
 
       let result = await ask(
@@ -959,7 +982,9 @@ export default function App() {
         fail(result.error ?? 'The bot could not answer this one.');
         return;
       }
-      reply = (result.text ?? '').trim();
+      const parsed = extractReaction(result.text ?? '');
+      reply = parsed.text;
+      reaction = parsed.emoji;
     } catch (reason) {
       requestThread.current = null;
       fail(
@@ -970,7 +995,8 @@ export default function App() {
       return;
     }
 
-    if (!reply) {
+    // A tapback can be the whole reply: the user needs no bubble saying "OK".
+    if (!reply && !reaction) {
       fail('The bot finished without saying anything.');
       return;
     }
@@ -983,13 +1009,20 @@ export default function App() {
               thinking: false,
               streaming: undefined,
               tool: undefined,
-              preview: reply.replace(/\s+/g, ' ').slice(0, 90),
+              preview: reply
+                ? reply.replace(/\s+/g, ' ').slice(0, 90)
+                : item.preview,
               chatTime: 'Now',
               unread: threadId !== activeIdRef.current,
-              messages: [
-                ...item.messages,
-                { id: uid(), role: 'assistant', text: reply },
-              ],
+              messages: attachReaction(
+                reply
+                  ? [
+                      ...item.messages,
+                      { id: uid(), role: 'assistant', text: reply },
+                    ]
+                  : item.messages,
+                reaction,
+              ),
             }
           : item,
       ),
@@ -1305,18 +1338,31 @@ export default function App() {
                       className={`message-row ${message.role}`}
                       key={message.id}
                     >
-                      <div className={`bubble bubble-${message.role}`}>
-                        {message.text}
+                      <div
+                        className={`bubble-wrap bubble-wrap-${message.role}`}
+                      >
+                        <div className={`bubble bubble-${message.role}`}>
+                          {message.text}
+                        </div>
+                        {message.reaction ? (
+                          <span
+                            className="bubble-reaction"
+                            role="img"
+                            aria-label={`Agent reacted ${message.reaction}`}
+                          >
+                            {message.reaction}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   ),
                 )}
 
                 {activeThread.thinking ? (
-                  activeThread.streaming ? (
+                  streamingText.trim() ? (
                     <div className="message-row assistant">
                       <div className="bubble bubble-assistant is-streaming">
-                        {activeThread.streaming}
+                        {streamingText}
                       </div>
                     </div>
                   ) : (

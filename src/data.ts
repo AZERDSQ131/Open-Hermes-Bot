@@ -18,7 +18,13 @@ export type GroupAvatar = {
 export type AvatarSpec = SingleAvatar | GroupAvatar;
 
 export type Message =
-  | { id: string; role: 'assistant' | 'user'; text: string }
+  | {
+      id: string;
+      role: 'assistant' | 'user';
+      text: string;
+      /** Emoji the agent tapped on this message; never sent back to Hermes. */
+      reaction?: string;
+    }
   | { id: string; role: 'event'; text: string };
 
 export type Thread = {

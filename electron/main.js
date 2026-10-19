@@ -805,6 +805,9 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
     body.require_model_lock = true;
   }
   if (payload?.provider) body.provider = String(payload.provider);
+  // Ephemeral per-turn instructions: Hermes appends them to the system prompt
+  // and leaves the stored conversation untouched.
+  if (payload?.instructions) body.system_message = String(payload.instructions);
 
   const controller = new AbortController();
   const requestId = String(payload?.requestId ?? '');

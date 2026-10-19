@@ -97,6 +97,8 @@ export type HermesBridge = {
     profile?: string;
     model?: string;
     provider?: string;
+    /** Appended to the system prompt for this turn only. */
+    instructions?: string;
   }) => Promise<HermesChatResult>;
   onChatDelta: (callback: (delta: HermesChatDelta) => void) => () => void;
   onChatTool: (callback: (tool: HermesChatTool) => void) => () => void;
