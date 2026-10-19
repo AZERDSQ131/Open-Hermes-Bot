@@ -453,16 +453,40 @@ function liveTunnelOrError() {
   return { localPort: tunnel.localPort, apiKey };
 }
 
+// Every profile mints its own API_SERVER_KEY when it is created, and the
+// gateway checks /p/<name>/ against THAT key: a bot's turns cannot ride the
+// primary profile's key. Keys are read from the profile's .env over the SSH
+// connection the app already has, then kept for the rest of the session.
+const profileKeys = new Map();
+
+async function apiKeyFor(profile) {
+  const stored = storedApiKey();
+  if (!profile || profile === 'default') return stored;
+  if (profileKeys.has(profile)) return profileKeys.get(profile);
+  if (!PROFILE_NAME_RE.test(profile)) return stored;
+  const result = await runSsh(
+    storedConnection().sshHost,
+    `grep -m1 '^API_SERVER_KEY=' "$HOME/.hermes/profiles/${profile}/.env" | cut -d= -f2-`,
+    15000,
+  );
+  const key = String(result.stdout ?? '').trim().split('\n')[0].trim();
+  if (!key) return stored;
+  profileKeys.set(profile, key);
+  return key;
+}
+
 async function apiCall(pathname, { method = 'GET', body, profile, timeoutMs = 30000 } = {}) {
   const live = liveTunnelOrError();
   if (live.error) return { ok: false, status: 0, error: live.error };
+  const apiKey = await apiKeyFor(profile);
+  if (!apiKey) return { ok: false, status: 0, error: 'No API key configured — import it in Settings.' };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(apiUrl(live.localPort, profile, pathname), {
       method,
       headers: {
-        Authorization: `Bearer ${live.apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         ...(body ? { 'Content-Type': 'application/json' } : {}),
       },
       body: body ? JSON.stringify(body) : undefined,
@@ -606,6 +630,8 @@ function parseSseFrame(frame) {
 ipcMain.handle('hermes:chat:send', async (event, payload) => {
   const live = liveTunnelOrError();
   if (live.error) return { ok: false, error: live.error };
+  const apiKey = await apiKeyFor(payload?.profile);
+  if (!apiKey) return { ok: false, error: 'No API key configured — import it in Settings.' };
 
   const sessionId = String(payload?.sessionId ?? '').trim();
   const message = String(payload?.message ?? '');
@@ -649,7 +675,7 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${live.apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
           Accept: 'text/event-stream',
         },
@@ -1036,6 +1062,8 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
 
   if (line.startsWith('OK ')) {
     const { created, meta } = parseCreateOutcome(line);
+    // The build mints a fresh API_SERVER_KEY: drop any key cached for this name.
+    profileKeys.delete(created || name);
     return {
       ok: true,
       name: created || name,
