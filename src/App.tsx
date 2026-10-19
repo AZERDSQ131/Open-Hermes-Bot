@@ -605,46 +605,59 @@ export default function App() {
       return;
     }
 
-    let sessionId = thread.sessionId;
-    if (!sessionId) {
-      const created = await bridge.createSession({
+    // A thrown bridge call used to leave the spinner up forever; every exit
+    // from here has to settle the thread.
+    let reply = '';
+    try {
+      let sessionId = thread.sessionId;
+      if (!sessionId) {
+        const created = await bridge.createSession({
+          profile: thread.profile,
+          title: thread.name,
+        });
+        if (!created.ok || !created.sessionId) {
+          fail(created.error ?? 'Could not open a conversation with this bot.');
+          return;
+        }
+        sessionId = created.sessionId;
+        setThreads((current) =>
+          current.map((item) =>
+            item.id === threadId ? { ...item, sessionId } : item,
+          ),
+        );
+      }
+
+      const requestId = uid();
+      requestThread.current = { requestId, threadId };
+
+      const result = await bridge.sendChat({
+        requestId,
+        sessionId,
+        message: outgoing,
         profile: thread.profile,
-        title: thread.name,
+        model: thread.model,
+        provider: thread.modelProvider,
       });
-      if (!created.ok || !created.sessionId) {
-        fail(created.error ?? 'Could not open a conversation with this bot.');
+
+      if (requestThread.current?.requestId === requestId) {
+        requestThread.current = null;
+      }
+
+      if (!result.ok) {
+        fail(result.error ?? 'The bot could not answer this one.');
         return;
       }
-      sessionId = created.sessionId;
-      setThreads((current) =>
-        current.map((item) =>
-          item.id === threadId ? { ...item, sessionId } : item,
-        ),
-      );
-    }
-
-    const requestId = uid();
-    requestThread.current = { requestId, threadId };
-
-    const result = await bridge.sendChat({
-      requestId,
-      sessionId,
-      message: outgoing,
-      profile: thread.profile,
-      model: thread.model,
-      provider: thread.modelProvider,
-    });
-
-    if (requestThread.current?.requestId === requestId) {
+      reply = (result.text ?? '').trim();
+    } catch (reason) {
       requestThread.current = null;
-    }
-
-    if (!result.ok) {
-      fail(result.error ?? 'The bot could not answer this one.');
+      fail(
+        reason instanceof Error && reason.message
+          ? reason.message
+          : 'Something broke while talking to the bot.',
+      );
       return;
     }
 
-    const reply = (result.text ?? '').trim();
     if (!reply) {
       fail('The bot finished without saying anything.');
       return;
