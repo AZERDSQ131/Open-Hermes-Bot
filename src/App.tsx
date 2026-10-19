@@ -266,6 +266,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   ]);
 }
 
+type GroupRuntime = {
+  roundId: string;
+  members: GroupMember[];
+  /** Requests generating right now, so a mention can stop one. */
+  active: Map<string, { member: GroupMember }>;
+  /** Members stopped by a mention during the current wave. */
+  interrupted: Map<string, { mentionedBy: string }>;
+};
+
 type AttachmentFile = {
   id: string;
   name: string;
@@ -327,6 +336,11 @@ export default function App() {
   // Every live group request maps back to its thread, so several members can
   // stream into the same conversation at once.
   const groupRequests = useRef(new Map<string, string>());
+  // The round's in-flight members. A mention can reach into this map and stop
+  // the bot it names before it derails the conversation.
+  const groupRuntimes = useRef(new Map<string, GroupRuntime>());
+  // Partial text per request, so a mention is detected while it streams.
+  const groupLiveText = useRef(new Map<string, string>());
   // Messages that arrived while a turn was being replaced. A request cancelled
   // before Hermes stored it would otherwise vanish from the model's context.
   const superseded = useRef(new Map<string, string[]>());
@@ -531,6 +545,51 @@ export default function App() {
       );
     };
 
+    // A mention is not a post-turn hand-off: as soon as a bot writes `@Name`,
+    // the named bot stops generating. It gets the mention as its next turn,
+    // after the mentioner's line is settled, instead of talking over it.
+    const stopForMention = (requestId: string, text: string) => {
+      const threadId = groupRequests.current.get(requestId);
+      if (!threadId) return;
+      const runtime = groupRuntimes.current.get(threadId);
+      if (!runtime || runtime.roundId !== groupRound.current.get(threadId)) {
+        return;
+      }
+      const source = runtime.active.get(requestId);
+      if (!source) return;
+      const accumulated = `${groupLiveText.current.get(requestId) ?? ''}${text}`;
+      groupLiveText.current.set(requestId, accumulated);
+      for (const member of mentionsIn(accumulated, runtime.members)) {
+        if (member.id === source.member.id) continue;
+        if (runtime.interrupted.has(member.id)) continue;
+        const target = [...runtime.active.entries()].find(
+          ([, entry]) => entry.member.id === member.id,
+        );
+        if (!target) continue;
+        const [targetRequestId] = target;
+        runtime.interrupted.set(member.id, {
+          mentionedBy: source.member.name,
+        });
+        runtime.active.delete(targetRequestId);
+        groupLiveText.current.delete(targetRequestId);
+        window.hermes?.cancelChat?.(targetRequestId);
+        // The stopped bot leaves the live rows at once; its next turn begins
+        // when the mentioner's line has landed in the transcript.
+        setThreads((current) =>
+          current.map((thread) =>
+            thread.id === threadId
+              ? {
+                  ...thread,
+                  live: (thread.live ?? []).filter(
+                    (live) => live.requestId !== targetRequestId,
+                  ),
+                }
+              : thread,
+          ),
+        );
+      }
+    };
+
     const offDelta = bridge.onChatDelta(({ requestId, text }) => {
       if (
         applySingle(requestId, (thread) => ({
@@ -546,6 +605,7 @@ export default function App() {
         text: `${live.text}${text}`,
         tool: undefined,
       }));
+      stopForMention(requestId, text);
     });
     const offTool = bridge.onChatTool?.(({ requestId, tool }) => {
       if (applySingle(requestId, (thread) => ({ ...thread, tool }))) return;
@@ -1056,7 +1116,9 @@ export default function App() {
       if (owner !== threadId) continue;
       window.hermes?.cancelChat?.(requestId);
       groupRequests.current.delete(requestId);
+      groupLiveText.current.delete(requestId);
     }
+    groupRuntimes.current.delete(threadId);
   }
 
   /**
@@ -1104,6 +1166,13 @@ export default function App() {
     // A newer message replaces the whole round, not just the member whose
     // request happened to be newest.
     cancelGroupRequests(threadId);
+    const runtime: GroupRuntime = {
+      roundId,
+      members,
+      active: new Map(),
+      interrupted: new Map(),
+    };
+    groupRuntimes.current.set(threadId, runtime);
 
     stickToBottom.current = true;
     const userMessage: Message = { id: uid(), role: 'user', text: outgoing };
@@ -1131,6 +1200,7 @@ export default function App() {
 
     const finish = () => {
       groupRound.current.delete(threadId);
+      groupRuntimes.current.delete(threadId);
     };
 
     const sync = (patch: (item: Thread) => Thread) => {
@@ -1185,6 +1255,8 @@ export default function App() {
       error?: string;
       note?: string;
       canceled?: boolean;
+      /** Stopped because another bot named this member mid-generation. */
+      interrupted?: { mentionedBy: string };
     };
 
     while (
@@ -1204,8 +1276,10 @@ export default function App() {
       if (active.length === 0) break;
 
       const tasks = active.map((floor) => ({ floor, requestId: uid() }));
+      runtime.interrupted.clear();
       for (const task of tasks) {
         groupRequests.current.set(task.requestId, threadId);
+        runtime.active.set(task.requestId, { member: task.floor.member });
       }
       sync((item) => ({
         ...item,
@@ -1257,18 +1331,24 @@ export default function App() {
       const outcomes = await Promise.all(
         tasks.map(async ({ floor, requestId }): Promise<Outcome> => {
           const member = floor.member;
-          const joined = joinErrors.get(member.id);
-          if (joined) {
-            return {
-              floor,
-              error: `${member.name} could not join the group: ${joined}`,
-            };
-          }
+          const stopped = () => runtime.interrupted.get(member.id);
           try {
+            const joined = joinErrors.get(member.id);
+            if (joined) {
+              return {
+                floor,
+                error: `${member.name} could not join the group: ${joined}`,
+              };
+            }
+
             const configured = defaultModelPick(member.profile);
             let pick = configured ?? readPreferredModel(member.profile);
             if (!pick) pick = await configuredModelFor(member.profile);
             if (!isCurrent()) return { floor, canceled: true };
+            const stoppedEarly = stopped();
+            if (stoppedEarly) {
+              return { floor, interrupted: stoppedEarly };
+            }
 
             const wire = groupTurnMessage({
               groupName: thread.name,
@@ -1292,6 +1372,11 @@ export default function App() {
 
             let result = await ask(pick);
             if (!isCurrent()) return { floor, canceled: true };
+            const stoppedWhileAsking = stopped();
+            if (stoppedWhileAsking) {
+              return { floor, interrupted: stoppedWhileAsking };
+            }
+
             let note: string | undefined;
             if (!result.ok && isQuotaFailure(result.error)) {
               const failed = pick?.model ?? 'The configured model';
@@ -1299,6 +1384,10 @@ export default function App() {
               if (rescue && rescue.model !== pick?.model) {
                 result = await ask(rescue);
                 if (!isCurrent()) return { floor, canceled: true };
+                const stoppedWhileRescuing = stopped();
+                if (stoppedWhileRescuing) {
+                  return { floor, interrupted: stoppedWhileRescuing };
+                }
                 if (result.ok) {
                   // Same rule as a private thread: only a model that was not
                   // picked on purpose becomes the bot's remembered fallback.
@@ -1310,7 +1399,12 @@ export default function App() {
               }
             }
             if (!result.ok) {
-              if (result.canceled) return { floor, canceled: true };
+              if (result.canceled) {
+                const stoppedDuringTurn = stopped();
+                return stoppedDuringTurn
+                  ? { floor, interrupted: stoppedDuringTurn }
+                  : { floor, canceled: true };
+              }
               return {
                 floor,
                 error: `${member.name} could not answer: ${result.error ?? 'unknown error'}`,
@@ -1323,6 +1417,10 @@ export default function App() {
             };
           } catch (reason) {
             if (!isCurrent()) return { floor, canceled: true };
+            const stoppedInError = stopped();
+            if (stoppedInError) {
+              return { floor, interrupted: stoppedInError };
+            }
             return {
               floor,
               error: `${member.name} could not answer: ${
@@ -1331,6 +1429,8 @@ export default function App() {
                   : 'something broke'
               }`,
             };
+          } finally {
+            runtime.active.delete(requestId);
           }
         }),
       );
@@ -1338,6 +1438,7 @@ export default function App() {
       if (!isCurrent()) return;
       for (const task of tasks) {
         groupRequests.current.delete(task.requestId);
+        groupLiveText.current.delete(task.requestId);
       }
 
       // Settle in roster order: the transcript does not depend on which model
@@ -1366,9 +1467,13 @@ export default function App() {
       history = reactionHistory;
 
       const next: Floor[] = [];
+      const spokeThisWave = new Set<string>();
       for (const outcome of outcomes) {
         const member = outcome.floor.member;
         if (outcome.canceled) return;
+        // A bot stopped by a mention does not post what it had started; it is
+        // requeued below, once the mentioner's line is part of the transcript.
+        if (outcome.interrupted) continue;
         if (outcome.note) {
           history = [
             ...history,
@@ -1413,6 +1518,7 @@ export default function App() {
           ];
           lines += 1;
           spoken.set(member.id, (spoken.get(member.id) ?? 0) + 1);
+          spokeThisWave.add(member.name);
           lastLine = turn.text;
           for (const mentioned of turn.mentions) {
             if (mentioned.id === member.id) continue;
@@ -1423,6 +1529,17 @@ export default function App() {
             });
           }
         }
+      }
+
+      for (const outcome of outcomes) {
+        if (!outcome.interrupted) continue;
+        next.push({
+          member: outcome.floor.member,
+          addressed: outcome.floor.addressed,
+          mentionedBy: spokeThisWave.has(outcome.interrupted.mentionedBy)
+            ? outcome.interrupted.mentionedBy
+            : undefined,
+        });
       }
 
       sync((item) => ({ ...item, messages: history, live: [] }));
