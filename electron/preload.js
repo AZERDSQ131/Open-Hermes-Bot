@@ -6,6 +6,19 @@ contextBridge.exposeInMainWorld('hermes', {
   importKey: (payload) => ipcRenderer.invoke('hermes:key:import', payload),
   test: (payload) => ipcRenderer.invoke('hermes:test', payload),
   createBot: (payload) => ipcRenderer.invoke('hermes:bot:create', payload),
+  createSession: (payload) => ipcRenderer.invoke('hermes:session', payload),
+  models: (payload) => ipcRenderer.invoke('hermes:models', payload),
+  sendChat: (payload) => ipcRenderer.invoke('hermes:chat:send', payload),
+  onChatDelta: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('hermes:chat:delta', listener);
+    return () => ipcRenderer.removeListener('hermes:chat:delta', listener);
+  },
+  onChatTool: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('hermes:chat:tool', listener);
+    return () => ipcRenderer.removeListener('hermes:chat:tool', listener);
+  },
   connect: () => ipcRenderer.invoke('hermes:connect'),
   disconnect: () => ipcRenderer.invoke('hermes:disconnect'),
   status: () => ipcRenderer.invoke('hermes:status'),

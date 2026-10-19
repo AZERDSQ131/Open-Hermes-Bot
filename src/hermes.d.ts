@@ -32,7 +32,53 @@ export type HermesBotCreateResult = {
   color?: string;
 };
 
+export type HermesSessionResult = {
+  ok: boolean;
+  sessionId?: string;
+  error?: string;
+};
+
+export type HermesModel = {
+  model: string;
+  provider: string;
+  providerName: string;
+  /** This is the model the profile is configured with. */
+  current: boolean;
+};
+
+export type HermesModelList = {
+  ok: boolean;
+  current?: string;
+  currentProvider?: string;
+  models?: HermesModel[];
+  error?: string;
+};
+
+export type HermesChatResult = {
+  ok: boolean;
+  text?: string;
+  error?: string;
+};
+
+export type HermesChatDelta = { requestId: string; text: string };
+export type HermesChatTool = { requestId: string; tool: string };
+
 export type HermesBridge = {
+  createSession: (payload: {
+    profile?: string;
+    title?: string;
+  }) => Promise<HermesSessionResult>;
+  models: (payload: { profile?: string }) => Promise<HermesModelList>;
+  sendChat: (payload: {
+    requestId: string;
+    sessionId: string;
+    message: string;
+    profile?: string;
+    model?: string;
+    provider?: string;
+  }) => Promise<HermesChatResult>;
+  onChatDelta: (callback: (delta: HermesChatDelta) => void) => () => void;
+  onChatTool: (callback: (tool: HermesChatTool) => void) => () => void;
   getSettings: () => Promise<HermesSettings>;
   saveSettings: (payload: {
     sshHost: string;

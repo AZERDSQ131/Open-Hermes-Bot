@@ -434,6 +434,253 @@ ipcMain.handle('hermes:disconnect', () => {
 
 ipcMain.handle('hermes:status', () => connectionStatus);
 
+// ------------------------------------------------------------------ chat
+
+// Everything below rides the live SSH tunnel: 127.0.0.1:<localPort> on this
+// machine *is* the Hermes API server on the other one, so the key never leaves
+// the app and nothing new needs to be exposed.
+function apiUrl(localPort, profile, pathname) {
+  const prefix = profile ? `/p/${encodeURIComponent(profile)}` : '';
+  return `http://127.0.0.1:${localPort}${prefix}${pathname}`;
+}
+
+function liveTunnelOrError() {
+  if (!tunnel) {
+    return { error: 'Not connected to Hermes — open Settings and connect first.' };
+  }
+  const apiKey = storedApiKey();
+  if (!apiKey) return { error: 'No API key configured — import it in Settings.' };
+  return { localPort: tunnel.localPort, apiKey };
+}
+
+async function apiCall(pathname, { method = 'GET', body, profile, timeoutMs = 30000 } = {}) {
+  const live = liveTunnelOrError();
+  if (live.error) return { ok: false, status: 0, error: live.error };
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(apiUrl(live.localPort, profile, pathname), {
+      method,
+      headers: {
+        Authorization: `Bearer ${live.apiKey}`,
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    let json = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      json = null;
+    }
+    return { ok: response.ok, status: response.status, body: json, text };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      error:
+        error.name === 'AbortError'
+          ? 'The server took too long to answer'
+          : error.message,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function apiErrorText(result, fallback) {
+  const body = result?.body;
+  if (body && typeof body === 'object') {
+    if (typeof body.message === 'string' && body.message.trim()) return body.message;
+    if (typeof body.error === 'string' && body.error.trim()) return body.error;
+    if (body.error && typeof body.error.message === 'string') return body.error.message;
+  }
+  return result?.error || result?.text?.slice(0, 240) || fallback;
+}
+
+// A thread in the app is a session in Hermes: created on its first message and
+// reused for every turn after that, so the bot keeps the conversation's memory.
+ipcMain.handle('hermes:session', async (_event, payload) => {
+  const result = await apiCall('/api/sessions', {
+    method: 'POST',
+    profile: payload?.profile,
+    body: { title: String(payload?.title ?? '').slice(0, 120) || 'Sidekick' },
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: apiErrorText(result, 'Could not open a conversation with the bot'),
+    };
+  }
+  const sessionId = result.body?.session?.id || result.body?.id;
+  if (!sessionId) {
+    return { ok: false, error: 'The server did not return a session id' };
+  }
+  return { ok: true, sessionId };
+});
+
+// Model inventory for the picker. Hermes answers with one row per provider;
+// only the authenticated ones can actually run a turn, so those are the ones
+// worth offering, plus whatever is currently configured.
+ipcMain.handle('hermes:models', async (_event, payload) => {
+  const result = await apiCall('/api/model/options', {
+    profile: payload?.profile,
+    timeoutMs: 20000,
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: apiErrorText(result, 'Could not list the models'),
+    };
+  }
+  const body = result.body || {};
+  const currentModel = String(body.model ?? '');
+  const currentProvider = String(body.provider ?? '');
+  const models = [];
+  for (const provider of body.providers ?? []) {
+    // Only providers that can run a turn: an unconfigured row would fail on
+    // send and looks like a choice the app could not keep.
+    if (!provider?.authenticated) continue;
+    for (const model of provider.models ?? []) {
+      const id = typeof model === 'string' ? model : model?.id;
+      if (!id) continue;
+      models.push({
+        model: id,
+        provider: provider.slug,
+        providerName: provider.name,
+        current: id === currentModel && provider.slug === currentProvider,
+      });
+    }
+  }
+  return {
+    ok: true,
+    current: currentModel,
+    currentProvider,
+    models,
+  };
+});
+
+function parseSseFrame(frame) {
+  let event = 'message';
+  const data = [];
+  for (const line of frame.split('\n')) {
+    if (line.startsWith('event:')) event = line.slice(6).trim();
+    else if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+  }
+  return { event, data: data.join('\n') };
+}
+
+// One agent turn, streamed. Hermes emits the assistant's text as it is written
+// and reports failures (a rejected key, an exhausted quota) as an `error`
+// event long before the turn would end, so the app can stop waiting instead of
+// sitting on a request that the server keeps retrying.
+ipcMain.handle('hermes:chat:send', async (event, payload) => {
+  const live = liveTunnelOrError();
+  if (live.error) return { ok: false, error: live.error };
+
+  const sessionId = String(payload?.sessionId ?? '').trim();
+  const message = String(payload?.message ?? '');
+  if (!sessionId) return { ok: false, error: 'No conversation to talk to' };
+  if (!message.trim()) return { ok: false, error: 'Empty message' };
+
+  const body = { message };
+  if (payload?.model) body.model = String(payload.model);
+  if (payload?.provider) body.provider = String(payload.provider);
+
+  const controller = new AbortController();
+  const requestId = String(payload?.requestId ?? '');
+  const send = (channel, data) => {
+    if (event.sender.isDestroyed()) return;
+    event.sender.send(channel, { requestId, ...data });
+  };
+  const timer = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+
+  let text = '';
+  let failure = '';
+
+  try {
+    const response = await fetch(
+      apiUrl(live.localPort, payload?.profile, `/api/sessions/${encodeURIComponent(sessionId)}/chat/stream`),
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${live.apiKey}`,
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      },
+    );
+
+    if (!response.ok) {
+      const raw = await response.text();
+      let parsed = null;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = null;
+      }
+      return {
+        ok: false,
+        error: apiErrorText({ status: response.status, body: parsed, text: raw }, `HTTP ${response.status}`),
+      };
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for await (const chunk of response.body) {
+      buffer += decoder.decode(chunk, { stream: true });
+      let split = buffer.indexOf('\n\n');
+      while (split !== -1) {
+        const frame = buffer.slice(0, split);
+        buffer = buffer.slice(split + 2);
+        split = buffer.indexOf('\n\n');
+        if (!frame.trim() || frame.startsWith(':')) continue;
+
+        const { event: name, data } = parseSseFrame(frame);
+        let parsed = null;
+        try {
+          parsed = data ? JSON.parse(data) : null;
+        } catch {
+          parsed = null;
+        }
+
+        if (name === 'assistant.delta' && parsed?.delta) {
+          text += parsed.delta;
+          send('hermes:chat:delta', { text: parsed.delta });
+        } else if (name === 'tool.started' && parsed?.tool_name) {
+          send('hermes:chat:tool', { tool: parsed.tool_name });
+        } else if (name === 'assistant.completed') {
+          const final = parsed?.message?.content ?? parsed?.text;
+          if (typeof final === 'string' && !text) text = final;
+        } else if (name === 'error') {
+          failure = parsed?.message || 'The bot stopped before answering';
+        } else if (name === 'run.failed') {
+          failure = failure || 'The bot could not finish this turn';
+        } else if (name === 'done') {
+          if (failure) return { ok: false, error: failure };
+          return { ok: true, text };
+        }
+      }
+    }
+
+    if (failure) return { ok: false, error: failure };
+    return { ok: true, text };
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      return { ok: false, error: 'The bot took more than five minutes to answer' };
+    }
+    return { ok: false, error: error.message };
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
+
 
 // ------------------------------------------------------------------ bots
 
