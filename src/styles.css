@@ -1661,11 +1661,15 @@ button:focus-visible {
   /* Same rail width as the app sidebar so the two read as one column. */
   grid-template-columns: clamp(284px, 26%, 344px) minmax(0, 1fr);
   background: var(--bg);
-  -webkit-app-region: drag;
+  /* Not a drag region: a window-sized one swallows the wheel and the pane
+     would only scroll where a no-drag control happened to sit. The rail keeps
+     the window movable instead. */
+  -webkit-app-region: no-drag;
 }
 
 .settings-view button,
-.settings-view input {
+.settings-view input,
+.settings-view select {
   -webkit-app-region: no-drag;
 }
 
@@ -1678,6 +1682,7 @@ button:focus-visible {
   padding: 46px 12px 14px;
   background: var(--sidebar);
   border-right: 1px solid var(--divider);
+  -webkit-app-region: drag;
 }
 
 .settings-back {
