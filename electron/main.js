@@ -596,7 +596,23 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
     if (event.sender.isDestroyed()) return;
     event.sender.send(channel, { requestId, ...data });
   };
-  const timer = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+  // Two different waits. A whole turn may legitimately take minutes, but a
+  // server that stops producing events — the agent retrying a rate-limited
+  // call for ten minutes without a word — must not hold the composer hostage.
+  // Silence is the signal.
+  const SILENCE_MS = 45000;
+  const HARD_LIMIT_MS = 5 * 60 * 1000;
+  let silent = false;
+  const hardStop = setTimeout(() => controller.abort(), HARD_LIMIT_MS);
+  let silenceTimer = null;
+  const armSilence = () => {
+    clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(() => {
+      silent = true;
+      controller.abort();
+    }, SILENCE_MS);
+  };
+  armSilence();
 
   let text = '';
   let failure = '';
@@ -640,6 +656,8 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
         buffer = buffer.slice(split + 2);
         split = buffer.indexOf('\n\n');
         if (!frame.trim() || frame.startsWith(':')) continue;
+        // Keepalives are not progress; anything else restarts the clock.
+        armSilence();
 
         const { event: name, data } = parseSseFrame(frame);
         let parsed = null;
@@ -672,11 +690,17 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
     return { ok: true, text };
   } catch (error) {
     if (error.name === 'AbortError') {
-      return { ok: false, error: 'The bot took more than five minutes to answer' };
+      return {
+        ok: false,
+        error: silent
+          ? 'The bot stopped answering — the model may be out of quota, or the server cannot reach it. Try another model from the picker.'
+          : 'The bot took more than five minutes to answer.',
+      };
     }
     return { ok: false, error: error.message };
   } finally {
-    clearTimeout(timer);
+    clearTimeout(hardStop);
+    clearTimeout(silenceTimer);
   }
 });
 
