@@ -10,6 +10,8 @@ type ModelPickerProps = {
   /** What the chip shows when a model is picked. */
   label?: string;
   disabled?: boolean;
+  /** Only a live tunnel can list models; without one the chip stays generic. */
+  connected?: boolean;
   onChange: (pick: {
     model?: string;
     provider?: string;
@@ -19,14 +21,13 @@ type ModelPickerProps = {
 
 type Pick = { model?: string; provider?: string; label?: string };
 
-const DEFAULT_LABEL = 'Bot default';
-
 export function ModelPicker({
   profile,
   value,
   provider,
   label,
   disabled,
+  connected = true,
   onChange,
 }: ModelPickerProps) {
   const bridge = window.hermes;
@@ -85,6 +86,25 @@ export function ModelPicker({
     };
   }, [open, models, bridge, profile]);
 
+  // The chip names the model the bot runs on, so the inventory is fetched as
+  // soon as the composer appears — not only when the menu opens. A failure here
+  // stays quiet: the menu reports it properly when the person asks for it.
+  useEffect(() => {
+    if (!connected || models || !bridge?.models) return;
+    let cancelled = false;
+    bridge
+      .models({ profile })
+      .then((result) => {
+        if (cancelled || !result.ok) return;
+        setModels(result.models ?? []);
+        setDefaultModel(result.current ?? '');
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, models, bridge, profile]);
+
   const groups = useMemo(() => {
     const needleLower = needle.trim().toLowerCase();
     const byProvider = new Map<string, HermesModel[]>();
@@ -106,7 +126,9 @@ export function ModelPicker({
     setNeedle('');
   }
 
-  const chipLabel = value ? (label ?? value) : DEFAULT_LABEL;
+  // Just the name: the configured model when nothing is picked, so the chip
+  // never has to explain itself with a placeholder.
+  const chipLabel = value ? (label ?? value) : defaultModel || 'Model';
 
   return (
     <div className="model-picker" ref={rootRef}>
@@ -119,7 +141,9 @@ export function ModelPicker({
         title={
           value
             ? `${value}${provider ? ` · ${provider}` : ''}`
-            : 'The model this bot is configured with'
+            : defaultModel
+              ? `${defaultModel} · this bot's configured model`
+              : 'The model this bot is configured with'
         }
         onClick={() => setOpen((current) => !current)}
       >
@@ -155,10 +179,10 @@ export function ModelPicker({
                 className={`model-option ${!value ? 'is-active' : ''}`}
                 onClick={() => pick({})}
               >
-                <span className="model-name">{DEFAULT_LABEL}</span>
-                <span className="model-provider">
-                  {defaultModel || 'configured model'}
+                <span className="model-name">
+                  {defaultModel || 'Configured model'}
                 </span>
+                <span className="model-provider">default</span>
               </button>
 
               {groups.map(([providerName, entries]) => (

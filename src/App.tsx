@@ -1213,6 +1213,7 @@ export default function App() {
                   provider={activeThread.modelProvider}
                   label={activeThread.modelLabel}
                   disabled={activeThread.thinking}
+                  connected={hermesStatus.state === 'connected'}
                   onChange={(pick) => {
                     if (pick.model) {
                       rememberPreferredModel(activeThread.profile, {
