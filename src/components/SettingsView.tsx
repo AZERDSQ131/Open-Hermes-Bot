@@ -614,8 +614,8 @@ export function SettingsView({
                 <div className="connection-head-copy">
                   <h2>Models</h2>
                   <p>
-                    Choose what the composer offers. Unticked models stay in
-                    Hermes — they just disappear from the picker.
+                    Choose what the composer offers. A model switched off stays
+                    in Hermes — it just disappears from the picker.
                   </p>
                 </div>
                 <button
