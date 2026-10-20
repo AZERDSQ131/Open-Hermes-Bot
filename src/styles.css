@@ -772,41 +772,135 @@ button:focus-visible {
   letter-spacing: 0.01em;
 }
 
+/* A tapback is a pill tucked under the bubble, the way a chat shows it: the
+   emoji small and readable, the count when more than one left it. */
 .reaction-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 6px;
 }
 
-/* A tapback is a bubble-sized chip, not a tiny badge in a corner. */
-.bubble-reaction {
+.reaction-pill {
   display: inline-flex;
+  height: 27px;
   align-items: center;
-  justify-content: center;
-  gap: 9px;
-  min-width: 54px;
-  height: 52px;
-  margin-top: 8px;
-  padding: 0 16px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 16px;
-  background: #34343a;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
-  font-size: 30px;
+  gap: 5px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 999px;
+  background: #303036;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.24);
+  cursor: pointer;
+  transition:
+    transform 140ms cubic-bezier(0.2, 0.9, 0.3, 1.2),
+    background 140ms ease,
+    border-color 140ms ease;
+  animation: reaction-pop 200ms cubic-bezier(0.2, 0.9, 0.3, 1.35);
+}
+
+.reaction-pill:hover {
+  transform: translateY(-1px) scale(1.04);
+  background: #3a3a41;
+}
+
+.reaction-pill:focus-visible {
+  outline: 2px solid #8489ff;
+  outline-offset: 2px;
+}
+
+/* The one you left: it says so without a word. */
+.reaction-pill.is-mine {
+  border-color: rgba(132, 137, 255, 0.85);
+  background: rgba(132, 137, 255, 0.2);
+}
+
+.reaction-emoji {
+  font-size: 15px;
   line-height: 1;
-  animation: reaction-pop 220ms cubic-bezier(0.2, 0.9, 0.3, 1.35);
 }
 
-.bubble-reaction.is-inline {
-  margin-top: 0;
-}
-
-.reaction-by {
-  color: #c2c2cb;
-  font-size: 12.5px;
+.reaction-count {
+  color: #b9b9c3;
+  font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0.005em;
+  line-height: 1;
+}
+
+.reaction-pill.is-mine .reaction-count {
+  color: #cdd0ff;
+}
+
+/* The sheet: a big panel of emoji, the way a message answers to a right
+   click. */
+.reaction-sheet {
+  position: fixed;
+  z-index: 340;
+  display: grid;
+  grid-template-columns: repeat(9, 40px);
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 16px;
+  background: rgba(38, 38, 42, 0.98);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: sheet-in 160ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.sheet-emoji {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 25px;
+  line-height: 1;
+  transition:
+    transform 130ms cubic-bezier(0.2, 0.9, 0.3, 1.35),
+    background 130ms ease;
+}
+
+.sheet-emoji:hover {
+  transform: scale(1.18) translateY(-1px);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sheet-emoji:focus-visible {
+  outline: 2px solid #8489ff;
+  outline-offset: -2px;
+}
+
+/* Already yours: the emoji sits on a lit tile. */
+.sheet-emoji.is-picked {
+  background: rgba(132, 137, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(132, 137, 255, 0.5);
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes reaction-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .mention {
@@ -832,17 +926,6 @@ button:focus-visible {
 
 .bubble-wrap .bubble {
   max-width: 100%;
-}
-
-@keyframes reaction-pop {
-  from {
-    opacity: 0;
-    transform: scale(0.55);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
 }
 
 .chat-event {

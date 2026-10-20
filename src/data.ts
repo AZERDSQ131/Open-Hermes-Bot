@@ -32,7 +32,10 @@ export type GroupMember = {
 /** A tapback, and who left it. The who only shows in groups. */
 export type Reaction = {
   emoji: string;
+  /** The bot that left it. */
   by?: string;
+  /** The person left it. */
+  mine?: boolean;
 };
 
 /**
