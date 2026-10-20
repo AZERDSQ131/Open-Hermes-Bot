@@ -262,4 +262,34 @@ describe('a group conversation read back', () => {
     expect(reactions?.[0]?.by).toBe('Chief of Staff');
     expect(reactions?.[0]?.emoji).toBeTruthy();
   });
+
+  it('lands the tapbacks of one wave on the same message', () => {
+    // Both members answer the same line in the same wave: the two tapbacks
+    // belong to that line, not to the answer of the member next to them.
+    const transcripts = new Map<string, HermesMessage[]>([
+      [
+        'bot:chief',
+        [
+          row('user', wire(['@You: Hello'], 'Chief of Staff', 'The last line is new in the group.'), 10),
+          row('assistant', '[[react:👍]] Good to see you', 20),
+        ],
+      ],
+      [
+        'bot:bob',
+        [
+          row('user', wire(['@You: Hello'], 'Bob', 'The last line is new in the group.'), 11),
+          row('assistant', '[[react:👍]] Hello yourself', 21),
+        ],
+      ],
+    ]);
+    const messages = groupTranscript([chief, bob], transcripts);
+    const hello = messages.find((message) => message.text === 'Hello');
+    const reactions = (hello as { reactions?: { emoji: string; by?: string }[] })
+      ?.reactions;
+    expect(reactions).toHaveLength(2);
+    expect(reactions?.map((reaction) => reaction.by)).toEqual([
+      'Chief of Staff',
+      'Bob',
+    ]);
+  });
 });

@@ -191,8 +191,24 @@ export function TrashIcon({ size = 15, className }: IconProps) {
   );
 }
 
-export function ChevronLeftIcon({ size = 15, className }: IconProps) {
+export function SmileIcon({ size = 15, className }: IconProps) {
   return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      strokeWidth="1.7"
+      className={className}
+      {...base}
+    >
+      <circle cx="12" cy="12" r="8.6" />
+      <path d="M8.6 14.2c.8 1.4 2 2.1 3.4 2.1s2.6-.7 3.4-2.1" />
+      <path d="M9.3 9.7h.01M14.7 9.7h.01" />
+    </svg>
+  );
+}
+
+export function ChevronLeftIcon({ size = 15, className }: IconProps) {  return (
     <svg
       width={size}
       height={size}

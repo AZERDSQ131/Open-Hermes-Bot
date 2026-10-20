@@ -227,9 +227,29 @@ export function readTranscript(lines: string[]): Line[] {
   return read;
 }
 
+/** The last line the room held: the one a tapback answers. */
+function lastSpokenKey(lines: string[]): string {
+  const read = readTranscript(lines);
+  for (let index = read.length - 1; index >= 0; index -= 1) {
+    const line = read[index];
+    if (line.kind === 'note') continue;
+    if (line.kind === 'person') return `person:${line.text}`;
+    return `member:${line.name}:${line.text}`;
+  }
+  return '';
+}
+
 type GroupEvent =
   | { kind: 'person'; ts: number; text: string }
-  | { kind: 'member'; ts: number; member: GroupMember; raw: string; addressed: boolean };
+  | {
+      kind: 'member';
+      ts: number;
+      member: GroupMember;
+      raw: string;
+      addressed: boolean;
+      /** The line this member was answering. */
+      target: string;
+    };
 
 /** A message that carries a face and a tapback. */
 type Spoken = Extract<Message, { role: 'assistant' | 'user' }>;
@@ -254,6 +274,10 @@ export function groupTranscript(
   for (const member of members) {
     const rows = transcripts.get(member.id) ?? [];
     let wire: GroupWire | null = null;
+    // The line the member was answering: the room as it stood when its turn
+    // came. A tapback lands there, not on the answer of the member next to
+    // it.
+    let target = '';
     for (const row of rows) {
       const content = String(row.content ?? '');
       if (row.role === 'user') {
@@ -265,13 +289,21 @@ export function groupTranscript(
           if (personAt.has(line.text)) continue;
           personAt.set(line.text, row.timestamp);
         }
+        target = lastSpokenKey(parsed.transcript);
         continue;
       }
       if (row.role !== 'assistant') continue;
       const addressed = wire
         ? /mentioned you by name|addressed you directly/.test(wire.cue)
         : false;
-      events.push({ kind: 'member', ts: row.timestamp, member, raw: content, addressed });
+      events.push({
+        kind: 'member',
+        ts: row.timestamp,
+        member,
+        raw: content,
+        addressed,
+        target,
+      });
     }
   }
 
@@ -281,6 +313,9 @@ export function groupTranscript(
   events.sort((left, right) => left.ts - right.ts);
 
   const messages: Message[] = [];
+  // Every line of the room, by the key it is known by: a tapback looks for
+  // the line it answered.
+  const keys = new Map<string, number>();
   const lastSpoken = (): Spoken | undefined => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       const message = messages[index];
@@ -292,6 +327,7 @@ export function groupTranscript(
 
   for (const event of events) {
     if (event.kind === 'person') {
+      keys.set(`person:${event.text}`, messages.length);
       messages.push({
         id: `hp-${event.ts}-${messages.length}`,
         role: 'user',
@@ -300,7 +336,13 @@ export function groupTranscript(
       continue;
     }
     const turn = readGroupTurn(event.raw, members);
-    const target = lastSpoken();
+    // The tapback lands on the line the member was answering, the way it did
+    // when the room was live: the whole wave taps the same message.
+    const at = keys.get(event.target);
+    const target =
+      at === undefined ? lastSpoken() : messages[at]?.role !== 'event'
+        ? (messages[at] as Spoken)
+        : undefined;
     if (turn.silent) {
       // Silence is a move, and it leaves a tapback: the app forces one, so a
       // member that sat this one out is acknowledged all the same.
@@ -330,6 +372,10 @@ export function groupTranscript(
       };
     }
     if (turn.text) {
+      keys.set(
+        `member:${event.member.name}:${turn.text}`,
+        messages.length,
+      );
       messages.push({
         id: `hm-${event.ts}-${messages.length}`,
         role: 'assistant',

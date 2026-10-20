@@ -28,6 +28,7 @@ import {
   MonitorIcon,
   PlusIcon,
   SearchIcon,
+  SmileIcon,
 } from './components/Icons';
 import type {
   HermesMessage,
@@ -2651,6 +2652,22 @@ export default function App() {
                             {message.authorName}
                           </span>
                         ) : null}
+                        <button
+                          type="button"
+                          className="message-react"
+                          aria-label="React to this message"
+                          title="React to this message"
+                          onClick={(event) => {
+                            const box = event.currentTarget.getBoundingClientRect();
+                            openSheet(
+                              box.left + box.width / 2,
+                              box.top,
+                              message.id,
+                            );
+                          }}
+                        >
+                          <SmileIcon size={15} />
+                        </button>
                         <div className={`bubble bubble-${message.role}`}>
                           <MentionText
                             text={message.text}
