@@ -134,6 +134,15 @@ export type HermesBridge = {
     sessionId: string;
     title: string;
   }) => Promise<{ ok: boolean; title?: string; error?: string }>;
+  /** Deletes a conversation and the transcript it holds. */
+  deleteSession: (payload: {
+    profile?: string;
+    sessionId: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  /** Deletes a bot: the Hermes profile that is the bot. */
+  deleteBot: (payload: {
+    name: string;
+  }) => Promise<{ ok: boolean; name?: string; error?: string }>;
   models: (payload: { profile?: string }) => Promise<HermesModelList>;
   profiles: () => Promise<HermesProfileList>;
   sendChat: (payload: {

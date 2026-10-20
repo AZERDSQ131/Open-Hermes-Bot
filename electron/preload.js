@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('hermes', {
   test: (payload) => ipcRenderer.invoke('hermes:test', payload),
   createBot: (payload) => ipcRenderer.invoke('hermes:bot:create', payload),
   updateBot: (payload) => ipcRenderer.invoke('hermes:bot:update', payload),
+  deleteBot: (payload) => ipcRenderer.invoke('hermes:bot:delete', payload),
+  deleteSession: (payload) => ipcRenderer.invoke('hermes:session:delete', payload),
   createSession: (payload) => ipcRenderer.invoke('hermes:session', payload),
   sessions: (payload) => ipcRenderer.invoke('hermes:sessions', payload),
   messages: (payload) => ipcRenderer.invoke('hermes:messages', payload),

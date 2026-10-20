@@ -349,8 +349,9 @@ function withConversations(
         },
       };
     });
-    // A group needs more than one voice; a single session is a private talk.
-    if (members.length < 2) continue;
+    // A group of one is a group whose other members are gone: the conversation
+    // is still there, and so is the room it was held in.
+    if (!members.length) continue;
     const sessions: Record<string, string> = {};
     for (const member of members) {
       const session = seed.members.find((entry) => entry.profile === member.profile);
@@ -473,9 +474,6 @@ export default function App() {
   const renameCancelled = useRef(false);
   // Profiles created here but not yet reported by the gateway.
   const pendingBots = useRef(new Set<string>());
-  // The conversations Hermes holds, per profile. The app keeps no copy of
-  // what was said: this index points at the server's copy.
-  const sessionsByProfile = useRef(new Map<string, HermesSession[]>());
   // The conversations already read back, so none is loaded twice.
   const transcriptState = useRef(new Map<string, 'loading' | 'loaded'>());
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
@@ -504,7 +502,6 @@ export default function App() {
       if (!answer) continue;
       perProfile.set(profileKey(answer.profile), answer.sessions);
     }
-    sessionsByProfile.current = perProfile;
     setThreads((current) => withConversations(current, perProfile));
   }
 
@@ -1131,6 +1128,10 @@ export default function App() {
     cancelGroupRequests(id);
     groupRound.current.delete(id);
 
+    // The deletion happens on the server, where the conversation lives: a bot
+    // that only left the sidebar would come back with the next refresh.
+    void removeOnServer(target);
+
     setThreads((current) =>
       current
         .filter((thread) => thread.id !== id)
@@ -1176,6 +1177,55 @@ export default function App() {
 
     setEditingId((current) => (current === id ? null : current));
     setContextMenu(null);
+  }
+
+  // The deletion happens where the conversation is kept. A bot is a Hermes
+  // profile: deleting the profile deletes the bot, with everything it
+  // remembers. A group is a set of conversations: they go one by one.
+  async function removeOnServer(target: Thread | undefined) {
+    const bridge = window.hermes;
+    if (!target || !bridge) return;
+    if (target.avatar.kind === 'group') {
+      for (const member of target.members ?? []) {
+        const sessionId = target.sessions?.[member.id];
+        if (!sessionId) continue;
+        try {
+          await bridge.deleteSession?.({
+            profile: member.profile,
+            sessionId,
+          });
+        } catch {
+          // A conversation that refuses to go leaves a trace on the server,
+          // not in the app.
+        }
+      }
+      return;
+    }
+    if (!target.profile) return;
+    try {
+      const result = await bridge.deleteBot?.({ name: target.profile });
+      if (result && !result.ok) {
+        setThreads((current) =>
+          current.map((thread) =>
+            thread.id === target.id
+              ? {
+                  ...thread,
+                  messages: [
+                    ...thread.messages,
+                    {
+                      id: uid(),
+                      role: 'event',
+                      text: `The bot could not be deleted on the server: ${result.error ?? 'unknown error'}`,
+                    },
+                  ],
+                }
+              : thread,
+          ),
+        );
+      }
+    } catch {
+      // Nothing to report: the bot is gone from the app either way.
+    }
   }
 
   function startEditingThread(id: string) {

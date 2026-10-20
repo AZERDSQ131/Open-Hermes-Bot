@@ -827,6 +827,47 @@ ipcMain.handle('hermes:bot:update', async (_event, payload) => {
   return { ok: true, name, ...meta };
 });
 
+// Deleting a conversation deletes the session that holds it: the transcript
+// lives there, and nowhere else.
+ipcMain.handle('hermes:session:delete', async (_event, payload) => {
+  const sessionId = String(payload?.sessionId ?? '').trim();
+  if (!sessionId) return { ok: false, error: 'No conversation to delete' };
+  const result = await apiCall(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+    method: 'DELETE',
+    profile: payload?.profile,
+    timeoutMs: 30000,
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: apiErrorText(result, 'Could not delete the conversation'),
+    };
+  }
+  return { ok: true };
+});
+
+// Deleting a bot deletes the profile that is the bot. A bot that only left
+// the app's sidebar would come back with the next refresh, which is no
+// deletion at all.
+ipcMain.handle('hermes:bot:delete', async (_event, payload) => {
+  const name = String(payload?.name ?? '').trim().toLowerCase();
+  if (!PROFILE_NAME_RE.test(name)) {
+    return { ok: false, error: 'That is not a bot name Hermes knows.' };
+  }
+  if (RESERVED_PROFILE_NAMES.has(name)) {
+    return { ok: false, error: 'That bot cannot be deleted.' };
+  }
+  const result = await apiCall(`/api/profiles/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+    timeoutMs: 60000,
+  });
+  if (!result.ok) {
+    return { ok: false, error: apiErrorText(result, 'Could not delete the bot') };
+  }
+  profileKeys.delete(name);
+  return { ok: true, name };
+});
+
 // Model inventory for the picker. Hermes answers with one row per provider;
 // only the authenticated ones can actually run a turn, so those are the ones
 // worth offering, plus whatever is currently configured.
