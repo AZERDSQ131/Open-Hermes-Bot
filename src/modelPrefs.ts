@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-// Model preferences are a Sidekick concern, not a Hermes one: the gateway
+// Model preferences are a Grok Bot concern, not a Hermes one: the gateway
 // keeps listing every authenticated model, while the person curates what the
 // picker offers. They live in localStorage so they survive a reconnect.
 
@@ -15,8 +15,11 @@ export type ModelPrefs = {
   defaults: Record<string, ModelRef>;
 };
 
-const STORAGE_KEY = 'sidekick.models.prefs';
-const CHANGE_EVENT = 'sidekick:models-changed';
+const STORAGE_KEY = 'grokbot.models.prefs';
+const CHANGE_EVENT = 'grokbot:models-changed';
+// The app was called Sidekick before: the preferences written under that name
+// are read once and carried over, so the rename costs the person nothing.
+const LEGACY_STORAGE_KEY = 'sidekick.models.prefs';
 
 function emptyPrefs(): ModelPrefs {
   return { hidden: [], favorites: [], defaults: {} };
@@ -73,7 +76,9 @@ function normalize(raw: unknown): ModelPrefs {
 
 export function readModelPrefs(): ModelPrefs {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw =
+      window.localStorage.getItem(STORAGE_KEY) ??
+      window.localStorage.getItem(LEGACY_STORAGE_KEY);
     return raw ? normalize(JSON.parse(raw)) : emptyPrefs();
   } catch {
     return emptyPrefs();

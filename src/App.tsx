@@ -70,12 +70,19 @@ function isQuotaFailure(message?: string): boolean {
 type PreferredModel = { model: string; provider: string; label: string };
 
 function preferredModelKey(profile?: string) {
-  return `sidekick.model.${profile || 'default'}`;
+  return `grokbot.model.${profile || 'default'}`;
 }
 
+// The app used to be called Sidekick: the picks made under that name are read
+// once and carried over, so a rename never costs the person their choices.
+const LEGACY_MODEL_KEY = 'sidekick.model.';
+
 function readPreferredModel(profile?: string): PreferredModel | null {
+  const key = preferredModelKey(profile);
+  const legacy = `${LEGACY_MODEL_KEY}${profile || 'default'}`;
   try {
-    const raw = window.localStorage.getItem(preferredModelKey(profile));
+    const raw =
+      window.localStorage.getItem(key) ?? window.localStorage.getItem(legacy);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PreferredModel;
     return parsed?.model ? parsed : null;
@@ -840,7 +847,7 @@ export default function App() {
           name: toProfileId(input.name),
           title: input.name,
           color: input.customColor,
-          description: `Bot created from Sidekick`,
+          description: `Bot created from Grok Bot`,
         }),
         70000,
       );

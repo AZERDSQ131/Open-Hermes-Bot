@@ -110,7 +110,7 @@ export function splitMentions(text: string, members: GroupMember[]): MentionSegm
 export function groupInstructions(groupName: string, members: GroupMember[]): string {
   const roster = members.map((member) => `@${member.name}`).join(', ');
   return [
-    `Sidekick group chat: you are one member of “${groupName}”, talking with ${roster} and the person.`,
+    `Grok Bot group chat: you are one member of “${groupName}”, talking with ${roster} and the person.`,
     'Each member answers on their own. You never write another member\'s words, and you never invent a line from the person.',
     'A turn has exactly three moves. Choose one:',
     `1. Stay silent. Reply with exactly ${SILENT_MARKER} and nothing else when the line is not for you, when someone else already answered it, when you agree with what was said, or when you have nothing that adds something. A silent member is still acknowledged: the app leaves a tapback on the message for you. Silence is a normal, frequent choice in a group — most turns do not need every bot.`,

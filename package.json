@@ -1,6 +1,6 @@
 {
-  "name": "sidekick",
-  "productName": "Sidekick",
+  "name": "grok-bot",
+  "productName": "Grok Bot",
   "version": "1.0.0",
   "description": "A dark, native-feeling macOS chat app for AI agents.",
   "main": "electron/main.js",

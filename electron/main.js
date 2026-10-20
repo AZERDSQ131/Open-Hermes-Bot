@@ -4,13 +4,21 @@ const {
   Menu,
   shell,
   ipcMain,
-  safeStorage,
 } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
-const { spawn, spawnSync } = require('node:child_process');
+const { spawn, spawnSync, execFileSync } = require('node:child_process');
 
-app.setName('Sidekick');
+app.setName('Grok Bot');
+
+// The official Grok desktop app already owns ~/Library/Application Support/Grok
+// Bot, and two Electron apps sharing a userData folder fight over Chromium's
+// singleton lock: the second one silently hands its window to the first. This
+// app keeps its own folder, next to the official one, and never collides.
+app.setPath(
+  'userData',
+  path.join(app.getPath('appData'), 'Grok Bot Desktop'),
+);
 
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 
@@ -59,31 +67,65 @@ function storedConnection() {
   return { ...DEFAULT_CONNECTION, ...connection };
 }
 
-function encryptSecret(value) {
-  if (!value) return null;
-  if (safeStorage.isEncryptionAvailable()) {
-    return {
-      scheme: 'safeStorage',
-      value: safeStorage.encryptString(value).toString('base64'),
-    };
+// The Hermes API key lives in the login Keychain, under this app's own
+// service. safeStorage would name the item after the app — and the official
+// Grok desktop app already owns "Grok Bot Safe Storage" — which turns every
+// read into a Keychain prompt and puts our key behind another app's item.
+// The `security` tool writes an item it can read back without a prompt, so
+// the key stays in the Keychain and belongs to nobody else.
+const KEYCHAIN_SERVICE = 'Grok Bot';
+const KEYCHAIN_ACCOUNT = 'Hermes API key';
+
+function security(args) {
+  try {
+    return execFileSync('/usr/bin/security', args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch {
+    return '';
   }
-  return { scheme: 'plain', value };
 }
 
-function decryptSecret(record) {
-  if (!record || typeof record.value !== 'string') return '';
-  if (record.scheme === 'safeStorage') {
-    try {
-      return safeStorage.decryptString(Buffer.from(record.value, 'base64'));
-    } catch {
-      return '';
-    }
-  }
-  return record.value;
+function storeSecret(value) {
+  const secret = String(value ?? '').trim();
+  if (!secret) return false;
+  const written = security([
+    'add-generic-password',
+    '-U',
+    '-a',
+    KEYCHAIN_ACCOUNT,
+    '-s',
+    KEYCHAIN_SERVICE,
+    '-w',
+    secret,
+  ]);
+  return written !== '';
+}
+
+function readSecret() {
+  return security([
+    'find-generic-password',
+    '-a',
+    KEYCHAIN_ACCOUNT,
+    '-s',
+    KEYCHAIN_SERVICE,
+    '-w',
+  ]).trim();
+}
+
+function clearSecret() {
+  security([
+    'delete-generic-password',
+    '-a',
+    KEYCHAIN_ACCOUNT,
+    '-s',
+    KEYCHAIN_SERVICE,
+  ]);
 }
 
 function storedApiKey() {
-  return decryptSecret(readStore().secret);
+  return readSecret();
 }
 
 function publicSettings() {
@@ -353,16 +395,13 @@ ipcMain.handle('hermes:settings:save', (_event, payload) => {
       ? Boolean(current.autoConnect)
       : Boolean(payload.autoConnect);
 
-  const store = readStore();
-  let secret = store.secret ?? null;
-  if (payload?.clearKey) secret = null;
+  if (payload?.clearKey) clearSecret();
   if (typeof payload?.apiKey === 'string' && payload.apiKey.trim()) {
-    secret = encryptSecret(payload.apiKey.trim());
+    storeSecret(payload.apiKey.trim());
   }
 
   writeStore({
     connection: { sshHost: host, apiPort: port, localPort, autoConnect },
-    secret,
   });
   return { ok: true, settings: publicSettings() };
 });
@@ -384,8 +423,7 @@ ipcMain.handle('hermes:key:import', async (_event, payload) => {
   }
   const key = parseEnvValue(result.stdout);
   if (key.length < 16) return { ok: false, error: 'Imported key looks invalid' };
-  const store = readStore();
-  writeStore({ ...store, secret: encryptSecret(key) });
+  storeSecret(key);
   return { ok: true, keyLength: key.length };
 });
 
@@ -559,7 +597,7 @@ async function sessionIdByTitle(title, profile) {
 }
 
 ipcMain.handle('hermes:session', async (_event, payload) => {
-  const title = String(payload?.title ?? '').slice(0, 120) || 'Sidekick';
+  const title = String(payload?.title ?? '').slice(0, 120) || 'Grok Bot';
   const create = (value) =>
     apiCall('/api/sessions', {
       method: 'POST',
@@ -1008,7 +1046,7 @@ if color:
 ui["hermes-bots"] = bots
 data["ui_meta"] = ui
 
-tmp = path.with_name(path.name + ".sidekick-tmp")
+tmp = path.with_name(path.name + ".grokbot-tmp")
 tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
 os.replace(tmp, path)
 `;
@@ -1078,7 +1116,7 @@ if color and color != now_color:
 if changed:
     ui["hermes-bots"] = bots
     data["ui_meta"] = ui
-    tmp = path.with_name(path.name + ".sidekick-tmp")
+    tmp = path.with_name(path.name + ".grokbot-tmp")
     tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
     os.replace(tmp, path)
 
@@ -1113,7 +1151,7 @@ TITLE="$2"
 DESC="$3"
 COLOR="$4"
 P="$ROOT/profiles/$NAME"
-STAGING="$ROOT/profiles/.$NAME.staging-sidekick"
+STAGING="$ROOT/profiles/.$NAME.staging-grokbot"
 
 # Reusing a deleted bot's name is normal, but Hermes keeps a tombstone at
 # profiles/.deleted/<name> and skips every profile carrying one — the bot would
@@ -1267,7 +1305,7 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
   // dead-ending on "already exists". The build script answers EXISTS for that,
   // so both cases cost the same single round trip.
   const encoded = Buffer.from(CREATE_BOT_SCRIPT, 'utf8').toString('base64');
-  const remoteScript = `/tmp/sidekick-create-${name}.sh`;
+  const remoteScript = `/tmp/grokbot-create-${name}.sh`;
   const command = [
     'set -u',
     `printf %s ${shellQuote(encoded)} | base64 -d > ${remoteScript}`,
@@ -1314,9 +1352,9 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
     const adopted = await runSsh(
       connection.sshHost,
       [
-        `printf %s ${shellQuote(adopter)} | base64 -d > /tmp/sidekick-adopt-${name}.py`,
-        `python3 /tmp/sidekick-adopt-${name}.py ${shellQuote(profilePath)} ${shellQuote(title)} ${shellQuote(color)}`,
-        `rm -f /tmp/sidekick-adopt-${name}.py`,
+        `printf %s ${shellQuote(adopter)} | base64 -d > /tmp/grokbot-adopt-${name}.py`,
+        `python3 /tmp/grokbot-adopt-${name}.py ${shellQuote(profilePath)} ${shellQuote(title)} ${shellQuote(color)}`,
+        `rm -f /tmp/grokbot-adopt-${name}.py`,
       ].join('\n'),
     );
     let before = { title: '', color: '' };
@@ -1363,7 +1401,7 @@ function createWindow() {
     minHeight: 520,
     show: false,
     backgroundColor: '#1b1b1d',
-    title: 'Sidekick',
+    title: 'Grok Bot',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 18 },

@@ -1,4 +1,4 @@
-# Sidekick
+# Grok Bot
 
 A macOS Electron clone of the multi-agent chat interface: dark sidebar, Bloub agent
 avatars, cream user bubbles and a floating composer.

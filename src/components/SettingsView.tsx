@@ -223,7 +223,7 @@ export function SettingsView({
           type="button"
           className="settings-back"
           onClick={onClose}
-          aria-label="Back to Sidekick"
+          aria-label="Back to Grok Bot"
           title="Back  Esc"
         >
           <ChevronLeftIcon size={17} />
@@ -266,7 +266,7 @@ export function SettingsView({
                 <div>
                   <h2>Connection</h2>
                   <p>
-                    Link Sidekick to the Hermes Agent running on your machine.
+                    Link Grok Bot to the Hermes Agent running on your machine.
                   </p>
                 </div>
                 <div className="settings-page-side">
@@ -302,7 +302,7 @@ export function SettingsView({
                 <header className="settings-card-head">
                   <div>
                     <h3>Server</h3>
-                    <p>How Sidekick reaches Hermes.</p>
+                    <p>How Grok Bot reaches Hermes.</p>
                   </div>
                   <span className="settings-card-meta">
                     {hasKey ? 'Key in Keychain' : 'No key stored'}
@@ -378,7 +378,7 @@ export function SettingsView({
                       ) : null}
                     </div>
                     <span className="settings-field-note">
-                      Kept in the macOS Keychain, never written by Sidekick.
+                      Kept in the macOS Keychain, never written by Grok Bot.
                     </span>
                   </div>
                 </div>
@@ -468,7 +468,7 @@ export function SettingsView({
                     <div className="settings-switch-row">
                       <span className="settings-switch-copy">
                         Connect on launch
-                        <em>Open the tunnel as soon as Sidekick starts.</em>
+                        <em>Open the tunnel as soon as Grok Bot starts.</em>
                       </span>
                       <button
                         type="button"
