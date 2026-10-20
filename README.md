@@ -86,6 +86,10 @@ shows up in the group and in its private thread.
   says the turn was seen.
 - **Tapbacks** work as in a private thread (`[[react:🔥]]`). In a group the
   reaction is signed, so two bots can tap the same message.
+- **The person can react too.** A right click on a message — or the little
+  smiley that shows up when the pointer is over it — opens a panel of big
+  emoji to answer with. The reaction shows as a pill under the message, lit
+  when it is yours, and picking the same emoji again takes it back.
 - **@mentions** hand the floor over: a bot that writes `@Name` gives that member
   the next wave, and a member can answer back. If the mentioned bot is still
   generating, its request is cancelled on the spot — it does not talk over the

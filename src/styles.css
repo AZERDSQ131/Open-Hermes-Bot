@@ -893,11 +893,12 @@ button:focus-visible {
 }
 
 /* The smiley that answers a right click: it shows up when the pointer is
-   over the message, the way a chat offers its actions. */
+   over the message, the way a chat offers its actions. It sits outside the
+   bubble, on the side the bubble is not glued to. */
 .message-react {
   position: absolute;
-  top: -14px;
-  right: 8px;
+  top: 0;
+  right: -40px;
   display: grid;
   width: 28px;
   height: 28px;
@@ -930,7 +931,7 @@ button:focus-visible {
 
 .message-row.user .message-react {
   right: auto;
-  left: 8px;
+  left: -40px;
 }
 
 .bubble-wrap {
