@@ -153,6 +153,23 @@ function testPortFor(localPort) {
   return localPort >= 65535 ? localPort - 1 : localPort + 1;
 }
 
+// A port can be held by a forward nobody reaped: an ssh that outlived the app
+// keeps the local port, and the tunnel cannot bind. The next free port is
+// then the one to use — the setting stays the preference, the app just works
+// around what is in the way.
+const PORT_ATTEMPTS = 5;
+
+function portAfter(localPort, attempt) {
+  const port = localPort + attempt;
+  return port > 65535 ? localPort - attempt : port;
+}
+
+function portIsBusy(message) {
+  return /address already in use|cannot listen to port|bind: /i.test(
+    String(message ?? ''),
+  );
+}
+
 function setStatus(next) {
   connectionStatus = next;
   for (const win of BrowserWindow.getAllWindows()) {
@@ -444,8 +461,21 @@ async function connectNow() {
 
   setStatus({ state: 'connecting' });
   reapOrphanTunnel();
-  const state = startLiveTunnel(connection);
-  const probe = await waitForTunnel(state, apiKey);
+  let probe = null;
+  for (let attempt = 0; attempt < PORT_ATTEMPTS; attempt += 1) {
+    const localPort =
+      attempt === 0 ? connection.localPort : portAfter(connection.localPort, attempt);
+    const state = startLiveTunnel({ ...connection, localPort });
+    probe = await waitForTunnel(state, apiKey);
+    if (probe.ok || probe.status === 401) break;
+    // Something else answers on that port, or the tunnel could not bind: the
+    // next free port is the one to use.
+    const taken =
+      portIsBusy(probe.error) ||
+      (probe.status >= 400 && probe.status < 500) ||
+      Boolean(state?.dead);
+    if (!taken) break;
+  }
   return setStatus(statusFromProbe(probe, connection.sshHost));
 }
 
