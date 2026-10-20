@@ -630,29 +630,50 @@ ipcMain.handle('hermes:session', async (_event, payload) => {
 // whole transcript, and it is the only place the app stores one. Listing them
 // is how the app rebuilds its sidebar after a restart, without a single local
 // trace of what was said.
+const SESSION_PAGE = 100;
+const SESSION_PAGES = 10;
+
 ipcMain.handle('hermes:sessions', async (_event, payload) => {
-  const result = await apiCall('/api/sessions?limit=100&order=recent', {
-    profile: payload?.profile,
-    timeoutMs: 20000,
-  });
-  if (!result.ok) {
-    return {
-      ok: false,
-      error: apiErrorText(result, 'Could not list the conversations'),
-    };
-  }
-  const rows = result.body?.data ?? result.body?.sessions ?? [];
+  const profile = payload?.profile;
   const sessions = [];
-  for (const row of rows) {
-    const id = String(row?.id ?? '').trim();
-    if (!id) continue;
-    sessions.push({
-      id,
-      title: String(row?.title ?? ''),
-      messageCount: Number(row?.message_count ?? 0),
-      lastActive: Number(row?.last_active ?? 0),
-      archived: Boolean(row?.archived),
-    });
+  const seen = new Set();
+  let offset = 0;
+  // The gateway labels a session by the source that opened it; the app's own
+  // conversations all come from the API server. A server that ignores the
+  // filter says so with the rows it sends back.
+  let honoured = true;
+  for (let page = 0; page < SESSION_PAGES; page += 1) {
+    const result = await apiCall(
+      `/api/sessions?limit=${SESSION_PAGE}&offset=${offset}&order=recent&source=api_server`,
+      { profile, timeoutMs: 20000 },
+    );
+    if (!result.ok) {
+      return {
+        ok: false,
+        error: apiErrorText(result, 'Could not list the conversations'),
+      };
+    }
+    const rows = result.body?.data ?? result.body?.sessions ?? [];
+    if (!rows.length) break;
+    for (const row of rows) {
+      const id = String(row?.id ?? '').trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      if (String(row?.source ?? 'api_server') !== 'api_server') {
+        honoured = false;
+        continue;
+      }
+      sessions.push({
+        id,
+        title: String(row?.title ?? ''),
+        messageCount: Number(row?.message_count ?? 0),
+        lastActive: Number(row?.last_active ?? 0),
+        archived: Boolean(row?.archived),
+      });
+    }
+    if (result.body?.has_more === false) break;
+    if (honoured && rows.length < SESSION_PAGE) break;
+    offset += rows.length;
   }
   return { ok: true, sessions };
 });
@@ -1495,6 +1516,9 @@ function createWindow() {
   });
 
   win.once('ready-to-show', () => win.show());
+  win.webContents.on('console-message', (...args) => {
+    console.log('[renderer]', args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '));
+  });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);

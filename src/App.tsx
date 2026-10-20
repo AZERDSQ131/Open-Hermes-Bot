@@ -29,8 +29,19 @@ import {
   PlusIcon,
   SearchIcon,
 } from './components/Icons';
-import type { HermesProfile, HermesStatus } from './hermes';
-import { defaultModelPick } from './modelPrefs';
+import type {
+  HermesMessage,
+  HermesProfile,
+  HermesSession,
+  HermesStatus,
+} from './hermes';
+import { defaultModelPick, profileKey } from './modelPrefs';
+import {
+  findSession,
+  groupSeeds,
+  groupTranscript,
+  privateTranscript,
+} from './conversations';
 import {
   extractReaction,
   REACTION_PROMPT,
@@ -288,6 +299,70 @@ function mergeBots(
   return [chief, ...bots, ...waiting, ...local];
 }
 
+// The conversations the server holds, folded into the sidebar. A bot's
+// conversation is the session under its name; a group is rebuilt from the
+// titles of its members' conversations, which is all a group ever was.
+function withConversations(
+  current: Thread[],
+  perProfile: Map<string, HermesSession[]>,
+): Thread[] {
+  const botByProfile = new Map(
+    current
+      .filter((thread) => thread.profile)
+      .map((thread) => [thread.profile as string, thread]),
+  );
+  const next = current.map((thread) => {
+    if (thread.members) return thread;
+    // A thread without a profile is the primary one: the default bot talks on
+    // the root paths, and its conversation is stored there too.
+    const sessions = perProfile.get(profileKey(thread.profile)) ?? [];
+    const session = findSession(thread.name, sessions);
+    if (!session || session.id === thread.sessionId) return thread;
+    return { ...thread, sessionId: session.id };
+  });
+
+  const known = new Set(
+    next.filter((thread) => thread.members).map((thread) => thread.name),
+  );
+  for (const seed of groupSeeds(perProfile)) {
+    if (known.has(seed.name)) continue;
+    const members: GroupMember[] = seed.members.map((member) => {
+      const bot = botByProfile.get(member.profile);
+      const avatar =
+        bot && bot.avatar.kind !== 'group' ? bot.avatar : undefined;
+      return {
+        id: bot?.id ?? `bot:${member.profile}`,
+        name: member.name,
+        profile: member.profile,
+        avatar: avatar ?? {
+          color: avatarColor('', member.profile),
+          shape: 'cercle' as BloubShape,
+          variant: 'neutral' as const,
+        },
+      };
+    });
+    // A group needs more than one voice; a single session is a private talk.
+    if (members.length < 2) continue;
+    const sessions: Record<string, string> = {};
+    for (const member of members) {
+      const session = seed.members.find((entry) => entry.profile === member.profile);
+      if (session) sessions[member.id] = session.sessionId;
+    }
+    next.push({
+      id: `group:${seed.name}`,
+      name: seed.name,
+      members,
+      sessions,
+      avatar: { kind: 'group', members: members.map((member) => member.avatar) },
+      preview: '',
+      time: '',
+      chatTime: '',
+      messages: [],
+    });
+  }
+  return next;
+}
+
 /** A bridge call that never comes back must not leave a dialog spinning. */
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   return Promise.race([
@@ -390,7 +465,40 @@ export default function App() {
   const renameCancelled = useRef(false);
   // Profiles created here but not yet reported by the gateway.
   const pendingBots = useRef(new Set<string>());
+  // The conversations Hermes holds, per profile. The app keeps no copy of
+  // what was said: this index points at the server's copy.
+  const sessionsByProfile = useRef(new Map<string, HermesSession[]>());
+  // The conversations already read back, so none is loaded twice.
+  const transcriptState = useRef(new Map<string, 'loading' | 'loaded'>());
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  // The conversations every profile is holding. The calls go out together, over
+  // the tunnel the app already keeps open.
+  async function loadConversations(profiles: HermesProfile[]) {
+    const bridge = window.hermes;
+    if (!bridge?.sessions) return;
+    const targets = [undefined, ...profiles.map((entry) => entry.name)];
+    const answers = await Promise.all(
+      targets.map(async (profile) => {
+        try {
+          const result = await bridge.sessions({ profile });
+          if (!result.ok || !result.sessions) return null;
+          return { profile, sessions: result.sessions };
+        } catch {
+          // A profile that cannot be reached has no conversation to show: the
+          // rest of the sidebar is still worth having.
+          return null;
+        }
+      }),
+    );
+    const perProfile = new Map<string, HermesSession[]>();
+    for (const answer of answers) {
+      if (!answer) continue;
+      perProfile.set(profileKey(answer.profile), answer.sessions);
+    }
+    sessionsByProfile.current = perProfile;
+    setThreads((current) => withConversations(current, perProfile));
+  }
 
   // The sidebar is the real inventory: bots come from the gateway, never from
   // seed data. Refetched when the connection settles, so a reconnect picks up
@@ -417,6 +525,9 @@ export default function App() {
           setThreads((current) =>
             mergeBots(current, result.profiles ?? [], pendingBots.current),
           );
+          // The conversations those bots are holding: the sidebar is rebuilt
+          // from the server's own list of them.
+          void loadConversations(result.profiles ?? []);
         } else {
           setBotsError(result.error ?? 'Could not reach Hermes');
         }
@@ -443,8 +554,73 @@ export default function App() {
     activeIdRef.current = activeId;
   }, [activeId]);
 
+
   const activeThread =
     threads.find((thread) => thread.id === activeId) ?? threads[0];
+
+  // A conversation is read back from the server when it is opened: the app
+  // keeps no copy of it, so what the room said is where Hermes put it.
+  useEffect(() => {
+    const thread = activeThread;
+    if (!thread) return;
+    if (transcriptState.current.get(thread.id)) return;
+    // Live messages win: they are newer than anything the server holds.
+    if (thread.messages.length) return;
+    const bridge = window.hermes;
+    if (!bridge?.messages) return;
+    const members = thread.members ?? [];
+    const reads = members.length
+      ? members
+          .filter((member) => thread.sessions?.[member.id])
+          .map((member) => ({
+            profile: member.profile,
+            sessionId: thread.sessions?.[member.id] as string,
+          }))
+      : thread.sessionId
+        ? [{ profile: thread.profile, sessionId: thread.sessionId }]
+        : [];
+    if (!reads.length) return;
+    transcriptState.current.set(thread.id, 'loading');
+    void (async () => {
+      const transcripts = new Map<string, HermesMessage[]>();
+      for (const read of reads) {
+        const result = await bridge.messages(read);
+        if (!result.ok || !result.messages) continue;
+        if (members.length) {
+          const member = members.find(
+            (entry) =>
+              entry.profile === read.profile &&
+              thread.sessions?.[entry.id] === read.sessionId,
+          );
+          if (member) transcripts.set(member.id, result.messages);
+        } else {
+          transcripts.set('', result.messages);
+        }
+      }
+      const messages = members.length
+        ? groupTranscript(members, transcripts)
+        : privateTranscript(transcripts.get('') ?? []);
+      transcriptState.current.set(thread.id, 'loaded');
+      if (!messages.length) return;
+      setThreads((current) =>
+        current.map((item) => {
+          if (item.id !== thread.id) return item;
+          // A turn that started while the transcript was being read is newer
+          // than anything the server had: it keeps the floor.
+          if (item.messages.length) return item;
+          const last = messages[messages.length - 1];
+          return {
+            ...item,
+            messages,
+            preview:
+              last.role === 'event'
+                ? item.preview
+                : last.text.replace(/\s+/g, ' ').slice(0, 90),
+          };
+        }),
+      );
+    })();
+  }, [activeId, activeThread]);
   // The protocol marker is plumbing, not copy: a streaming bubble never shows it.
   const streamingText = activeThread?.streaming
     ? stripSilentMarkers(stripReactionMarkers(activeThread.streaming))
@@ -1838,7 +2014,9 @@ export default function App() {
         return;
       }
       const parsed = extractReaction(result.text ?? '');
-      reply = parsed.text;
+      // The protocol markers are plumbing, never copy: a bubble never shows
+      // them, and the transcript read back from the server shows none either.
+      reply = stripSilentMarkers(parsed.text).trim();
       reaction = parsed.emoji;
     } catch (reason) {
       fail(
