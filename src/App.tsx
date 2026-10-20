@@ -620,9 +620,13 @@ export default function App() {
     transcriptState.current.set(thread.id, 'loading');
     void (async () => {
       const transcripts = new Map<string, HermesMessage[]>();
+      let failed = false;
       for (const read of reads) {
         const result = await bridge.messages(read);
-        if (!result.ok || !result.messages) continue;
+        if (!result.ok || !result.messages) {
+          failed = true;
+          continue;
+        }
         if (members.length) {
           const member = members.find(
             (entry) =>
@@ -633,6 +637,12 @@ export default function App() {
         } else {
           transcripts.set('', result.messages);
         }
+      }
+      // A read that failed is not a read: the conversation is tried again
+      // when the connection settles, not left empty.
+      if (failed && !transcripts.size) {
+        transcriptState.current.delete(thread.id);
+        return;
       }
       const messages = members.length
         ? groupTranscript(members, transcripts)
@@ -657,7 +667,7 @@ export default function App() {
         }),
       );
     })();
-  }, [activeId, activeThread]);
+  }, [activeId, activeThread, hermesStatus.state]);
   // The protocol marker is plumbing, not copy: a streaming bubble never shows it.
   const streamingText = activeThread?.streaming
     ? stripSilentMarkers(stripReactionMarkers(activeThread.streaming))
