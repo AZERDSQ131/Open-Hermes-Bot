@@ -849,6 +849,39 @@ ipcMain.handle('hermes:session:delete', async (_event, payload) => {
 // Deleting a bot deletes the profile that is the bot. A bot that only left
 // the app's sidebar would come back with the next refresh, which is no
 // deletion at all.
+//
+// The tombstone comes first: Hermes skips a name that carries one, so nothing
+// can relist the bot while it is being torn down. The gateway is then told to
+// stop serving it, and the profile goes.
+const DELETE_BOT_SCRIPT = `set -u
+
+ROOT="$HOME/.hermes"
+NAME="$1"
+P="$ROOT/profiles/$NAME"
+
+mkdir -p "$ROOT/profiles/.deleted"
+: > "$ROOT/profiles/.deleted/$NAME"
+
+python3 - "$ROOT" "$NAME" <<'PY' >/dev/null 2>&1 || true
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+sys.path.insert(0, str(root / "hermes-agent"))
+try:
+    from gateway.control_socket import request_unserve_profile
+    try:
+        request_unserve_profile(root, sys.argv[2], timeout=5.0)
+    except TypeError:
+        request_unserve_profile(root, sys.argv[2])
+except Exception:
+    pass
+PY
+
+rm -rf "$P"
+echo "OK $NAME"
+`;
+
 ipcMain.handle('hermes:bot:delete', async (_event, payload) => {
   const name = String(payload?.name ?? '').trim().toLowerCase();
   if (!PROFILE_NAME_RE.test(name)) {
@@ -857,12 +890,29 @@ ipcMain.handle('hermes:bot:delete', async (_event, payload) => {
   if (RESERVED_PROFILE_NAMES.has(name)) {
     return { ok: false, error: 'That bot cannot be deleted.' };
   }
-  const result = await apiCall(`/api/profiles/${encodeURIComponent(name)}`, {
-    method: 'DELETE',
-    timeoutMs: 60000,
-  });
-  if (!result.ok) {
-    return { ok: false, error: apiErrorText(result, 'Could not delete the bot') };
+  const connection = storedConnection();
+  const script = Buffer.from(DELETE_BOT_SCRIPT, 'utf8').toString('base64');
+  const result = await runSsh(
+    connection.sshHost,
+    [
+      `printf %s ${shellQuote(script)} | base64 -d > /tmp/grokbot-delete-${name}.sh`,
+      `bash /tmp/grokbot-delete-${name}.sh ${shellQuote(name)}`,
+      `rm -f /tmp/grokbot-delete-${name}.sh`,
+    ].join('\n'),
+    60000,
+  );
+  const line = result.stdout
+    .split('\n')
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith('OK '));
+  if (!result.ok || !line) {
+    return {
+      ok: false,
+      error:
+        result.stderr.trim() ||
+        result.error ||
+        'Could not delete the bot on the server',
+    };
   }
   profileKeys.delete(name);
   return { ok: true, name };
@@ -1470,7 +1520,10 @@ root = Path(sys.argv[1])
 sys.path.insert(0, str(root / "hermes-agent"))
 try:
     from gateway.control_socket import request_serve_profile_hot
-    request_serve_profile_hot(root, sys.argv[2], timeout=3.0)
+    try:
+        request_serve_profile_hot(root, sys.argv[2], timeout=3.0)
+    except TypeError:
+        request_serve_profile_hot(root, sys.argv[2])
 except Exception:
     pass
 PY
