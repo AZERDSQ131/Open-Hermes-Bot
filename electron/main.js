@@ -90,17 +90,25 @@ function security(args) {
 function storeSecret(value) {
   const secret = String(value ?? '').trim();
   if (!secret) return false;
-  const written = security([
-    'add-generic-password',
-    '-U',
-    '-a',
-    KEYCHAIN_ACCOUNT,
-    '-s',
-    KEYCHAIN_SERVICE,
-    '-w',
-    secret,
-  ]);
-  return written !== '';
+  try {
+    execFileSync(
+      '/usr/bin/security',
+      [
+        'add-generic-password',
+        '-U',
+        '-a',
+        KEYCHAIN_ACCOUNT,
+        '-s',
+        KEYCHAIN_SERVICE,
+        '-w',
+        secret,
+      ],
+      { stdio: 'ignore' },
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function readSecret() {

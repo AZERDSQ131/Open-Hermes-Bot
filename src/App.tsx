@@ -354,7 +354,9 @@ function withConversations(
     if (!members.length) continue;
     const sessions: Record<string, string> = {};
     for (const member of members) {
-      const session = seed.members.find((entry) => entry.profile === member.profile);
+      const session = seed.members.find(
+        (entry) => entry.profile === member.profile,
+      );
       if (session) sessions[member.id] = session.sessionId;
     }
     next.push({
@@ -558,7 +560,6 @@ export default function App() {
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
-
 
   const activeThread =
     threads.find((thread) => thread.id === activeId) ?? threads[0];
