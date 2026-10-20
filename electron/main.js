@@ -728,6 +728,105 @@ ipcMain.handle('hermes:session:rename', async (_event, payload) => {
   return { ok: true, title: String(result.body?.title ?? title) };
 });
 
+// The identity of a bot — its name, its colour, the shape it wears — is kept
+// in the profile's own metadata, the same block Hermes paints the bot with.
+// Writing it there is what makes the bot the same bot after a restart.
+const UPDATE_BOT_META_PYTHON = `import json
+import os
+import pathlib
+import sys
+
+import yaml
+
+path = pathlib.Path(os.environ.get("HERMES_BOT_PROFILE", ""))
+title = sys.argv[1].strip()
+color = sys.argv[2].strip()
+shape = sys.argv[3].strip()
+
+data = {}
+if path.exists():
+    try:
+        data = yaml.safe_load(path.read_text()) or {}
+    except Exception:
+        data = {}
+if not isinstance(data, dict):
+    data = {}
+
+ui = data.get("ui_meta") if isinstance(data.get("ui_meta"), dict) else {}
+bots = ui.get("hermes-bots") if isinstance(ui.get("hermes-bots"), dict) else {}
+
+changed = False
+if title and title != str(bots.get("title") or ""):
+    bots["title"] = title
+    changed = True
+if color and color != str(bots.get("color") or ""):
+    bots["color"] = color
+    changed = True
+if shape and shape != str(bots.get("shape") or ""):
+    bots["shape"] = shape
+    changed = True
+
+if changed:
+    ui["hermes-bots"] = bots
+    data["ui_meta"] = ui
+    tmp = path.with_name(path.name + ".grokbot-tmp")
+    tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
+    os.replace(tmp, path)
+
+print(json.dumps({
+    "title": str(bots.get("title") or ""),
+    "color": str(bots.get("color") or ""),
+    "shape": str(bots.get("shape") or ""),
+}, separators=(",", ":")))
+`;
+
+ipcMain.handle('hermes:bot:update', async (_event, payload) => {
+  const name = String(payload?.name ?? '').trim().toLowerCase();
+  if (!PROFILE_NAME_RE.test(name)) {
+    return { ok: false, error: 'That is not a bot name Hermes knows.' };
+  }
+  const title = String(payload?.title ?? '').trim().slice(0, 80);
+  const color = sanitizeBotColor(payload?.color);
+  const shape = String(payload?.shape ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, '')
+    .slice(0, 24);
+  if (!title && !color && !shape) {
+    return { ok: false, error: 'Nothing to change on that bot.' };
+  }
+  const connection = storedConnection();
+  if (!tunnel) await ensureConnected();
+  const script = Buffer.from(UPDATE_BOT_META_PYTHON, 'utf8').toString('base64');
+  const result = await runSsh(
+    connection.sshHost,
+    [
+      `printf %s ${shellQuote(script)} | base64 -d > /tmp/grokbot-style-${name}.py`,
+      `HERMES_BOT_PROFILE="$HOME/.hermes/profiles/${name}/profile.yaml" python3 /tmp/grokbot-style-${name}.py ${shellQuote(title)} ${shellQuote(color)} ${shellQuote(shape)}`,
+      `rm -f /tmp/grokbot-style-${name}.py`,
+    ].join('\n'),
+    30000,
+  );
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: result.stderr.trim() || result.error || 'Could not update the bot',
+    };
+  }
+  let meta = { title: '', color: '', shape: '' };
+  try {
+    const parsed = JSON.parse(result.stdout.trim().split('\n').pop() || '{}');
+    meta = {
+      title: String(parsed.title || ''),
+      color: String(parsed.color || ''),
+      shape: String(parsed.shape || ''),
+    };
+  } catch {
+    meta = { title, color, shape };
+  }
+  return { ok: true, name, ...meta };
+});
+
 // Model inventory for the picker. Hermes answers with one row per provider;
 // only the authenticated ones can actually run a turn, so those are the ones
 // worth offering, plus whatever is currently configured.
@@ -812,6 +911,7 @@ try:
             continue
         title = ""
         color = ""
+        shape = ""
         # The same ui_meta block the Hermes desktop app reads for the name and
         # colour it paints this bot with.
         try:
@@ -821,9 +921,10 @@ try:
             bots = (data.get("ui_meta") or {}).get("hermes-bots") or {}
             title = str(bots.get("title") or "")
             color = str(bots.get("color") or "")
+            shape = str(bots.get("shape") or "")
         except Exception:
             pass
-        profiles.append({"name": name, "title": title, "color": color})
+        profiles.append({"name": name, "title": title, "color": color, "shape": shape})
     print(json.dumps({"ok": True, "profiles": profiles}))
 except Exception as exc:
     print(json.dumps({"ok": False, "error": str(exc)}))
@@ -868,6 +969,7 @@ function cleanProfiles(values) {
       name,
       title: String(raw.title ?? '').trim(),
       color: String(raw.color ?? '').trim(),
+      shape: String(raw.shape ?? '').trim(),
     });
   }
   return [...seen.values()].sort((left, right) =>
@@ -1125,6 +1227,7 @@ path = pathlib.Path(sys.argv[1])
 title = sys.argv[2].strip()
 color = sys.argv[3].strip()
 description = sys.argv[4].strip() if len(sys.argv) > 4 else ""
+shape = sys.argv[5].strip() if len(sys.argv) > 5 else ""
 
 data = {}
 if path.exists():
@@ -1145,6 +1248,8 @@ if title:
     bots["title"] = title
 if color:
     bots["color"] = color
+if shape:
+    bots["shape"] = shape
 ui["hermes-bots"] = bots
 data["ui_meta"] = ui
 
@@ -1187,9 +1292,9 @@ import sys
 
 import yaml
 
-path = pathlib.Path(sys.argv[1])
-title = sys.argv[2].strip()
-color = sys.argv[3].strip()
+path = pathlib.Path(os.environ.get("HERMES_BOT_PROFILE", ""))
+title = sys.argv[1].strip()
+color = sys.argv[2].strip()
 
 data = {}
 if path.exists():
@@ -1252,6 +1357,7 @@ NAME="$1"
 TITLE="$2"
 DESC="$3"
 COLOR="$4"
+SHAPE="$5"
 P="$ROOT/profiles/$NAME"
 STAGING="$ROOT/profiles/.$NAME.staging-grokbot"
 
@@ -1306,7 +1412,7 @@ if [ -d "$ROOT/skills" ]; then
   cp -al "$ROOT/skills" "$STAGING/skills" 2>/dev/null || cp -a "$ROOT/skills" "$STAGING/skills" 2>/dev/null || true
 fi
 
-python3 - "$STAGING/profile.yaml" "$TITLE" "$COLOR" "$DESC" <<'PY'
+python3 - "$STAGING/profile.yaml" "$TITLE" "$COLOR" "$DESC" "$SHAPE" <<'PY'
 ${META_PYTHON}PY
 
 mv "$STAGING" "$P"
@@ -1387,6 +1493,11 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
   const title = String(payload?.title ?? '').trim();
   const description = String(payload?.description ?? '').trim();
   const color = sanitizeBotColor(payload?.color);
+  const shape = String(payload?.shape ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, '')
+    .slice(0, 24);
 
   if (!PROFILE_NAME_RE.test(name)) {
     return {
@@ -1411,7 +1522,7 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
   const command = [
     'set -u',
     `printf %s ${shellQuote(encoded)} | base64 -d > ${remoteScript}`,
-    `bash ${remoteScript} ${shellQuote(name)} ${shellQuote(title)} ${shellQuote(description)} ${shellQuote(color)}`,
+    `bash ${remoteScript} ${shellQuote(name)} ${shellQuote(title)} ${shellQuote(description)} ${shellQuote(color)} ${shellQuote(shape)}`,
     `rm -f ${remoteScript}`,
   ].join('\n');
 
@@ -1449,13 +1560,12 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
   if (line.startsWith('EXISTS')) {
     // The colour Hermes already shows wins. We only write one when the person
     // picked it here, so opening a bot never repaints it behind their back.
-    const profilePath = `$HOME/.hermes/profiles/${name}/profile.yaml`;
     const adopter = Buffer.from(ADOPT_BOT_META_PYTHON, 'utf8').toString('base64');
     const adopted = await runSsh(
       connection.sshHost,
       [
         `printf %s ${shellQuote(adopter)} | base64 -d > /tmp/grokbot-adopt-${name}.py`,
-        `python3 /tmp/grokbot-adopt-${name}.py ${shellQuote(profilePath)} ${shellQuote(title)} ${shellQuote(color)}`,
+        `HERMES_BOT_PROFILE="$HOME/.hermes/profiles/${name}/profile.yaml" python3 /tmp/grokbot-adopt-${name}.py ${shellQuote(title)} ${shellQuote(color)}`,
         `rm -f /tmp/grokbot-adopt-${name}.py`,
       ].join('\n'),
     );
@@ -1516,9 +1626,6 @@ function createWindow() {
   });
 
   win.once('ready-to-show', () => win.show());
-  win.webContents.on('console-message', (...args) => {
-    console.log('[renderer]', args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '));
-  });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);

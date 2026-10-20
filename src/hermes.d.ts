@@ -89,6 +89,8 @@ export type HermesProfile = {
   title?: string;
   /** Colour Hermes paints this bot with, when the profile carries one. */
   color?: string;
+  /** The face this bot wears, when the profile carries one. */
+  shape?: string;
 };
 
 export type HermesProfileList = {
@@ -170,7 +172,22 @@ export type HermesBridge = {
     title?: string;
     description?: string;
     color?: string;
+    shape?: string;
   }) => Promise<HermesBotCreateResult>;
+  /** Writes the identity of a bot — name, colour, face — on the server. */
+  updateBot: (payload: {
+    name: string;
+    title?: string;
+    color?: string;
+    shape?: string;
+  }) => Promise<{
+    ok: boolean;
+    name?: string;
+    title?: string;
+    color?: string;
+    shape?: string;
+    error?: string;
+  }>;
   connect: () => Promise<HermesStatus>;
   disconnect: () => Promise<HermesStatus>;
   status: () => Promise<HermesStatus>;

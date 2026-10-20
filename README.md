@@ -16,14 +16,16 @@ lights and a hidden inset title bar.
 ```bash
 npm run build   # typecheck + production renderer build
 npm start       # build, then launch the production app
+npm test        # the protocol and the transcript reader
 ```
 
 ## Structure
 
 ```
-electron/main.js        Electron shell, window chrome, dock icon
+electron/main.js        Electron shell, window chrome, dock icon, Hermes bridge
 src/App.tsx             Sidebar, chat, composer and interactions
 src/components/         Bloub avatars, create dialog, logo editor, icons
+src/conversations.ts    Reading a conversation back out of the Hermes sessions
 src/data.ts             Threads, group members, messages and reactions
 src/group.ts            Group protocol: silence, tapbacks, @mentions, turns
 src/styles.css          Design system and layout
@@ -50,6 +52,25 @@ instead of a spinner that never stops.
 Conversations survive a restart: reopening a thread recreates its session by title,
 and if Hermes already has a session under that title the app resumes it instead of
 failing with “Title already in use”.
+
+## Where a conversation lives
+
+A conversation is a Hermes session, and Hermes is the only place it is kept. The app
+writes its turns there and reads them back: on start it asks the gateway which
+conversations each bot holds, and opening one reads its transcript from the server.
+Nothing about a conversation is written on this machine — no file, no keychain, no
+`localStorage` — so the app can be closed, wiped or replaced and the conversation is
+still there, on the host that owns it.
+
+A group is not a Hermes object, so it is rebuilt from the titles of its members’
+conversations: a private conversation carries the bot's name, a group member’s
+carries `Group · <group> · <member>`. Renaming a bot or a group renames those
+sessions on the server, so the link between a thread and its conversation never
+breaks.
+
+The identity of a bot travels the same way: its name, its colour and the face it
+wears are written into the bot’s own Hermes profile, next to the metadata Hermes
+already paints it with. A bot that comes back after a restart is the same bot.
 
 ## Group conversations
 

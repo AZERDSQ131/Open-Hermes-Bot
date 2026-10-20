@@ -106,6 +106,11 @@ export function groupSeeds(
 /** One stored line, with the fields the app cares about. */
 type Row = Pick<HermesMessage, 'role' | 'content' | 'timestamp'>;
 
+// A message that replaced another one carries the replaced text with it, so
+// the bot does not lose the context. That note is the app's plumbing: it is
+// not part of what the person said.
+const CARRIED = /\n\n\(I also sent these while you were working;[^\n]*\)(?:\n- [^\n]*)*/g;
+
 /**
  * A private conversation, read back. The tapback a bot left on the message it
  * answers is found again in the marker its answer still carries.
@@ -113,7 +118,7 @@ type Row = Pick<HermesMessage, 'role' | 'content' | 'timestamp'>;
 export function privateTranscript(rows: Row[]): Message[] {
   const messages: Message[] = [];
   for (const row of rows) {
-    const content = String(row.content ?? '');
+    const content = String(row.content ?? '').replace(CARRIED, '');
     if (row.role === 'user') {
       if (!content.trim()) continue;
       messages.push({

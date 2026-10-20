@@ -129,6 +129,18 @@ describe('a private conversation read back', () => {
     ]);
     expect(messages.map((message) => message.text)).toEqual(['Hello']);
   });
+
+  it('drops the note that carries a replaced message', () => {
+    const messages = privateTranscript([
+      row(
+        'user',
+        'Hello\n\n(I also sent these while you were working; treat them as part of this request. A quick reaction may be enough to acknowledge the extra detail — the request itself still stands.)\n- Je m\'appelle Jules, ok ?',
+        1,
+      ),
+      row('assistant', 'Hi', 2),
+    ]);
+    expect(messages.map((message) => message.text)).toEqual(['Hello', 'Hi']);
+  });
 });
 
 describe('a group turn read back', () => {

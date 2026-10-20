@@ -9,7 +9,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { AgentAvatar } from './components/AgentAvatar';
-import type { BloubShape } from './components/bloubFrames';
+import { BLOUB_SHAPES, type BloubShape } from './components/bloubFrames';
 import {
   CreateAgentDialog,
   toProfileId,
@@ -39,6 +39,7 @@ import { defaultModelPick, profileKey } from './modelPrefs';
 import {
   findSession,
   groupSeeds,
+  groupSessionTitle,
   groupTranscript,
   privateTranscript,
 } from './conversations';
@@ -247,7 +248,7 @@ function chiefOfStaffThread(): Thread {
 }
 
 // A bot in Hermes becomes a thread here: the profile name is the identity, the
-// title and colour are the ones Hermes already shows for it.
+// title, colour and face are the ones Hermes already shows for it.
 function threadForBot(profile: HermesProfile): Thread {
   return {
     id: `bot:${profile.name}`,
@@ -255,7 +256,7 @@ function threadForBot(profile: HermesProfile): Thread {
     profile: profile.name,
     avatar: {
       color: avatarColor(profile.color, profile.name),
-      shape: 'cercle',
+      shape: botShape(profile.shape),
       variant: 'neutral',
     },
     preview: '',
@@ -263,6 +264,13 @@ function threadForBot(profile: HermesProfile): Thread {
     chatTime: '',
     messages: [],
   };
+}
+
+// The face a bot wears is kept with the bot, on the server: a bot that came
+// back after a restart must be the same bot.
+function botShape(shape?: string): BloubShape {
+  const wanted = String(shape ?? '').trim() as BloubShape;
+  return BLOUB_SHAPES.includes(wanted) ? wanted : 'cercle';
 }
 
 // Real bots only: anything the gateway no longer serves leaves the sidebar, and
@@ -1023,6 +1031,7 @@ export default function App() {
           name: toProfileId(input.name),
           title: input.name,
           color: input.customColor,
+          shape: input.shape,
           description: `Bot created from Grok Bot`,
         }),
         70000,
@@ -1180,10 +1189,11 @@ export default function App() {
     if (!editingThread) return;
     const id = editingThread.id;
     const avatar = input.avatar;
+    const previousName = editingThread.name;
     setThreads((current) =>
       current.map((thread) => {
         if (thread.id === id) {
-          return {
+          const next: Thread = {
             ...thread,
             ...input,
             // The default bot keeps the name it is known by.
@@ -1198,6 +1208,14 @@ export default function App() {
                   }))
                 : thread.members,
           };
+          // The name and the face of a bot live with the bot, on the server.
+          if (next.profile && avatar.kind !== 'group') {
+            void persistStyle(next);
+          }
+          if (next.name !== previousName) {
+            void persistRename(editingThread, previousName, next.name);
+          }
+          return next;
         }
         // A bot renamed or restyled here keeps the same identity in the groups
         // it belongs to — the roster is a view of the bots, not a copy.
@@ -1231,6 +1249,10 @@ export default function App() {
       current.map((thread) => {
         if (thread.id !== activeId) return thread;
         if (avatar.kind !== 'group' || !thread.members) {
+          // The face a bot wears is kept with the bot, on the server.
+          if (thread.profile) {
+            void persistStyle({ ...thread, avatar });
+          }
           return { ...thread, avatar };
         }
         return {
@@ -1265,6 +1287,7 @@ export default function App() {
     const nextName = nameDraft.trim();
     if (nextName && nextName !== activeThread.name) {
       const isBot = activeThread.avatar.kind !== 'group';
+      const previousName = activeThread.name;
       setThreads((current) =>
         current.map((thread) => {
           if (thread.id === activeThread.id) {
@@ -1280,8 +1303,90 @@ export default function App() {
           return changed ? { ...thread, members } : thread;
         }),
       );
+      // A name is kept on the server: the bot's own identity, and the titles
+      // of the conversations that carry it.
+      void persistRename(activeThread, previousName, nextName);
     }
     setRenaming(false);
+  }
+
+  // The bot's identity lives with the bot, on the server: a bot that comes
+  // back after a restart is the same bot, with the same name and the same
+  // face.
+  async function persistStyle(thread: Thread) {
+    const bridge = window.hermes;
+    if (!bridge?.updateBot) return;
+    if (!thread.profile || thread.avatar.kind === 'group') return;
+    await bridge
+      .updateBot({
+        name: thread.profile,
+        title: thread.name,
+        color: thread.avatar.color,
+        shape: thread.avatar.shape,
+      })
+      .catch(() => undefined);
+  }
+
+  // Renaming carries the conversations along: a thread is linked to its session
+  // by title, so a name that changes on one side and not the other loses the
+  // conversation.
+  async function persistRename(
+    thread: Thread,
+    previousName: string,
+    nextName: string,
+  ) {
+    const bridge = window.hermes;
+    if (!bridge?.sessions || !bridge?.renameSession) return;
+    if (thread.avatar.kind !== 'group') {
+      await bridge
+        .updateBot?.({ name: thread.profile ?? '', title: nextName })
+        .catch(() => undefined);
+    }
+    const targets: { profile?: string; from: string; to: string }[] = [];
+    if (thread.avatar.kind === 'group') {
+      // A group: every member's conversation carries the group's name.
+      for (const member of thread.members ?? []) {
+        targets.push({
+          profile: member.profile,
+          from: groupSessionTitle(previousName, member.name),
+          to: groupSessionTitle(nextName, member.name),
+        });
+      }
+    } else {
+      // A bot: its own conversation, and the ones it shares with a group.
+      targets.push({
+        profile: thread.profile,
+        from: previousName,
+        to: nextName,
+      });
+      for (const group of threads) {
+        if (!group.members) continue;
+        if (!group.members.some((member) => member.id === thread.id)) continue;
+        targets.push({
+          profile: thread.profile,
+          from: groupSessionTitle(group.name, previousName),
+          to: groupSessionTitle(group.name, nextName),
+        });
+      }
+    }
+    for (const target of targets) {
+      try {
+        const listed = await bridge.sessions({ profile: target.profile });
+        if (!listed.ok || !listed.sessions) continue;
+        const session = listed.sessions.find(
+          (entry) => entry.title === target.from,
+        );
+        if (!session) continue;
+        await bridge.renameSession({
+          profile: target.profile,
+          sessionId: session.id,
+          title: target.to,
+        });
+      } catch {
+        // A conversation that cannot be renamed keeps its name: the app still
+        // works, it just finds that one by its old title.
+      }
+    }
   }
 
   function cancelRename() {
@@ -1515,7 +1620,7 @@ export default function App() {
               profile: member.profile,
               // The prefix keeps a group session from ever resuming a private
               // conversation with a title that happens to look the same.
-              title: `Group · ${thread.name} · ${member.name}`,
+              title: groupSessionTitle(thread.name, member.name),
             });
             if (created.ok && created.sessionId) {
               sessions[member.id] = created.sessionId;
