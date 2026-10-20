@@ -63,11 +63,17 @@ import {
 import { avatarColor, PRIMARY_AVATAR_COLOR } from './profileColor';
 import { SettingsView } from './components/SettingsView';
 import { LogoEditor } from './components/LogoEditor';
+import {
+  groupReactions,
+  ReactionSheet,
+  type ReactionGroup,
+} from './components/ReactionSheet';
 import { ThreadContextMenu } from './components/ThreadContextMenu';
 import {
   type AvatarSpec,
   type GroupMember,
   type Message,
+  type Reaction,
   type Thread,
 } from './data';
 
@@ -197,6 +203,23 @@ function attachReaction(messages: Message[], emoji?: string): Message[] {
     );
   }
   return messages;
+}
+
+/** Every reaction on a message: the bot's, and the person's. */
+function messageReactions(message: Message): Reaction[] {
+  if (message.role === 'event') return [];
+  const list: Reaction[] = [];
+  if (message.reaction) list.push({ emoji: message.reaction });
+  list.push(...(message.reactions ?? []));
+  return list;
+}
+
+/** What a pill says: who left it, and with what. */
+function reactionLabel(group: ReactionGroup): string {
+  const who = group.mine
+    ? ['You', ...group.by].join(', ')
+    : group.by.join(', ') || 'A bot';
+  return `${who} reacted ${group.emoji}`;
 }
 
 // In a group, a tapback lands on the last line the reactor did not write, and
@@ -441,6 +464,12 @@ export default function App() {
     y: number;
   } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // The reaction sheet: the big panel of emoji, opened on a right click.
+  const [sheet, setSheet] = useState<{
+    x: number;
+    y: number;
+    messageId: string;
+  } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [hermesStatus, setHermesStatus] = useState<HermesStatus>({
@@ -1235,6 +1264,53 @@ export default function App() {
     setLogoOpen(false);
     setRenaming(false);
     setEditingId(id);
+  }
+
+  // The reaction sheet opens on a right click, the way a message answers to
+  // one in every other chat.
+  function openSheet(x: number, y: number, messageId: string) {
+    setSheet({ x, y, messageId });
+  }
+
+  // The emoji the person already left on a message: the sheet shows them as
+  // picked.
+  function pickedBy(messageId: string) {
+    const message = activeThread?.messages.find(
+      (entry) => entry.id === messageId,
+    );
+    if (!message || message.role === 'event') return [];
+    return (message.reactions ?? [])
+      .filter((reaction) => reaction.mine)
+      .map((reaction) => reaction.emoji);
+  }
+
+  // The person's own reaction: it is theirs, and it can be taken back.
+  function toggleMine(threadId: string, messageId: string, emoji: string) {
+    setThreads((current) =>
+      current.map((thread) => {
+        if (thread.id !== threadId) return thread;
+        return {
+          ...thread,
+          messages: thread.messages.map((message) => {
+            if (message.id !== messageId) return message;
+            if (message.role === 'event') return message;
+            const mine = (message.reactions ?? []).filter(
+              (reaction) => reaction.mine,
+            );
+            const others = (message.reactions ?? []).filter(
+              (reaction) => !reaction.mine,
+            );
+            const already = mine.some(
+              (reaction) => reaction.emoji === emoji,
+            );
+            const next = already
+              ? mine.filter((reaction) => reaction.emoji !== emoji)
+              : [...mine, { emoji, mine: true }];
+            return { ...message, reactions: [...others, ...next] };
+          }),
+        };
+      }),
+    );
   }
 
   function saveEditedAgent(input: { name: string; avatar: AvatarSpec }) {
@@ -2554,6 +2630,10 @@ export default function App() {
                         message.authorName ? 'is-group-line' : ''
                       }`}
                       key={message.id}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        openSheet(event.clientX, event.clientY, message.id);
+                      }}
                     >
                       {message.authorName && message.authorAvatar ? (
                         <AgentAvatar
@@ -2577,40 +2657,37 @@ export default function App() {
                             members={activeThread.members}
                           />
                         </div>
-                        {message.reaction ? (
-                          <span
-                            className="bubble-reaction"
-                            role="img"
-                            aria-label={`Agent reacted ${message.reaction}`}
-                          >
-                            {message.reaction}
-                          </span>
-                        ) : null}
-                        {message.reactions?.length ? (
+                        {messageReactions(message).length ? (
                           <span className="reaction-row">
-                            {message.reactions.map((reaction) => (
-                              <span
-                                className="bubble-reaction is-inline"
-                                role="img"
-                                key={`${reaction.by}-${reaction.emoji}`}
-                                aria-label={`${reaction.by ?? 'A bot'} reacted ${reaction.emoji}`}
-                                title={
-                                  reaction.by
-                                    ? `${reaction.by} reacted ${reaction.emoji}`
-                                    : undefined
-                                }
-                              >
-                                {reaction.emoji}
-                                {reaction.by ? (
-                                  <span className="reaction-by">
-                                    {reaction.by.split(' ')[0]}
+                            {groupReactions(messageReactions(message)).map(
+                              (group) => (
+                                <button
+                                  key={group.emoji}
+                                  type="button"
+                                  className={`reaction-pill${group.mine ? ' is-mine' : ''}`}
+                                  aria-label={reactionLabel(group)}
+                                  title={reactionLabel(group)}
+                                  onClick={(event) =>
+                                    openSheet(
+                                      event.clientX,
+                                      event.clientY,
+                                      message.id,
+                                    )
+                                  }
+                                >
+                                  <span className="reaction-emoji">
+                                    {group.emoji}
                                   </span>
-                                ) : null}
-                              </span>
-                            ))}
+                                  {group.count > 1 ? (
+                                    <span className="reaction-count">
+                                      {group.count}
+                                    </span>
+                                  ) : null}
+                                </button>
+                              ),
+                            )}
                           </span>
-                        ) : null}
-                      </div>
+                        ) : null}                      </div>
                     </div>
                   ),
                 )}
@@ -2936,8 +3013,7 @@ export default function App() {
       ) : null}
 
       {editingThread ? (
-        <EditAgentDialog
-          thread={editingThread}
+        <EditAgentDialog          thread={editingThread}
           nameLocked={Boolean(editingThread.system)}
           onClose={() => setEditingId(null)}
           onSave={saveEditedAgent}
@@ -2958,6 +3034,18 @@ export default function App() {
           onClose={closeCreateDialog}
           onCreateBot={handleCreateBot}
           onCreateGroup={handleCreateGroup}
+        />
+      ) : null}
+
+      {sheet && activeThread ? (
+        <ReactionSheet
+          x={sheet.x}
+          y={sheet.y}
+          picked={pickedBy(sheet.messageId)}
+          onPick={(emoji) =>
+            toggleMine(activeThread.id, sheet.messageId, emoji)
+          }
+          onClose={() => setSheet(null)}
         />
       ) : null}
     </div>
