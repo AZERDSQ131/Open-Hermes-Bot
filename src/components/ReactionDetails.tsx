@@ -1,35 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Reaction } from '../data';
 
-/** The emoji the sheet offers: the ones a hand reaches for first. */
-export const REACTION_EMOJI = [
-  '👍',
-  '❤️',
-  '😂',
-  '😮',
-  '😢',
-  '🙏',
-  '🔥',
-  '🎉',
-  '👏',
-  '🤝',
-  '👀',
-  '💡',
-  '✅',
-  '🫡',
-  '😎',
-  '🤔',
-  '🙌',
-  '✨',
-];
-
 /** The reactions of one message, gathered by emoji: one pill per emoji. */
 export type ReactionGroup = {
   emoji: string;
-  /** How many left it, yours included. */
+  /** How many left it. */
   count: number;
-  /** The person left this one. */
-  mine: boolean;
   /** The bots that left it. */
   by: string[];
 };
@@ -40,33 +16,38 @@ export function groupReactions(reactions: Reaction[]): ReactionGroup[] {
     const group = groups.get(reaction.emoji) ?? {
       emoji: reaction.emoji,
       count: 0,
-      mine: false,
       by: [],
     };
     group.count += 1;
-    if (reaction.mine) group.mine = true;
     if (reaction.by) group.by.push(reaction.by);
     groups.set(reaction.emoji, group);
   }
   return [...groups.values()];
 }
 
+/** What a group says: who left it. */
+export function groupNames(group: ReactionGroup): string {
+  if (!group.by.length) return 'Un bot a réagi';
+  if (group.by.length === 1) return `${group.by[0]} a réagi`;
+  const last = group.by[group.by.length - 1];
+  const others = group.by.slice(0, -1).join(', ');
+  return `${others} et ${last} ont réagi`;
+}
+
 type Props = {
   /** Where the pointer was, in screen pixels. */
   x: number;
   y: number;
-  /** The emoji already on the message, shown as picked. */
-  picked: string[];
-  onPick: (emoji: string) => void;
+  groups: ReactionGroup[];
   onClose: () => void;
 };
 
 /**
- * The reaction sheet: a big panel of emoji, the way a message answers to a
- * right click. It keeps itself on the screen and closes on anything that
- * takes the conversation away from it.
+ * What a tapback opens: the bots that left it, and with what. The panel
+ * keeps itself on the screen and closes on anything that takes the
+ * conversation away from it.
  */
-export function ReactionSheet({ x, y, picked, onPick, onClose }: Props) {
+export function ReactionDetails({ x, y, groups, onClose }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [spot, setSpot] = useState({ left: x, top: y });
 
@@ -79,7 +60,6 @@ export function ReactionSheet({ x, y, picked, onPick, onClose }: Props) {
       Math.max(margin, x),
       Math.max(margin, window.innerWidth - box.width - margin),
     );
-    // Above the message when there is room, below it otherwise.
     const above = y - box.height - margin;
     const top = above < margin ? y + margin : above;
     setSpot({ left, top });
@@ -111,26 +91,18 @@ export function ReactionSheet({ x, y, picked, onPick, onClose }: Props) {
 
   return (
     <div
-      className="reaction-sheet"
+      className="reaction-details"
       ref={panelRef}
       style={{ left: spot.left, top: spot.top }}
       role="dialog"
-      aria-label="React to this message"
+      aria-label="Who reacted"
     >
-      {REACTION_EMOJI.map((emoji) => (
-        <button
-          key={emoji}
-          type="button"
-          className={`sheet-emoji${picked.includes(emoji) ? ' is-picked' : ''}`}
-          aria-label={`React with ${emoji}`}
-          title={emoji}
-          onClick={() => {
-            onPick(emoji);
-            onClose();
-          }}
-        >
-          {emoji}
-        </button>
+      <div className="reaction-details-title">Réactions</div>
+      {groups.map((group) => (
+        <div className="reaction-detail" key={group.emoji}>
+          <span className="detail-emoji">{group.emoji}</span>
+          <span className="detail-names">{groupNames(group)}</span>
+        </div>
       ))}
     </div>
   );

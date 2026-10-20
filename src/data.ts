@@ -29,13 +29,11 @@ export type GroupMember = {
   avatar: SingleAvatar;
 };
 
-/** A tapback, and who left it. The who only shows in groups. */
+/** A tapback, and the bot that left it. */
 export type Reaction = {
   emoji: string;
-  /** The bot that left it. */
+  /** The bot that left it; absent when the bot is not named. */
   by?: string;
-  /** The person left it. */
-  mine?: boolean;
 };
 
 /**
