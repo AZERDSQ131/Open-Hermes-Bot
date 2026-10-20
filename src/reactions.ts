@@ -4,10 +4,16 @@
 // to open its turn with `[[react:👍]]`, and the app turns that marker into a
 // tapback on the user's bubble. The marker never reaches the transcript.
 
+/**
+ * The emoji a tapback can be: the ones a phone offers, and no more. A small
+ * palette keeps the conversation calm and the bubbles readable.
+ */
+export const REACTION_EMOJI = ['❤️', '👍', '👎', '😂', '‼️', '❓'];
+
 /** Appended to the system prompt for one turn; never stored in the history. */
 export const REACTION_PROMPT = [
   'Grok Bot reactions: you may react to the user\'s latest message with a single emoji instead of writing a reply.',
-  'To do it, start your reply with the marker [[react:👍]] on its own line (one emoji, for example 👍 👀 ✅ 🙏 ❤️ 😂 🔥 🫡 👌 🎉).',
+  `To do it, start your reply with the marker [[react:👍]] on its own line (one of ${REACTION_EMOJI.join(' ')}).`,
   'Reach for it the way a person uses a tapback: sparingly, when a reaction is what you would actually do — acknowledging extra information, agreeing to a small adjustment, or when the emoji says everything.',
   'When the user sends several messages in a row, especially while you are already working, a quick reaction is often the right way to acknowledge the extras — prefer it to repeating them back, then continue with whatever they asked for. This is a nudge, not a rule: use it only when it genuinely fits.',
   'A reaction replaces an acknowledgement, never the work itself: if the messages ask for something, do it.',

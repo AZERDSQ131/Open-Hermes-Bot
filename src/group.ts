@@ -10,19 +10,9 @@ import { extractReaction, stripReactionMarkers } from './reactions';
 export const SILENT_MARKER = '[[silent]]';
 
 // Silence still leaves a trace: the app itself taps an emoji on the message,
-// so a bot that has nothing to say acknowledges it instead of vanishing.
-const SILENT_REACTIONS = [
-  '👀',
-  '👍',
-  '✅',
-  '🙌',
-  '🔥',
-  '🫡',
-  '👌',
-  '💡',
-  '🎯',
-  '🤝',
-];
+// so a bot that has nothing to say acknowledges it instead of vanishing. Only
+// the acknowledging ones: a bot that sat out did not judge anything.
+const SILENT_REACTIONS = ['👍', '👀', '✅', '🙌'];
 
 /** The tapback a silent member leaves; stable per bot and per message. */
 export function silentReaction(memberId: string, messageId: string): string {
