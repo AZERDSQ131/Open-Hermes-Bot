@@ -626,6 +626,87 @@ ipcMain.handle('hermes:session', async (_event, payload) => {
   return { ok: true, sessionId };
 });
 
+// The conversations Hermes holds. A session IS a conversation: it keeps the
+// whole transcript, and it is the only place the app stores one. Listing them
+// is how the app rebuilds its sidebar after a restart, without a single local
+// trace of what was said.
+ipcMain.handle('hermes:sessions', async (_event, payload) => {
+  const result = await apiCall('/api/sessions?limit=100&order=recent', {
+    profile: payload?.profile,
+    timeoutMs: 20000,
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: apiErrorText(result, 'Could not list the conversations'),
+    };
+  }
+  const rows = result.body?.data ?? result.body?.sessions ?? [];
+  const sessions = [];
+  for (const row of rows) {
+    const id = String(row?.id ?? '').trim();
+    if (!id) continue;
+    sessions.push({
+      id,
+      title: String(row?.title ?? ''),
+      messageCount: Number(row?.message_count ?? 0),
+      lastActive: Number(row?.last_active ?? 0),
+      archived: Boolean(row?.archived),
+    });
+  }
+  return { ok: true, sessions };
+});
+
+// The transcript of one conversation, oldest first: what the app shows when a
+// conversation is reopened.
+ipcMain.handle('hermes:messages', async (_event, payload) => {
+  const sessionId = String(payload?.sessionId ?? '').trim();
+  if (!sessionId) return { ok: false, error: 'No conversation to read' };
+  const limit = Math.min(Math.max(Number(payload?.limit ?? 200) || 200, 1), 500);
+  const result = await apiCall(
+    `/api/sessions/${encodeURIComponent(sessionId)}/messages?limit=${limit}&order=oldest&inline_images=false`,
+    { profile: payload?.profile, timeoutMs: 30000 },
+  );
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: apiErrorText(result, 'Could not read the conversation'),
+    };
+  }
+  const rows = result.body?.data ?? result.body?.messages ?? [];
+  const messages = [];
+  for (const row of rows) {
+    messages.push({
+      role: String(row?.role ?? ''),
+      content: typeof row?.content === 'string' ? row.content : '',
+      timestamp: Number(row?.timestamp ?? 0),
+    });
+  }
+  return { ok: true, messages };
+});
+
+// Renaming a conversation keeps it findable: the app links a thread to its
+// session by title, so a bot that changes its name must carry its session
+// along. Hermes refuses a title already in use, which is the right answer.
+ipcMain.handle('hermes:session:rename', async (_event, payload) => {
+  const sessionId = String(payload?.sessionId ?? '').trim();
+  const title = String(payload?.title ?? '').trim().slice(0, 120);
+  if (!sessionId) return { ok: false, error: 'No conversation to rename' };
+  if (!title) return { ok: false, error: 'A conversation needs a name' };
+  const result = await apiCall(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+    method: 'PATCH',
+    profile: payload?.profile,
+    body: { title },
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: apiErrorText(result, 'Could not rename the conversation'),
+    };
+  }
+  return { ok: true, title: String(result.body?.title ?? title) };
+});
+
 // Model inventory for the picker. Hermes answers with one row per provider;
 // only the authenticated ones can actually run a turn, so those are the ones
 // worth offering, plus whatever is currently configured.

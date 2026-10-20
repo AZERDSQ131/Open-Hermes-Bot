@@ -38,6 +38,34 @@ export type HermesSessionResult = {
   error?: string;
 };
 
+/** A conversation as Hermes holds it: the transcript lives in that session. */
+export type HermesSession = {
+  id: string;
+  title: string;
+  messageCount: number;
+  lastActive: number;
+  archived: boolean;
+};
+
+export type HermesSessionList = {
+  ok: boolean;
+  sessions?: HermesSession[];
+  error?: string;
+};
+
+/** One stored line of a conversation. */
+export type HermesMessage = {
+  role: string;
+  content: string;
+  timestamp: number;
+};
+
+export type HermesMessageList = {
+  ok: boolean;
+  messages?: HermesMessage[];
+  error?: string;
+};
+
 export type HermesModel = {
   model: string;
   provider: string;
@@ -90,6 +118,20 @@ export type HermesBridge = {
     profile?: string;
     title?: string;
   }) => Promise<HermesSessionResult>;
+  /** The conversations Hermes holds for a profile. */
+  sessions: (payload: { profile?: string }) => Promise<HermesSessionList>;
+  /** The transcript of one conversation, oldest first. */
+  messages: (payload: {
+    profile?: string;
+    sessionId: string;
+    limit?: number;
+  }) => Promise<HermesMessageList>;
+  /** Renames a conversation so it stays findable by its title. */
+  renameSession: (payload: {
+    profile?: string;
+    sessionId: string;
+    title: string;
+  }) => Promise<{ ok: boolean; title?: string; error?: string }>;
   models: (payload: { profile?: string }) => Promise<HermesModelList>;
   profiles: () => Promise<HermesProfileList>;
   sendChat: (payload: {
