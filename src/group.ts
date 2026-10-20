@@ -4,7 +4,7 @@
 // answer writes `@Name`. Both markers are plumbing and never reach a bubble.
 
 import type { GroupMember, Message } from './data';
-import { extractReaction } from './reactions';
+import { extractReaction, stripReactionMarkers } from './reactions';
 
 /** Reply with this alone to sit a turn out. */
 export const SILENT_MARKER = '[[silent]]';
@@ -48,6 +48,17 @@ export const MAX_GROUP_WAVES = 4;
 
 export function stripSilentMarkers(text: string): string {
   return text.replace(SILENT, '').replace(PARTIAL_SILENT, '');
+}
+
+// A marker the stream cut in half: the protocol is plumbing, and half of it
+// is plumbing too.
+const HALF_MARKER = /\[\[\s*$/;
+
+/** What a bubble shows: the reply without the protocol, whole or in half. */
+export function cleanProtocol(text: string): string {
+  return stripSilentMarkers(stripReactionMarkers(text))
+    .replace(HALF_MARKER, '')
+    .trim();
 }
 
 function escapeRegExp(value: string) {
@@ -197,7 +208,7 @@ export function readGroupTurn(
   }
   SILENT.lastIndex = 0;
   const parsed = extractReaction(raw);
-  const text = stripSilentMarkers(parsed.text).trim();
+  const text = cleanProtocol(parsed.text);
   if (!text && !parsed.emoji) {
     return { silent: true, text: '', mentions: [] };
   }

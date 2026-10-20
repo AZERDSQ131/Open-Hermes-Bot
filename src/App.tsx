@@ -49,6 +49,7 @@ import {
   stripReactionMarkers,
 } from './reactions';
 import {
+  cleanProtocol,
   groupInstructions,
   groupTurnMessage,
   MAX_GROUP_LINES,
@@ -2172,7 +2173,7 @@ export default function App() {
       const parsed = extractReaction(result.text ?? '');
       // The protocol markers are plumbing, never copy: a bubble never shows
       // them, and the transcript read back from the server shows none either.
-      reply = stripSilentMarkers(parsed.text).trim();
+      reply = cleanProtocol(parsed.text);
       reaction = parsed.emoji;
     } catch (reason) {
       fail(

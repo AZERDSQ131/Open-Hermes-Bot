@@ -5,7 +5,7 @@
 
 import type { GroupMember, Message } from './data';
 import type { HermesMessage, HermesSession } from './hermes';
-import { readGroupTurn, silentReaction, stripSilentMarkers } from './group';
+import { cleanProtocol, readGroupTurn, silentReaction } from './group';
 import { extractReaction } from './reactions';
 
 /** The prefix that keeps a group conversation apart from a private one. */
@@ -131,7 +131,7 @@ export function privateTranscript(rows: Row[]): Message[] {
     if (row.role !== 'assistant') continue;
     const parsed = extractReaction(content);
     // The protocol markers are plumbing, never copy.
-    const body = stripSilentMarkers(parsed.text).trim();
+    const body = cleanProtocol(parsed.text);
     if (!body && !parsed.emoji) continue;
     if (body) {
       messages.push({

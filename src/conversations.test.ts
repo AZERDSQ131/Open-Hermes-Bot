@@ -141,6 +141,14 @@ describe('a private conversation read back', () => {
     ]);
     expect(messages.map((message) => message.text)).toEqual(['Hello', 'Hi']);
   });
+
+  it('drops a marker the stream cut in half', () => {
+    const messages = privateTranscript([
+      row('user', 'Hello', 1),
+      row('assistant', '[[', 2),
+    ]);
+    expect(messages.map((message) => message.text)).toEqual(['Hello']);
+  });
 });
 
 describe('a group turn read back', () => {
