@@ -8,6 +8,9 @@ The bots, the groups and the conversations live there, not on this machine.
 
 MIT licensed — see [LICENSE](LICENSE).
 
+Want to work on it? [CONTRIBUTING.md](CONTRIBUTING.md) says how: the commands,
+the conventions, how to cut a version, and the traps.
+
 The site is at <https://azerdsq131.github.io/Open-Hermes-Bot/>.
 
 ## What this is
@@ -140,6 +143,10 @@ src/styles.css          Design system and layout
 build/                  App icon (.icns + .png) and icon source
 site/                   The project site (static, no build step)
 ```
+
+The other files worth knowing: [CONTRIBUTING.md](CONTRIBUTING.md) says how to
+work on it, [AGENTS.md](AGENTS.md) is the map for whoever picks it up, and
+[CHANGELOG.md](CHANGELOG.md) says what each version changed.
 
 The `+` button creates either a bot (with its own Bloub shape and color) or a group
 of existing bots. In the header, click the name to rename the agent, or the logo to
