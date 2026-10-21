@@ -405,61 +405,26 @@
 
     <footer class="footer">
       <div class="container">
-        <div class="footer-cta">
-          <div class="footer-cta-copy">
-            <h2>Take the app, or build it.</h2>
+        <div class="footer-top">
+          <div class="footer-brand">
+            <span class="brand-mark is-small" aria-hidden="true">
+              <img src="./assets/favicon.svg" alt="" width="30" height="30" />
+            </span>
             <p>
-              The releases page carries the disk image and the zip. Or clone it: Electron,
-              React and TypeScript. The app is not signed with a Developer ID yet, so macOS
-              asks you to open it once, from a right click.
+              MIT licensed.<br />
+              Copyright 2026 Jules Yzerd.
             </p>
           </div>
-          <div class="footer-cta-actions">
-            <a
-              class="button button-primary"
-              href="https://github.com/AZERDSQ131/Open-Hermes-Bot/releases"
-              rel="noreferrer noopener"
-              target="_blank"
-              >Get Hermes Bot</a
-            >
-            <a
-              class="button button-ghost"
-              href="https://github.com/AZERDSQ131/Open-Hermes-Bot#readme"
-              rel="noreferrer noopener"
-              target="_blank"
-              >Read the README</a
-            >
-          </div>
-        </div>
 
-        <div class="footer-inner">
-        <div class="footer-brand">
-          <span class="brand-mark is-small" aria-hidden="true">
-            <img src="./assets/favicon.svg" alt="" width="30" height="30" />
-          </span>
-          <p>
-            MIT licensed.<br />
-            Copyright 2026 Jules Yzerd.
-          </p>
-        </div>
-
-        <div class="footer-stack">
-          <p class="footer-label">Built with</p>
-          <ul class="footer-list">
-            <li>React 19</li>
-            <li>Electron 44</li>
-            <li>TypeScript</li>
-            <li>Vite 8</li>
-            <li>Vitest</li>
-          </ul>
-        </div>
-
-        <div class="footer-stack">
-          <p class="footer-label">Elsewhere</p>
-          <ul class="footer-list">
+          <ul class="footer-links">
+            <li>
+              <a href="https://github.com/AZERDSQ131/Open-Hermes-Bot/releases" rel="noreferrer noopener" target="_blank"
+                >Releases</a
+              >
+            </li>
             <li>
               <a href="https://github.com/AZERDSQ131/Open-Hermes-Bot" rel="noreferrer noopener" target="_blank"
-                >Source on GitHub</a
+                >Source</a
               >
             </li>
             <li>
@@ -478,12 +443,22 @@
               >
             </li>
             <li>
-              <a href="https://github.com/jeremy-prt/bloub" rel="noreferrer noopener" target="_blank"
-                >Avatar geometry by Bloub</a
-              >
+              <a href="https://github.com/jeremy-prt/bloub" rel="noreferrer noopener" target="_blank">Bloub</a>
             </li>
           </ul>
+
+          <a
+            class="button button-primary button-small"
+            href="https://github.com/AZERDSQ131/Open-Hermes-Bot/releases"
+            rel="noreferrer noopener"
+            target="_blank"
+            >Get Hermes Bot</a
+          >
         </div>
+
+        <div class="footer-note">
+          <span>Built with React 19, Electron 44, TypeScript, Vite 8 and Vitest.</span>
+          <span>Not signed with a Developer ID yet: macOS asks you to open it once.</span>
         </div>
       </div>
     </footer>

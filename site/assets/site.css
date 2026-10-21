@@ -1076,81 +1076,60 @@ svg {
 /* --------------------------------------------------------------- footer */
 
 .footer {
-  padding-block: 56px 56px;
+  padding-block: 40px 44px;
   border-top: 1px solid var(--line);
   background: var(--ink-850);
 }
 
-.footer-cta {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: clamp(24px, 5vw, 56px);
-  padding-bottom: 44px;
-  border-bottom: 1px solid var(--line);
-}
-
-.footer-cta h2 {
-  font-size: clamp(26px, 3vw, 36px);
-}
-
-.footer-cta p {
-  max-width: 58ch;
-  margin-top: 12px;
-  color: var(--text-2);
-  font-size: 15.5px;
-  line-height: 1.6;
-}
-
-.footer-cta-actions {
+.footer-top {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-}
-
-.footer-inner {
-  display: grid;
-  padding-top: 40px;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
-  gap: 40px;
+  justify-content: space-between;
+  gap: 20px 32px;
 }
 
 .footer-brand {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
 }
 
 .footer-brand p {
   color: var(--text-3);
   font-size: 13.5px;
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
-.footer-label {
-  margin-bottom: 12px;
-  color: var(--text-3);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.17em;
-  text-transform: uppercase;
-}
-
-.footer-list {
+.footer-links {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 22px;
   color: var(--text-2);
   font-size: 14.5px;
 }
 
-.footer-list a {
+.footer-links a {
   transition: color 140ms ease;
 }
 
-.footer-list a:hover {
+.footer-links a:hover {
   color: var(--text);
+}
+
+.footer-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 32px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 /* --------------------------------------------------------------- motion */
@@ -1222,9 +1201,9 @@ svg {
     justify-content: space-between;
   }
 
-  .footer-inner,
-  .footer-cta {
-    grid-template-columns: minmax(0, 1fr);
+  .footer-top {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .split-lists {
