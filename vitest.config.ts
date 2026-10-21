@@ -62,6 +62,14 @@ export default defineConfig({
           branches: 85,
           statements: 95,
         },
+        // The actor is a character, not a face: it is drawn, it changes its
+        // shape, it shouts, and it holds still when asked to.
+        'src/components/StageBloub.tsx': {
+          lines: 100,
+          functions: 100,
+          branches: 70,
+          statements: 100,
+        },
       },
       include: ['src/**/*.{ts,tsx}'],
       exclude: [

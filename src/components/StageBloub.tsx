@@ -54,9 +54,14 @@ export function StageBloub({
 
     let raf = 0;
     let stopped = false;
-    const tick = (now: number) => {
+    const tick = () => {
       if (stopped) return;
-      setFrame(engine.sample((now - startedAt.current) / 1000));
+      // The engine runs on its own clock: the same one every setter is given.
+      // The timestamp of the frame is not it — it does not always share the
+      // origin of `performance.now()`, and an engine fed a time from the
+      // future never leaves the state it came from.
+      const elapsed = (performance.now() - startedAt.current) / 1000;
+      setFrame(engine.sample(elapsed));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
