@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
 import { ModelPrefsProvider } from './modelPrefs';
@@ -12,6 +12,7 @@ function makeBridge(overrides: Record<string, unknown> = {}) {
       source: 'gateway',
       profiles: [
         { name: 'bob', title: 'Bob', color: '#e8483f', shape: 'galet' },
+        { name: 'alice', title: 'Alice', color: '#4f9d8f', shape: 'cercle' },
       ],
       primary: { title: 'Chief of Staff', color: '#8b5cf6', shape: 'cercle' },
     })),
@@ -377,5 +378,96 @@ describe('creating a bot', () => {
       screen.getByText('Create bot', { selector: 'button' }),
     );
     await waitFor(() => expect(bridge.createBot).toHaveBeenCalled());
+  });
+});
+
+describe('a round in a group', () => {
+  const groupSessions = [
+    {
+      id: 'sess-chief',
+      title: 'Group · Crew · Chief of Staff',
+      messageCount: 0,
+      lastActive: 20,
+      archived: false,
+    },
+    {
+      id: 'sess-bob',
+      title: 'Group · Crew · Bob',
+      messageCount: 0,
+      lastActive: 21,
+      archived: false,
+    },
+  ];
+
+  it('asks every member, and keeps the answers', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+      sendChat: vi.fn(async (payload: { profile?: string }) =>
+        payload.profile === 'bob'
+          ? { ok: true, text: '[[silent]]' }
+          : { ok: true, text: 'The chief has the floor.' },
+      ),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Crew'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Who has the floor?');
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(screen.getAllByText('The chief has the floor.').length).toBeGreaterThan(
+        0,
+      ),
+    );
+    // The member that stayed silent is acknowledged with a tapback.
+    expect(screen.getAllByText('Chief of Staff').length).toBeGreaterThan(0);
+  });
+
+  it('says when a member cannot join the group', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: [] })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+      createSession: vi.fn(async () => ({
+        ok: false,
+        error: 'the profile is gone',
+      })),
+      sendChat: vi.fn(async () => ({ ok: true, text: 'Hi' })),
+    });
+    await renderApp(bridge);
+    // A group built here has no conversation on the server yet.
+    await userEvent.click(screen.getByLabelText('Create a bot or group'));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('tab', { name: 'Group' }));
+    await userEvent.type(
+      within(dialog).getByLabelText(/Group name/i),
+      'The crew',
+    );
+    await userEvent.click(within(dialog).getByText('Bob'));
+    await userEvent.click(within(dialog).getByText('Alice'));
+    await userEvent.click(
+      within(dialog).getByText('Create group', { selector: 'button' }),
+    );
+    const crew = (await screen.findAllByText('The crew'))[0];
+    await userEvent.click(crew);
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Hello');
+    await userEvent.keyboard('{Enter}');
+    expect(
+      (await screen.findAllByText(/could not join the group/)).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('says when a member cannot answer', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+      sendChat: vi.fn(async () => ({ ok: false, error: 'the key was refused' })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Crew'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Hello');
+    await userEvent.keyboard('{Enter}');
+    expect(await screen.findByText(/could not answer/)).toBeTruthy();
   });
 });
