@@ -47,12 +47,24 @@ The app is the interface. It owns the room the conversation happens in.
 - **The connection.** The SSH tunnel to the host, the API key in the macOS
   Keychain, and the reconnect. The tunnel exists so the app never has to ask
   the person's server to expose a port.
+- **The setup.** The first run asks where Hermes lives, for the key, and who
+  answers on the other side — one question at a time. It reads the bots from
+  the host like everything else, and it can be run again by hand.
 
 ## What the app does not keep
 
 Nothing of the conversation. No file, no Keychain entry, no `localStorage`, no
 cached transcript. The app can be closed, wiped or replaced, and the
 conversation is still there, on the host that owns it.
+
+The app keeps two things of its own, and they are about the app rather than
+about the conversation: the **connection record** — the host, the ports, and
+the fact that the setup has been walked through — and the **key**, in the
+Keychain, under the app's own service.
+
+The setup flag lives with the connection because the app has to know it before
+Hermes is reachable: the first question the setup asks is where Hermes lives.
+Everything the setup learns about the bots stays on the host.
 
 The only secret on this machine is the Hermes API key, in the Keychain, under
 the app's own service.
@@ -64,3 +76,5 @@ the app's own service.
   this app.
 - To change **how the app reaches Hermes**: `electron/main.js`, with the
   shape of the calls written down in `src/hermes.d.ts`.
+- To change **what the first run asks**: `src/onboarding.tsx`, which owns the
+  steps, the order and the voice.
