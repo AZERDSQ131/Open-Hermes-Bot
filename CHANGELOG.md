@@ -6,7 +6,13 @@ follow [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **A setup, step by step.** The first time the app opens, it asks where
+  Hermes lives, for the key that opens the door, and who answers on the other
+  side — one question at a time. It shakes hands with the host, shows the bots
+  it serves, and lets the first one be made on the spot. The setup can be run
+  again from **Settings → Setup**, whenever Hermes moves to another machine.
 
 ## [1.0.0] — 2026-10-21
 
