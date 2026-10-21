@@ -19,6 +19,9 @@ npm start       # build, then launch the production app
 npm test        # the protocol and the transcript reader
 ```
 
+Every push runs the typecheck, the tests and the build on GitHub Actions
+(`.github/workflows/ci.yml`): the app is macOS, so the check runs on macOS.
+
 ## Structure
 
 ```
