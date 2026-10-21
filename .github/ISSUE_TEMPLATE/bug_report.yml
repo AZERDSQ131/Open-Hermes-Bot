@@ -1,0 +1,42 @@
+name: Bug report
+description: Something does not work the way it should
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, and what the app did instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-expected
+    attributes:
+      label: What you expected
+      description: What you thought would happen.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The version in Help → About, or the tag you are on.
+      placeholder: 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: host
+    attributes:
+      label: Hermes host
+      description: The machine Hermes runs on — the name, not the address.
+      placeholder: jetson
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Anything the app said
+      description: The line it showed, or the error in the console.
+      render: text

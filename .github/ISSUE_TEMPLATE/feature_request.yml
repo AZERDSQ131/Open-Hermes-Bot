@@ -1,0 +1,28 @@
+name: Feature request
+description: Something the app should be able to do
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: what-for
+    attributes:
+      label: What is it for
+      description: The situation you are in, and what the app should do about it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: where-it-lives
+    attributes:
+      label: Where would it live
+      description: >
+        The app draws the conversations; Hermes runs the agents and keeps what
+        they remember. Say which side of that line you think this belongs to —
+        and if it is Hermes, say what the app would have to ask it for.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried
+      description: The workaround you found, if there was one.
