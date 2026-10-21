@@ -122,7 +122,7 @@ describe('a tapback on a private conversation', () => {
       { id: '2', role: 'assistant', text: 'Hi' },
     ];
     const withReaction = attachReaction(messages, '👍');
-    expect(withReaction[0].reaction).toBe('👍');
+    expect((withReaction[0] as { reaction?: string }).reaction).toBe('👍');
     expect((withReaction[1] as { reaction?: string }).reaction).toBeUndefined();
   });
 
