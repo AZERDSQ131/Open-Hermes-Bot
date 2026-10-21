@@ -259,3 +259,123 @@ describe('the conversation', () => {
     await waitFor(() => expect(bridge.models).toHaveBeenCalled());
   });
 });
+
+describe('a group', () => {
+  const groupSessions = [
+    {
+      id: 'sess-chief',
+      title: 'Group · Crew · Chief of Staff',
+      messageCount: 2,
+      lastActive: 20,
+      archived: false,
+    },
+    {
+      id: 'sess-bob',
+      title: 'Group · Crew · Bob',
+      messageCount: 2,
+      lastActive: 21,
+      archived: false,
+    },
+  ];
+
+  it('is rebuilt from the conversations of its members', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+    });
+    await renderApp(bridge);
+    expect(await screen.findByText('Crew')).toBeTruthy();
+  });
+
+  it('asks for a bot by name when the person writes @', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Crew'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, '@');
+    expect(await screen.findByText('@Bob')).toBeTruthy();
+  });
+
+  it('asks every member and keeps the answers', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({
+        ok: true,
+        messages: [
+          {
+            role: 'user',
+            content: '@You: Hello',
+            timestamp: 1,
+          },
+          { role: 'assistant', content: 'Hi', timestamp: 2 },
+        ],
+      })),
+      createSession: vi.fn(async () => ({ ok: true, sessionId: 'sess-new' })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Crew'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Hello crew');
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(bridge.sendChat).toHaveBeenCalled());
+  });
+});
+
+describe('the files and the voice', () => {
+  it('copies an attached file to the server', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    const input = document.querySelector(
+      'input[type=file]',
+    ) as HTMLInputElement;
+    const file = new File(['hello'], 'note.txt', { type: 'text/plain' });
+    await userEvent.upload(input, file);
+    await waitFor(() => expect(bridge.uploadAttachment).toHaveBeenCalled());
+  });
+
+  it('writes down what the person says', async () => {
+    const bridge = makeBridge();
+    vi.stubGlobal('MediaRecorder', class {
+      static isTypeSupported = () => true;
+      state = 'recording';
+      mimeType = 'audio/webm';
+      ondataavailable: ((event: { data: Blob }) => void) | null = null;
+      onstop: (() => void) | null = null;
+      start = vi.fn();
+      stop = vi.fn(() => {
+        this.onstop?.();
+      });
+    });
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      mediaDevices: {
+        getUserMedia: vi.fn(async () => ({
+          getTracks: () => [{ stop: () => undefined }],
+        })),
+      },
+    });
+    await renderApp(bridge);
+    await userEvent.click(screen.getByLabelText('Voice message'));
+    await waitFor(() =>
+      expect(document.querySelector('.mic-button')?.className).toContain(
+        'is-listening',
+      ),
+    );
+    await userEvent.click(screen.getByLabelText('Voice message'));
+    await waitFor(() => expect(bridge.transcribeVoice).toHaveBeenCalled());
+  });
+});
+
+describe('creating a bot', () => {
+  it('asks the server for a profile', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    await userEvent.click(screen.getByLabelText('Create a bot or group'));
+    await userEvent.type(await screen.findByLabelText(/Bot name/i), 'Nova');
+    await userEvent.click(
+      screen.getByText('Create bot', { selector: 'button' }),
+    );
+    await waitFor(() => expect(bridge.createBot).toHaveBeenCalled());
+  });
+});
