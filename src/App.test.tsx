@@ -38,7 +38,7 @@ function makeBridge(overrides: Record<string, unknown> = {}) {
     status: vi.fn(async () => ({ state: 'connected', version: '0.21.5' })),
     onStatus: vi.fn(() => () => undefined),
     sendChat: vi.fn(
-      async (_payload: { message: string; sessionId: string }) => ({
+      async (_payload: { message: string; sessionId: string; requestId: string }) => ({
         ok: true,
         text: 'The answer',
       }),
