@@ -437,7 +437,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     const base =
       step === 'welcome'
         ? { ...scene, shape: actorShape }
-        : step === 'face'
+        : step === 'face' || step === 'colour'
           ? { ...scene, shape: botFace }
           : scene;
     if (step !== 'setup') return base;
@@ -540,7 +540,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
             <div className="onboarding-actor">
               <span className="onboarding-halo" aria-hidden="true" />
               <StageBloub
-                color={actorColor}
+                color={light}
                 shape={actor.shape}
                 state={actor.state}
                 expression={actor.expression}
