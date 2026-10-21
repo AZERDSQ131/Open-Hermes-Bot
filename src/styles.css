@@ -875,6 +875,26 @@ button:focus-visible {
   letter-spacing: -0.004em;
 }
 
+/* The server is out of reach: the chat says so, and says where to fix it. */
+.chat-notice {
+  margin: 0;
+  padding: 9px 20px;
+  border-bottom: 1px solid rgba(255, 106, 98, 0.24);
+  background: rgba(255, 106, 98, 0.1);
+  color: #ffb4ae;
+  font-size: 12.5px;
+  letter-spacing: -0.004em;
+}
+
+.chat-notice-action {
+  border: 0;
+  background: none;
+  color: #ffd2ce;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}
+
 /* A file that could not be copied says so instead of waiting for ever. */
 .attachment.is-failed {
   opacity: 0.55;

@@ -2701,6 +2701,19 @@ export default function App() {
           </div>
         </header>
 
+        {botsError ? (
+          <p className="chat-notice" role="status">
+            Hermes is out of reach — {botsError}.{' '}
+            <button
+              type="button"
+              className="chat-notice-action"
+              onClick={openSettings}
+            >
+              Open the connection settings
+            </button>
+          </p>
+        ) : null}
+
         <div
           className="chat-scroll"
           ref={scrollRef}

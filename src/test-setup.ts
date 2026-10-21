@@ -9,3 +9,11 @@ afterEach(() => {
   vi.restoreAllMocks();
   delete (window as unknown as { hermes?: unknown }).hermes;
 });
+
+// jsdom has no scrolling.
+if (!Element.prototype.scrollTo) {
+  Element.prototype.scrollTo = function scrollTo() {};
+}
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView() {};
+}
