@@ -383,7 +383,9 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       name,
       title: result.title?.trim() || title,
       color: avatarColor(result.color, name),
-      shape: botFace,
+      // The shape that was asked for, not the one the state happens to hold:
+      // the page shows the bot that was made.
+      shape: input.shape,
     });
     setBotName('');
     setBotTouched(false);
