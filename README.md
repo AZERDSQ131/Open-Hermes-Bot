@@ -120,6 +120,7 @@ A tag on `main` is what marks the version: `git tag v1.0.0 && git push --tags`.
 ## Structure
 
 ```
+docs/                   Architecture, transport and the words this project uses
 electron/main.js        Electron shell, window chrome, dock icon, Hermes bridge
 src/App.tsx             Sidebar, chat, composer and interactions
 src/components/         Bloub avatars, create dialog, logo editor, icons
