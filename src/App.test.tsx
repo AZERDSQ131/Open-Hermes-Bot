@@ -567,3 +567,89 @@ describe('the way around', () => {
     expect(await screen.findByText('Save changes')).toBeTruthy();
   });
 });
+
+describe('the roster of a group', () => {
+  const groupSessions = [
+    {
+      id: 'sess-chief',
+      title: 'Group · Crew · Chief of Staff',
+      messageCount: 0,
+      lastActive: 20,
+      archived: false,
+    },
+    {
+      id: 'sess-bob',
+      title: 'Group · Crew · Bob',
+      messageCount: 0,
+      lastActive: 21,
+      archived: false,
+    },
+  ];
+
+  it('puts the name of the bot in the composer', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Crew'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'hey @');
+    const option = await screen.findByText('@Bob');
+    await userEvent.click(option);
+    expect((composer as HTMLTextAreaElement).value).toContain('@Bob');
+  });
+
+  it('shows the answer of a member as it arrives', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+      sendChat: vi.fn(
+        async () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve({ ok: true, text: 'A line from the crew' }), 40);
+          }),
+      ),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Crew'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Hello');
+    await userEvent.keyboard('{Enter}');
+    expect(
+      (await screen.findAllByText('A line from the crew')).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('takes a bot out of the groups it belonged to', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+    });
+    await renderApp(bridge);
+    const row = screen.getByText('Bob').closest('button');
+    await userEvent.pointer({ keys: '[MouseRight]', target: row as Element });
+    await userEvent.click(await screen.findByText('Delete bot'));
+    await waitFor(() => expect(bridge.deleteBot).toHaveBeenCalled());
+    // The bot leaves the sidebar.
+    await waitFor(() =>
+      expect(screen.queryAllByText('Bob').length).toBeLessThan(2),
+    );
+  });
+
+  it('keeps the name of a bot in step with the groups it is in', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+    });
+    await renderApp(bridge);
+    const row = screen.getByText('Bob').closest('button');
+    await userEvent.pointer({ keys: '[MouseRight]', target: row as Element });
+    await userEvent.click(await screen.findByText('Edit bot'));
+    const input = screen.getByDisplayValue('Bob');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Bobby');
+    await userEvent.click(screen.getByText('Save changes'));
+    expect((await screen.findAllByText('Bobby')).length).toBeGreaterThan(0);
+  });
+});
