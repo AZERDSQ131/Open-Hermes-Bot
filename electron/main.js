@@ -26,7 +26,9 @@ const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 // a neighbouring port on a throwaway tunnel that is never persisted.
 const TUNNEL_TIMEOUT_MS = 15000;
 const DEFAULT_CONNECTION = {
-  sshHost: 'jetson',
+  // No host is a name: the machine running Hermes is the person's to say.
+  // The ports are Hermes' own defaults.
+  sshHost: '',
   apiPort: 8642,
   localPort: 18742,
   // A stored key is an intent to be connected: starting disconnected only
@@ -359,6 +361,14 @@ function statusFromProbe(probe, sshHost) {
 }
 
 function runSsh(host, command, timeoutMs = 20000, input) {
+  // No host is a name: there is nothing to reach.
+  if (!String(host ?? '').trim()) {
+    return Promise.resolve({
+      ok: false,
+      error:
+        'No host configured — open Settings to say where Hermes runs.',
+    });
+  }
   return new Promise((resolve) => {
     const child = spawn(
       'ssh',
@@ -465,6 +475,12 @@ ipcMain.handle('hermes:key:import', async (_event, payload) => {
 async function connectNow() {
   const connection = storedConnection();
   const apiKey = storedApiKey();
+  if (!connection.sshHost) {
+    return setStatus({
+      state: 'error',
+      message: 'No host configured — open Settings to say where Hermes runs.',
+    });
+  }
   if (!apiKey) {
     return setStatus({ state: 'error', message: 'No API key configured' });
   }
@@ -1282,6 +1298,13 @@ function cleanPrimary(value) {
 
 ipcMain.handle('hermes:profiles', async () => {
   const host = storedConnection().sshHost;
+  if (!host) {
+    return {
+      ok: false,
+      error:
+        'No host configured — open Settings to say where Hermes runs.',
+    };
+  }
   const live = await runSsh(
     host,
     `python3 - <<'PY'\n${LIST_PROFILES_PY}PY`,

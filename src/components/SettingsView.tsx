@@ -30,7 +30,8 @@ export function SettingsView({
   onStatusChange,
 }: SettingsViewProps) {
   const bridge = window.hermes;
-  const [host, setHost] = useState('jetson');
+  // No host is a name: the machine running Hermes is the person's to say.
+  const [host, setHost] = useState('');
   const [port, setPort] = useState('8642');
   const [localPort, setLocalPort] = useState('18742');
   const [autoConnect, setAutoConnect] = useState(false);
@@ -78,7 +79,7 @@ export function SettingsView({
   const tunnelUrl = `127.0.0.1:${localPort || '18742'}`;
   const tunnelCommand = `ssh -N -L 127.0.0.1:${localPort || '18742'}:127.0.0.1:${
     port || '8642'
-  } ${host || 'jetson'}`;
+  } ${host || '<host>'}`;
 
   const feedback = error
     ? { tone: 'error' as const, text: error }
@@ -318,7 +319,7 @@ export function SettingsView({
                       value={host}
                       spellCheck={false}
                       autoComplete="off"
-                      placeholder="jetson"
+                      placeholder="my-hermes-host"
                       disabled={Boolean(busy)}
                       onChange={(event) => {
                         setHost(event.target.value);
