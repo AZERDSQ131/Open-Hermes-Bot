@@ -58,17 +58,21 @@ failing with “Title already in use”.
 
 A file the person attaches is copied to the server, where the bot can read it: the
 app sends it over the SSH it already uses, and the message carries its path. The
-microphone dictates — Chromium writes the words down and they land in the composer —
-and says so when it cannot listen.
+microphone dictates: the app records what the person says and Hermes transcribes
+it on the server — the browser's own speech service is not used, because the key
+Chromium carries for it is refused by the service, which looks exactly like a
+broken connection. The words land in the composer, where the person can read them
+before sending.
 
 ## Before the first release
 
 The app is not packaged yet: `npm start` runs it from the sources. The release
 build needs `electron-builder` (a `.app` and a `.dmg`, signed and notarized), a
 GitHub Actions workflow that builds them on a tag and publishes them as a GitHub
-Release, and two keys in the app's `Info.plist` that macOS asks for when the
-microphone is used: `NSMicrophoneUsageDescription` and `NSSpeechRecognitionUsageDescription`.
-Without the last one the dictation cannot run in a signed build.
+Release, and one key in the app's `Info.plist` that macOS asks for when the
+microphone is used: `NSMicrophoneUsageDescription`. The dictation itself needs a
+transcription backend on the Hermes host — `faster-whisper` for a local and free
+one, or a cloud provider key.
 
 ## Where a conversation lives
 
