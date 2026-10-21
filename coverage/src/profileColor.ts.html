@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/21</span>
+                <span class='fraction'>21/21</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>11/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/21</span>
+                <span class='fraction'>21/21</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -116,41 +116,41 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">23x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// A bot's colour has to be the same one Hermes itself shows for that profile,
 // otherwise the same bot wears two different colours in the two apps.
 //
@@ -160,41 +160,41 @@
 // explicit colour stored in the profile's bot metadata always wins. Keep this
 // file byte-for-byte faithful to that behaviour; it is the whole contract.
 &nbsp;
-<span class="cstat-no" title="statement not covered" >const PROFILE_TAG_SATURATION = 68;</span>
-<span class="cstat-no" title="statement not covered" >const PROFILE_TAG_LIGHTNESS = 58;</span>
+const PROFILE_TAG_SATURATION = 68;
+const PROFILE_TAG_LIGHTNESS = 58;
 &nbsp;
 /** The friendly violet the primary profile wears, and the last resort. */
-<span class="cstat-no" title="statement not covered" >export const PRIMARY_AVATAR_COLOR = '#8b5cf6';</span>
+export const PRIMARY_AVATAR_COLOR = '#8b5cf6';
 &nbsp;
-<span class="cstat-no" title="statement not covered" >function hashString(value: string): number {</span>
-<span class="cstat-no" title="statement not covered" >  let hash = 0;</span>
+function hashString(value: string): number {
+  let hash = 0;
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  for (let index = 0; index &lt; value.length; index += 1) {</span>
-<span class="cstat-no" title="statement not covered" >    hash = (hash * 31 + value.charCodeAt(index)) &gt;&gt;&gt; 0;</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
+  for (let index = 0; index &lt; value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) &gt;&gt;&gt; 0;
+  }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return hash;</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+  return hash;
+}
 &nbsp;
 /**
  * The stable colour Hermes gives a named profile, or null for the primary
  * profile (`default`) and drafts with no name yet.
  */
-<span class="cstat-no" title="statement not covered" >export function profileColor(name: null | string | undefined): null | string {</span>
-<span class="cstat-no" title="statement not covered" >  const key = (name ?? '').trim();</span>
+export function profileColor(name: null | string | undefined): null | string {
+  const key = (name ?? '').trim();
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  if (!key || key === 'default') return null;</span>
+  if (!key || key === 'default') return null;
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return `hsl(${hashString(key) % 360} ${PROFILE_TAG_SATURATION}% ${PROFILE_TAG_LIGHTNESS}%)`;</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+  return `hsl(${hashString(key) % 360} ${PROFILE_TAG_SATURATION}% ${PROFILE_TAG_LIGHTNESS}%)`;
+}
 &nbsp;
 /** A colour stored on the profile wins; otherwise the name's own hue. */
-<span class="cstat-no" title="statement not covered" >export function avatarColor(</span>
-<span class="cstat-no" title="statement not covered" >  stored: null | string | undefined,</span>
-<span class="cstat-no" title="statement not covered" >  name: null | string | undefined,</span>
-<span class="cstat-no" title="statement not covered" >): string {</span>
-<span class="cstat-no" title="statement not covered" >  return stored?.trim() || profileColor(name) || PRIMARY_AVATAR_COLOR;</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function avatarColor(
+  stored: null | string | undefined,
+  name: null | string | undefined,
+): string {
+  return stored?.trim() || profileColor(name) || PRIMARY_AVATAR_COLOR;
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -202,7 +202,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-21T12:06:34.762Z
+                at 2026-10-21T12:09:25.087Z
             </div>
         <script src="../prettify.js"></script>
         <script>
