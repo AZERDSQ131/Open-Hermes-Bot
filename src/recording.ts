@@ -24,12 +24,20 @@ export async function startRecording(): Promise<Recording> {
   const mimeType = pickMimeType();
   const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
   const chunks: Blob[] = [];
+  const type = recorder.mimeType || mimeType || 'audio/webm';
+  let stopped = false;
+  let waiting: ((blob: Blob) => void) | null = null;
   recorder.ondataavailable = (event) => {
     if (event.data.size) chunks.push(event.data);
   };
+  recorder.onstop = () => {
+    stopped = true;
+    waiting?.(new Blob(chunks, { type }));
+    waiting = null;
+  };
   recorder.start();
   return {
-    mimeType: recorder.mimeType || mimeType || 'audio/webm',
+    mimeType: type,
     stop: () => {
       try {
         if (recorder.state !== 'inactive') recorder.stop();
@@ -38,12 +46,14 @@ export async function startRecording(): Promise<Recording> {
       }
       for (const track of stream.getTracks()) track.stop();
     },
-    blob: () =>
-      new Promise((resolve) => {
-        recorder.onstop = () => {
-          resolve(new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }));
-        };
-      }),
+    // The recording is asked for after the recorder stopped, more often than
+    // not: the bytes are already there.
+    blob: () => {
+      if (stopped) return Promise.resolve(new Blob(chunks, { type }));
+      return new Promise((resolve) => {
+        waiting = resolve;
+      });
+    },
   };
 }
 
