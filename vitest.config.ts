@@ -54,6 +54,14 @@ export default defineConfig({
           branches: 100,
           statements: 98,
         },
+        // The setup is a path, not a rule: every step of it is walked
+        // through by a test, and the floor keeps it that way.
+        'src/onboarding.tsx': {
+          lines: 95,
+          functions: 85,
+          branches: 85,
+          statements: 95,
+        },
       },
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
