@@ -61,6 +61,15 @@ app sends it over the SSH it already uses, and the message carries its path. The
 microphone dictates — Chromium writes the words down and they land in the composer —
 and says so when it cannot listen.
 
+## Before the first release
+
+The app is not packaged yet: `npm start` runs it from the sources. The release
+build needs `electron-builder` (a `.app` and a `.dmg`, signed and notarized), a
+GitHub Actions workflow that builds them on a tag and publishes them as a GitHub
+Release, and two keys in the app's `Info.plist` that macOS asks for when the
+microphone is used: `NSMicrophoneUsageDescription` and `NSSpeechRecognitionUsageDescription`.
+Without the last one the dictation cannot run in a signed build.
+
 ## Where a conversation lives
 
 A conversation is a Hermes session, and Hermes is the only place it is kept. The app
