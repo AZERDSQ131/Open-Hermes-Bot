@@ -21,6 +21,9 @@ export default defineConfig({
         'src/main.tsx',
         'src/**/*.test.{ts,tsx}',
         'src/test-setup.ts',
+        // Types only: there is nothing to run.
+        'src/**/*.d.ts',
+        'src/data.ts',
       ],
     },
   },

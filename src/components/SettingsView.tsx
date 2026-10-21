@@ -11,7 +11,14 @@ type SettingsViewProps = {
   onStatusChange: (status: HermesStatus) => void;
 };
 
-type BusyAction = 'test' | 'save' | 'import' | 'disconnect' | 'clear' | null;
+type BusyAction =
+  | 'test'
+  | 'save'
+  | 'import'
+  | 'disconnect'
+  | 'connect'
+  | 'clear'
+  | null;
 
 const STATE_LABEL: Record<HermesStatus['state'], string> = {
   disconnected: 'Not connected',
@@ -190,6 +197,14 @@ export function SettingsView({
     setBusy(null);
   }
 
+  // The way back: a person who asked to stay offline can ask again.
+  async function handleConnect() {
+    if (!bridge) return;
+    start('connect');
+    report(await bridge.connect());
+    setBusy(null);
+  }
+
   async function handleClearKey() {
     if (!bridge) return;
     start('clear');
@@ -289,7 +304,16 @@ export function SettingsView({
                     >
                       {busy === 'disconnect' ? 'Closing…' : 'Disconnect'}
                     </button>
-                  ) : null}
+                  ) : (
+                    <button
+                      type="button"
+                      className="settings-page-action"
+                      disabled={disabled}
+                      onClick={handleConnect}
+                    >
+                      {busy === 'connect' ? 'Connecting…' : 'Connect'}
+                    </button>
+                  )}
                 </div>
               </header>
 
