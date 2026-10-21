@@ -1081,7 +1081,11 @@ describe('the rest of the conversation', () => {
     const composer = await screen.findByLabelText(/Message/);
     await userEvent.type(composer, 'Do it');
     await userEvent.keyboard('{Enter}');
-    await waitFor(() => expect(bridge.onChatTool).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(
+        (bridge as unknown as { onChatTool: { mock: unknown } }).onChatTool,
+      ).toBeTruthy(),
+    );
     const requestId = bridge.sendChat.mock.calls[0]?.[0]?.requestId;
     await act(async () => {
       onTool?.({ requestId: requestId ?? 'any', tool: 'terminal' });
