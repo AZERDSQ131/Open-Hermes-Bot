@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
@@ -864,5 +864,74 @@ describe('a group that writes while it answers', () => {
     await userEvent.type(composer, 'Hello');
     await userEvent.keyboard('{Enter}');
     expect((await screen.findAllByText(/out of quota/)).length).toBeGreaterThan(0);
+  });
+});
+
+describe('when things go wrong', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('says the server did not answer when a bot takes too long', async () => {
+    const bridge = makeBridge({
+      createBot: vi.fn(
+        async () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve({ ok: true }), 80000);
+          }),
+      ),
+    });
+    await renderApp(bridge);
+    await userEvent.click(screen.getByLabelText('Create a bot or group'));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText(/Bot name/i), 'Nova');
+    await userEvent.click(
+      within(dialog).getByText('Create bot', { selector: 'button' }),
+    );
+    // The dialog gives up rather than spinning for ever.
+    await act(async () => {
+      vi.advanceTimersByTime(71000);
+    });
+    expect(
+      await screen.findByText(/did not hear back from the server/),
+    ).toBeTruthy();
+  });
+
+  it('says a file could not be copied', async () => {
+    const bridge = makeBridge({
+      uploadAttachment: vi.fn(async () => ({
+        ok: false,
+        error: 'the host said no',
+      })),
+    });
+    await renderApp(bridge);
+    const input = document.querySelector(
+      'input[type=file]',
+    ) as HTMLInputElement;
+    await userEvent.upload(
+      input,
+      new File(['hello'], 'note.txt', { type: 'text/plain' }),
+    );
+    expect(await screen.findByText('the host said no')).toBeTruthy();
+  });
+
+  it('says a bot could not be created', async () => {
+    const bridge = makeBridge({
+      createBot: vi.fn(async () => ({
+        ok: false,
+        error: 'the name is taken',
+      })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(screen.getByLabelText('Create a bot or group'));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText(/Bot name/i), 'Nova');
+    await userEvent.click(
+      within(dialog).getByText('Create bot', { selector: 'button' }),
+    );
+    expect(await screen.findByText('the name is taken')).toBeTruthy();
   });
 });
