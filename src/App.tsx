@@ -25,7 +25,6 @@ import {
   GearIcon,
   MenuIcon,
   MicIcon,
-  MonitorIcon,
   PlusIcon,
   SearchIcon,
 } from './components/Icons';
@@ -2535,15 +2534,6 @@ export default function App() {
                 </button>
               </h1>
             )}
-
-            <button
-              type="button"
-              className="header-action"
-              aria-label="Open agent display"
-              title="Open agent display"
-            >
-              <MonitorIcon size={19} />
-            </button>
           </div>
         </header>
 

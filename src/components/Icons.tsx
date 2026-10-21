@@ -90,23 +90,6 @@ export function MenuIcon({ size = 19, className }: IconProps) {
   );
 }
 
-export function MonitorIcon({ size = 19, className }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      strokeWidth="1.7"
-      className={className}
-      {...base}
-    >
-      <rect x="2.8" y="3.8" width="18.4" height="13.6" rx="3" />
-      <path d="M9.4 21h5.2" />
-      <circle cx="17.4" cy="7.6" r="1" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
 export function MicIcon({ size = 18, className }: IconProps) {
   return (
     <svg

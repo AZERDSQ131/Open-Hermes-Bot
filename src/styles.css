@@ -650,25 +650,6 @@ button:focus-visible {
   display: none;
 }
 
-.header-action {
-  display: grid;
-  flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
-  margin-left: auto;
-  place-items: center;
-  border-radius: 8px;
-  color: #9999a0;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
-}
-
-.header-action:hover {
-  background: rgba(255, 255, 255, 0.055);
-  color: #e3e3e7;
-}
-
 .chat-scroll {
   flex: 1 1 auto;
   min-height: 0;
