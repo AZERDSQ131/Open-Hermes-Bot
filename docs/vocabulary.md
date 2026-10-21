@@ -25,8 +25,9 @@ responsible for, and it says what it is not.
 
 ## Setup
 
-The door the person walks through the first time the app opens. Four scenes:
-the welcome, the connection, the first bot, and the door that opens.
+The door the person walks through the first time the app opens. Six scenes:
+the welcome, the connection, the name of the bot, its face, its colour, and
+the door that opens.
 
 **The setup is the app talking, not the harness.** It reads the bots from the
 host the way the sidebar does, and it writes down one fact of its own: that it
@@ -36,10 +37,11 @@ has been walked through.
 it blinks, it thinks while the tunnel opens, and it is happy when the host
 answers. The words are few on purpose.
 
-**The setup makes the first bot.** An app that has just been installed has no
-agents: there is nothing to list, so the setup asks for the first one — its
-name, its shape, its colour — and the last scene shows that bot instead of
-the actor. It is the one the conversation will be with.
+**The setup makes the first bot, and does not show the others.** An app that
+has just been installed has no agents: there is nothing to list, so the pages
+that make the bot do not show what the host already serves. The bot is not
+the point of the setup — there is a way to leave it for later, and the default
+bot is always there to talk to.
 
 ## Bot
 

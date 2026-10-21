@@ -25,9 +25,12 @@ follow [semantic versioning](https://semver.org/).
 - **The connection is one page.** Where Hermes lives, the key, and the
   handshake that says whether the two of them are talking: all three on the
   same page, tested by the button at the bottom.
-- **The first bot is asked for.** An app that has just been installed has no
-  agents, so the setup asks for the first one — its name, its shape, its
-  colour — instead of listing what is not there yet.
+- **The first bot is asked for, in three pages.** What is it called, what
+  shape, what colour — one question at a time, and the actor is the bot while
+  the bot is being made: it wears the shape that is being picked, and the
+  colour. The bots the host already serves are not shown: an app that has
+  just been installed has no agents, and the bot is not the point of the
+  setup — there is a way to leave it for later.
 
 ### Fixed
 
