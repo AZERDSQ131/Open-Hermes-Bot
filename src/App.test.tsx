@@ -653,3 +653,55 @@ describe('the roster of a group', () => {
     expect((await screen.findAllByText('Bobby')).length).toBeGreaterThan(0);
   });
 });
+
+describe('the keyboard', () => {
+  it('opens the search with the K', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    await userEvent.keyboard('{Meta>}k{/Meta}');
+    expect(document.activeElement?.getAttribute('aria-label')).toBe(
+      'Search agents',
+    );
+  });
+
+  it('opens the dialog that creates a bot with the N', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    await userEvent.keyboard('{Meta>}n{/Meta}');
+    expect(await screen.findByText('New agent')).toBeTruthy();
+  });
+
+  it('opens the settings with the comma', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    await userEvent.keyboard('{Meta>},{/Meta}');
+    expect((await screen.findAllByText('Connection')).length).toBeGreaterThan(0);
+  });
+});
+
+describe('a message that replaces another one', () => {
+  it('carries the replaced text with it', async () => {
+    const bridge = makeBridge({
+      sendChat: vi.fn(
+        async () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve({ ok: true, text: 'First answer' }), 200);
+          }),
+      ),
+    });
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'First question');
+    await userEvent.keyboard('{Enter}');
+    await userEvent.type(composer, 'Second question');
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(
+        bridge.sendChat.mock.calls.some((call) =>
+          String(call[0]?.message ?? '').includes('First question'),
+        ),
+      ).toBe(true),
+    );
+  });
+});
