@@ -6,6 +6,8 @@ avatars, cream user bubbles and a floating composer.
 It talks to a **Hermes host** — the agent runtime on your own machines — over SSH.
 The bots, the groups and the conversations live there, not on this machine.
 
+<img width="2678" height="1790" alt="image" src="https://github.com/user-attachments/assets/a1914026-a65b-4612-8bcb-0126694b0909" />
+
 MIT licensed — see [LICENSE](LICENSE).
 
 Want to work on it? [CONTRIBUTING.md](CONTRIBUTING.md) says how: the commands,
