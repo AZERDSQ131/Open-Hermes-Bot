@@ -105,7 +105,15 @@ link opens the page, downloads the `.dmg`, drags the app into *Applications*.
 The releases are also what `electron-updater` watches, so an installed app can
 find the next version by itself.
 
-To publish one by hand:
+The releases are built by the workflow (`.github/workflows/release.yml`): push a
+tag and the app is built on macOS, tested, and attached to the release the tag
+created.
+
+```bash
+git tag v1.0.0 && git push --tags
+```
+
+To publish one by hand instead:
 
 ```bash
 gh release create v1.0.0 \
@@ -114,8 +122,6 @@ gh release create v1.0.0 \
   --title "Grok Bot 1.0.0" \
   --notes "First release."
 ```
-
-A tag on `main` is what marks the version: `git tag v1.0.0 && git push --tags`.
 
 ## Structure
 

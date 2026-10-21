@@ -13,7 +13,8 @@
     "test:coverage": "vitest run --coverage",
     "preview": "vite preview",
     "dist": "npm run build && electron-builder --mac --publish never",
-    "dist:dir": "npm run build && electron-builder --mac --dir --publish never"
+    "dist:dir": "npm run build && electron-builder --mac --dir --publish never",
+    "dist:publish": "npm run build && electron-builder --mac --publish always"
   },
   "dependencies": {
     "react": "^19.3.1",

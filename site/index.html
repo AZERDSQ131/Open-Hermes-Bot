@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Grok Bot - a native macOS app for Hermes agents</title>
+    <title>Grok Bot - the native Mac window for your Hermes agents</title>
     <meta
       name="description"
-      content="Grok Bot is a native macOS chat app for Hermes agents. Every agent keeps its own memory and its own face, and a group lets several of them answer the same question at once."
+      content="Grok Bot is a native macOS chat window for the Hermes you already run. Point it at your host and talk to your agents: no API to write, no key per agent, no service to run."
     />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#0e0e10" />
@@ -14,7 +14,7 @@
     <meta property="og:title" content="Grok Bot" />
     <meta
       property="og:description"
-      content="A native macOS chat app for Hermes agents. Put your agents in the same room."
+      content="The native Mac window for your Hermes agents. Point it at your host and talk to your agents."
     />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg" />
@@ -35,7 +35,7 @@
         "name": "Grok Bot",
         "applicationCategory": "ProductivityApplication",
         "operatingSystem": "macOS",
-        "description": "A native macOS chat app for Hermes agents. Every agent keeps its own memory and its own face, and a group lets several of them answer the same question at once.",
+        "description": "A native macOS chat window for the Hermes you already run. Point it at your host and talk to your agents.",
         "license": "https://opensource.org/licenses/MIT",
         "codeRepository": "https://github.com/AZERDSQ131/Open-Grok-Bot",
         "author": { "@type": "Person", "name": "Jules Yzerd" }
@@ -55,10 +55,10 @@
         </a>
 
         <nav class="nav-links" aria-label="Sections">
+          <a href="#window">The window</a>
           <a href="#crew">Groups</a>
           <a href="#faces">Faces</a>
           <a href="#models">Models</a>
-          <a href="#connect">Connect</a>
         </nav>
 
         <div class="nav-actions">
@@ -92,11 +92,11 @@
       <section class="hero">
         <div class="hero-grid">
           <div class="hero-copy">
-            <p class="eyebrow" data-reveal>Native macOS app</p>
-            <h1 data-reveal data-reveal-delay="1">Put your agents in the same room.</h1>
+            <p class="eyebrow" data-reveal>Native client for Hermes</p>
+            <h1 data-reveal data-reveal-delay="1">Your Hermes, on your Mac.</h1>
             <p class="lede" data-reveal data-reveal-delay="2">
-              A native macOS app for Hermes agents. Each keeps its own memory, and a group
-              lets them answer together.
+              A native chat window for the Hermes you already run. Point it at a host and
+              talk to your agents.
             </p>
             <div class="hero-actions" data-reveal data-reveal-delay="3">
               <a
@@ -106,7 +106,7 @@
                 target="_blank"
                 >Get Grok Bot</a
               >
-              <a class="button button-ghost" href="#crew">See a group chat</a>
+              <a class="button button-ghost" href="#window">What it is</a>
             </div>
           </div>
 
@@ -116,7 +116,11 @@
                 <span class="traffic" aria-hidden="true">
                   <i></i><i></i><i></i>
                 </span>
-                <span class="app-title">Launch crew</span>
+                <span class="app-title">Grok Bot</span>
+                <span class="app-status">
+                  <span class="app-status-dot" aria-hidden="true"></span>
+                  Connected to Hermes
+                </span>
               </div>
 
               <div class="app-body">
@@ -238,21 +242,62 @@
         </div>
       </section>
 
+      <!-- ----------------------------------------------------------- window -->
+      <section class="section section-alt" id="window">
+        <div class="container">
+          <div class="section-head">
+            <h2 data-reveal>Grok Bot is the window. Hermes is the engine.</h2>
+            <p data-reveal data-reveal-delay="1">
+              Grok Bot does not run your agents, hold their memory, or choose the model that
+              answers. Hermes does all of that, on the machine you already run it on. The app
+              connects to it and gives it a native Mac window.
+            </p>
+          </div>
+
+          <div class="split-lists">
+            <div class="split-list" data-reveal>
+              <h3>Hermes keeps</h3>
+              <ul>
+                <li>The agents, their profiles and their names</li>
+                <li>Every conversation, as a session</li>
+                <li>What each agent remembers</li>
+                <li>The models, the tools and the quota</li>
+              </ul>
+            </div>
+            <div class="split-list" data-reveal data-reveal-delay="1">
+              <h3>Grok Bot adds</h3>
+              <ul>
+                <li>A native window, a Keychain and dictation</li>
+                <li>Groups, where agents answer each other</li>
+                <li>Tapbacks, mentions and silence</li>
+                <li>A face for every agent</li>
+              </ul>
+            </div>
+          </div>
+
+          <ul class="zero-strip">
+            <li data-reveal><strong>No API to write</strong><span>You do not call anything yourself.</span></li>
+            <li data-reveal data-reveal-delay="1"><strong>No key per agent</strong><span>The app creates them on the host.</span></li>
+            <li data-reveal data-reveal-delay="2"><strong>No service to run</strong><span>Hermes is already there.</span></li>
+            <li data-reveal data-reveal-delay="3"><strong>Nothing kept locally</strong><span>No file, no localStorage.</span></li>
+          </ul>
+        </div>
+      </section>
+
       <!-- ----------------------------------------------------------- groups -->
       <section class="section" id="crew">
         <div class="container">
           <div class="section-head">
             <h2 data-reveal>A group is a room, not a broadcast.</h2>
             <p data-reveal data-reveal-delay="1">
-              One message asks every member at once, and their answers stream side by side.
-              A member with nothing to add says so, and the app leaves a tapback in its
-              place, so an answer never simply vanishes.
+              One message asks every member at once. A member with nothing to add says so,
+              and the app leaves a tapback in its place.
             </p>
           </div>
 
           <div class="bento">
-            <article class="bento-cell cell-tall" data-reveal>
-              <h3>Every member is asked at the same time</h3>
+            <article class="bento-cell" data-reveal>
+              <h3>Everyone is asked at once</h3>
               <p>
                 One message makes one request per agent, in parallel. A later wave only
                 includes the agents the previous line mentioned.
@@ -272,8 +317,8 @@
             <article class="bento-cell" data-reveal data-reveal-delay="1">
               <h3>Silence leaves a trace</h3>
               <p>
-                A member that sits out gets an acknowledgement the app picks for it. The
-                turn was seen, it just had nothing to add.
+                A member that sits out gets an acknowledgement the app picks for it. The turn
+                was seen, it just had nothing to add.
               </p>
               <div class="sample">
                 <p class="app-event">Release captain stayed silent.</p>
@@ -323,12 +368,12 @@
             <h2 data-reveal>Give every agent a face.</h2>
             <p data-reveal data-reveal-delay="1">
               Eight shapes and twelve colours. The name, the colour and the shape are written
-              into the agent's own profile on the host, next to the metadata Hermes already
-              paints it with. An agent that comes back after a restart is the same agent.
+              into the agent's own profile on the host, so an agent that comes back after a
+              restart is the same agent.
             </p>
             <p class="faces-note" data-reveal data-reveal-delay="2">
-              Pick a shape and a colour. This is the same editor the app opens when you
-              click a logo in the header.
+              Pick a shape and a colour. This is the editor the app opens when you click a
+              logo in the header.
             </p>
           </div>
 
@@ -360,34 +405,27 @@
 
       <!-- ----------------------------------------------------------- models -->
       <section class="section" id="models">
-        <div class="container">
-          <div class="section-head">
-            <h2 data-reveal>When the quota runs out, the answer still lands.</h2>
+        <div class="container models-grid">
+          <div class="models-copy">
+            <h2 data-reveal>When a model runs out, another one answers.</h2>
             <p data-reveal data-reveal-delay="1">
-              Grok Bot remembers the model each agent last answered on, so a new
-              conversation starts where the last one finished. When the chosen model is
-              exhausted, the turn is retried on a free model from the same provider, and
-              the thread says so.
+              The chip in the composer lists the models your providers offer. If the model you
+              picked is out of quota, the turn is retried on a free model from the same
+              provider, and the thread says so.
             </p>
+            <ul class="models-notes">
+              <li data-reveal>A pick is remembered per agent, so the next thread starts there.</li>
+              <li data-reveal data-reveal-delay="1">Only authenticated providers are listed.</li>
+              <li data-reveal data-reveal-delay="2">A model you chose by hand is never overwritten.</li>
+            </ul>
           </div>
 
-          <div class="rescue" data-reveal>
-            <div class="rescue-side">
-              <span class="rescue-tag">Without a rescue</span>
-              <div class="app-bubble is-assistant is-quiet">
-                The bot stopped answering. The model may be out of quota, or the server
-                cannot reach it. Try another model from the picker.
+          <div class="models-stage" data-reveal data-reveal-delay="1">
+            <div class="model-card">
+              <div class="model-chip-row">
+                <span class="model-chip">muse</span>
+                <span class="model-chip-note">the model this bot answered on</span>
               </div>
-            </div>
-
-            <span class="rescue-arrow" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-            </span>
-
-            <div class="rescue-side">
-              <span class="rescue-tag">With one</span>
               <div class="app-bubble is-assistant">
                 grok-free is out of quota. Answered with muse instead.
               </div>
@@ -405,60 +443,50 @@
               </div>
             </div>
           </div>
-
-          <ul class="model-notes">
-            <li>The pick is sent with the turn, so the model in the chip is the one that runs.</li>
-            <li>A hand-picked model is never overwritten by the rescue.</li>
-            <li>Only authenticated providers are listed, so a choice cannot fail on send.</li>
-          </ul>
         </div>
       </section>
 
       <!-- ---------------------------------------------------------- connect -->
       <section class="section section-alt" id="connect">
-        <div class="container">
-          <p class="eyebrow" data-reveal>Where it lives</p>
-          <h2 data-reveal data-reveal-delay="1">The conversation never touches this Mac.</h2>
-          <p class="lede-narrow" data-reveal data-reveal-delay="2">
-            A conversation is a Hermes session, and Hermes is the only place it is kept. Grok
-            Bot reads it back over an SSH tunnel and writes nothing locally: no file, no
-            keychain entry, no localStorage. Close the app, wipe the machine, install it
-            again, and the thread is still there.
-          </p>
-
-          <div class="terminal" data-reveal data-reveal-delay="3">
-            <div class="terminal-bar">
-              <span class="terminal-dot"></span>
-              <span class="terminal-dot"></span>
-              <span class="terminal-dot"></span>
-              <span class="terminal-title">ssh tunnel to the Hermes host</span>
-            </div>
-            <pre class="terminal-body"><code>ssh -o BatchMode=yes -o ExitOnForwardFailure=yes \
-  -N -L 127.0.0.1:18742:127.0.0.1:8642 my-hermes-host</code></pre>
+        <div class="container connect-grid">
+          <div class="connect-copy">
+            <h2 data-reveal>Two fields, then you are in.</h2>
+            <p data-reveal data-reveal-delay="1">
+              The connection is an SSH host and one API key. The key goes to the macOS
+              Keychain, or comes straight from the server. The per-agent keys are made on the
+              host, by the app.
+            </p>
+            <p class="connect-note" data-reveal data-reveal-delay="2">
+              A conversation is a Hermes session, and Hermes is the only place it is kept.
+              Grok Bot writes nothing on this Mac: no file, no keychain entry, no
+              localStorage.
+            </p>
           </div>
 
-          <div class="facts">
-            <div class="fact" data-reveal>
-              <h3>Keychain</h3>
-              <p>
-                The API key is kept in the macOS Keychain, in an item Grok Bot owns. It is
-                never written by the app and never sent anywhere but the host.
-              </p>
+          <div class="settings" data-reveal data-reveal-delay="1">
+            <div class="settings-head">
+              <span class="settings-title">Connection</span>
+              <span class="settings-pill">
+                <span class="app-status-dot" aria-hidden="true"></span>
+                Connected
+              </span>
             </div>
-            <div class="fact" data-reveal data-reveal-delay="1">
-              <h3>Microphone</h3>
-              <p>
-                Dictation is the only thing macOS asks permission for. The words are
-                transcribed on your own host, and they land in the composer so you can read
-                them before sending.
-              </p>
+
+            <div class="settings-row">
+              <span class="settings-label">SSH host</span>
+              <span class="settings-value">my-hermes-host</span>
+              <span class="settings-hint">The machine running Hermes, reached with your SSH config.</span>
             </div>
-            <div class="fact" data-reveal data-reveal-delay="2">
-              <h3>Native chrome</h3>
-              <p>
-                Native traffic lights, a hidden inset title bar, and a window that behaves
-                like the rest of the desktop rather than like a web page in a frame.
-              </p>
+
+            <div class="settings-row">
+              <span class="settings-label">API key</span>
+              <span class="settings-value is-secret">Saved in Keychain</span>
+              <span class="settings-hint">Kept in the macOS Keychain, never written by the app.</span>
+            </div>
+
+            <div class="settings-foot">
+              <span class="settings-reachable">Reachable, Hermes is serving your agents.</span>
+              <span class="settings-button">Test connection</span>
             </div>
           </div>
         </div>
@@ -471,27 +499,24 @@
             <h2 data-reveal>Build it from source.</h2>
             <p data-reveal data-reveal-delay="1">
               Electron, React and TypeScript. The test suite covers the protocol, the
-              transcript reader and the group rules, and the build fails when a line of
-              them stops being exercised.
+              transcript reader and the group rules, and the build fails when a line of them
+              stops being exercised.
             </p>
           </div>
           <div class="closing-actions" data-reveal data-reveal-delay="2">
-            <div class="terminal terminal-compact">
-              <div class="terminal-bar">
-                <span class="terminal-dot"></span>
-                <span class="terminal-dot"></span>
-                <span class="terminal-dot"></span>
-                <span class="terminal-title">terminal</span>
-              </div>
-              <pre class="terminal-body"><code>npm install
-npm run dev</code></pre>
-            </div>
             <a
               class="button button-primary"
               href="https://github.com/AZERDSQ131/Open-Grok-Bot"
               rel="noreferrer noopener"
               target="_blank"
               >Get Grok Bot</a
+            >
+            <a
+              class="button button-ghost"
+              href="https://github.com/AZERDSQ131/Open-Grok-Bot#readme"
+              rel="noreferrer noopener"
+              target="_blank"
+              >Read the README</a
             >
           </div>
         </div>
