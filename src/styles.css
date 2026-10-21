@@ -82,6 +82,13 @@ button:focus-visible {
   background: var(--bg);
 }
 
+/* The app waits for the answer to one question before it shows anything:
+ * has the setup been walked through? Nothing is painted until it knows, so
+ * the window never flickers from empty to full. */
+.app.is-waiting {
+  visibility: hidden;
+}
+
 /* ---------------------------------------------------------------- sidebar */
 
 .sidebar {
