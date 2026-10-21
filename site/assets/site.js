@@ -1,5 +1,5 @@
 /*
- * Grok Bot, project site.
+ * Hermes Bot, project site.
  *
  * The avatars are drawn from the same frames the desktop app draws, so the
  * site and the app never drift apart.
