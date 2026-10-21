@@ -2,47 +2,32 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { HermesProfile, HermesStatus } from './hermes';
 import { AgentAvatar } from './components/AgentAvatar';
 import { botShape, BLOUB_COLOR_OPTIONS } from './components/Bloub';
-import { ColorGrid, ShapeGrid } from './components/LogoControls';
 import { StageBloub } from './components/StageBloub';
 import { BLOUB_SHAPES, type BloubShape } from './components/bloubFrames';
-import { toProfileId } from './components/CreateAgentDialog';
-import { avatarColor, profileColor } from './profileColor';
+import { avatarColor } from './profileColor';
 import type { StateId } from './vendor/bloub/states';
 
 /**
  * The setup: the door the person walks through the first time the app opens.
  *
- * It asks three things — where Hermes lives, the key that opens the door, and
- * who answers on the other side — and it asks them one at a time, because a
- * person who is setting up a machine is already carrying enough.
+ * Four scenes. The welcome, the connection, the first bot, and the door that
+ * opens. The connection is one page: where Hermes lives, the key that opens
+ * it, and the handshake that says whether the two of them are talking.
  *
  * Nothing here is kept by the app but the answer to "has this been done".
  * The connection goes to the app's own record, the key to the Keychain, and
  * the bots stay where they are: on the host.
  */
 
-type StepId = 'welcome' | 'host' | 'key' | 'connect' | 'crew' | 'ready';
+type StepId = 'welcome' | 'setup' | 'bot' | 'ready';
+
+const STEPS: StepId[] = ['welcome', 'setup', 'bot', 'ready'];
 
 /** The colours the actor wears. Every one of them is a colour Hermes has. */
 const ACTOR_COLORS = BLOUB_COLOR_OPTIONS.map((color) => color.hex);
 
 /** How long the actor keeps the same face before it changes its mind. */
 const ACTOR_CHANGE_MS = 2000;
-
-/** Something else from the pool — the actor never stays what it was. */
-function another<T>(current: T, pool: readonly T[]): T {
-  const others = pool.filter((item) => item !== current);
-  return others[Math.floor(Math.random() * others.length)] ?? current;
-}
-
-const STEPS: StepId[] = [
-  'welcome',
-  'host',
-  'key',
-  'connect',
-  'crew',
-  'ready',
-];
 
 /**
  * A scene: what it says, and what the one that acts is doing while it says
@@ -69,35 +54,19 @@ const SCENES: Record<StepId, Scene> = {
     state: 'idle',
     expression: 'curieux',
   },
-  host: {
-    eyebrow: 'The host',
-    title: 'Where does Hermes run?',
-    line: 'The name your SSH already knows.',
+  setup: {
+    eyebrow: 'The setup',
+    title: 'Connect your Hermes.',
+    line: 'Where it lives, and the key that opens it.',
     shape: 'galet',
     state: 'idle',
     expression: 'attentif',
   },
-  key: {
-    eyebrow: 'The key',
-    title: 'The key to the door.',
-    line: 'It stays in the Keychain, and nowhere else.',
-    shape: 'goutte',
-    state: 'idle',
-    expression: 'attentif',
-  },
-  connect: {
-    eyebrow: 'The handshake',
-    title: "Let's shake hands.",
-    line: 'The app opens a tunnel and says hello.',
-    shape: 'squircle',
-    state: 'thinking',
-    expression: 'neutre',
-  },
-  crew: {
+  bot: {
     eyebrow: 'Your crew',
     title: 'Who answers?',
     line: 'The bots Hermes serves on that host.',
-    shape: 'capsule',
+    shape: 'goutte',
     state: 'idle',
     expression: 'heureux',
   },
@@ -111,7 +80,14 @@ const SCENES: Record<StepId, Scene> = {
   },
 };
 
+/** The violet the app wears, and the colour a bot starts from. */
 const DEFAULT_COLOR = '#5b5bda';
+
+/** Something else from the pool — the actor never stays what it was. */
+function another<T>(current: T, pool: readonly T[]): T {
+  const others = pool.filter((item) => item !== current);
+  return others[Math.floor(Math.random() * others.length)] ?? current;
+}
 
 type CheckState = 'waiting' | 'working' | 'done' | 'failed';
 
@@ -172,13 +148,9 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   const [failed, setFailed] = useState(false);
   const [bots, setBots] = useState<HermesProfile[]>([]);
   const [primary, setPrimary] = useState<HermesProfile | undefined>(undefined);
-  const [botName, setBotName] = useState('');
-  const [botFace, setBotFace] = useState<BloubShape>('cercle');
-  const [botColor, setBotColor] = useState(DEFAULT_COLOR);
-  const [botTouched, setBotTouched] = useState(false);
   // The actor changes its mind every couple of seconds: another colour,
   // another shape. The window takes the colour of the actor with it.
-  const [actorColor, setActorColor] = useState('#8b5cf6');
+  const [actorColor, setActorColor] = useState(DEFAULT_COLOR);
   const [actorShape, setActorShape] = useState<BloubShape>('nuage');
 
   const step = STEPS[stepIndex];
@@ -202,12 +174,6 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       cancelled = true;
     };
   }, [bridge]);
-
-  // The face of a new bot follows its name, the way Hermes colours it.
-  useEffect(() => {
-    if (botTouched) return;
-    setBotColor(profileColor(toProfileId(botName)) ?? DEFAULT_COLOR);
-  }, [botName, botTouched]);
 
   // The actor does not stay what it was: on the first page it changes every
   // two seconds, and the light of the window changes with it.
@@ -334,17 +300,10 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     setBusy('none');
   }, [apiKey, apiPort, bridge, host, localPort]);
 
-  // The handshake runs by itself: the person has given the host and the key,
-  // and there is nothing left to decide.
-  useEffect(() => {
-    if (step !== 'connect') return;
-    void runHandshake();
-  }, [runHandshake, step]);
-
   // The crew is read back from the host, the way the app reads everything
   // else: the sidebar is the server's own list of bots.
   useEffect(() => {
-    if (step !== 'crew') return;
+    if (step !== 'bot') return;
     void loadCrew();
   }, [loadCrew, step]);
 
@@ -366,34 +325,6 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     setBusy('none');
   }
 
-  async function handleCreateBot() {
-    if (!bridge?.createBot) return;
-    const title = botName.trim();
-    if (!title) return;
-    setBusy('bot');
-    setError('');
-    setNotice('');
-    const result = await bridge
-      .createBot({
-        name: toProfileId(title),
-        title,
-        color: botTouched ? botColor : undefined,
-        shape: botFace,
-        description: 'Bot created from the Hermes Bot setup',
-      })
-      .catch((reason: Error) => ({ ok: false, error: reason.message }));
-    if (!result.ok) {
-      setError(result.error ?? 'The bot could not be created.');
-      setBusy('none');
-      return;
-    }
-    setBotName('');
-    setBotTouched(false);
-    setNotice(`${title} is on the host.`);
-    setBusy('none');
-    await loadCrew();
-  }
-
   async function remember(completed: boolean) {
     try {
       await bridge?.setOnboarding?.({ completed });
@@ -413,38 +344,65 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     onDismiss();
   }
 
+  const canTest =
+    host.trim() !== '' && (hasKey || apiKey.trim() !== '');
   const canContinue = useMemo(() => {
     switch (step) {
-      case 'host':
-        return host.trim() !== '';
-      case 'key':
-        return hasKey || apiKey.trim() !== '';
-      case 'connect':
+      case 'setup':
         return connected;
+      case 'bot':
+        return true;
       default:
         return true;
     }
-  }, [apiKey, connected, hasKey, host, step]);
+  }, [connected, step]);
 
   const isLast = stepIndex === STEPS.length - 1;
+  const testing = step === 'setup' && !connected;
   const tunnelCommand = `ssh -N -L 127.0.0.1:${
     localPort || '18742'
   }:127.0.0.1:${apiPort || '8642'} ${host || '<host>'}`;
-  const crewSummary = useMemo(() => {
-    const count = bots.length + (primary ? 1 : 0);
-    if (!count) return 'the default one';
-    return `${count} ${count === 1 ? 'bot' : 'bots'}`;
-  }, [bots.length, primary]);
 
   // The actor reacts to what happens: it thinks while the tunnel opens, and
   // it celebrates when the host answers.
   const actor = useMemo(() => {
-    if (step === 'welcome') return { ...scene, shape: actorShape };
-    if (step !== 'connect') return scene;
-    if (failed) return { ...scene, state: 'alert' as StateId, expression: 'neutre' };
-    if (connected) return { ...scene, state: 'wide' as StateId, expression: 'heureux' };
-    return scene;
-  }, [actorShape, connected, failed, scene, step]);
+    const base =
+      step === 'welcome' ? { ...scene, shape: actorShape } : scene;
+    if (step !== 'setup') return base;
+    if (failed) return { ...base, state: 'alert' as StateId };
+    if (connected) return { ...base, state: 'wide' as StateId };
+    if (busy === 'handshake') return { ...base, state: 'thinking' as StateId };
+    return base;
+  }, [actorShape, busy, connected, failed, scene, step]);
+
+  // The light of the window follows the actor.
+  const light = actorColor;
+
+  const crewSummary = useMemo(() => {
+    const count = bots.length + (primary ? 1 : 0);
+    if (!count) return 'none yet';
+    return `${count} ${count === 1 ? 'bot' : 'bots'}`;
+  }, [bots.length, primary]);
+
+  const primaryLabel = isLast
+    ? 'Start talking'
+    : step === 'welcome'
+      ? 'Begin'
+      : testing
+        ? 'Test the connection'
+        : 'Continue';
+
+  function handlePrimary() {
+    if (isLast) {
+      void handleFinish();
+      return;
+    }
+    if (testing) {
+      void runHandshake();
+      return;
+    }
+    goTo(stepIndex + 1);
+  }
 
   return (
     <div
@@ -452,16 +410,17 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="onboarding-title"
-      style={{ '--actor-color': actorColor } as React.CSSProperties}
+      style={{ '--actor-color': light } as React.CSSProperties}
       onKeyDown={(event) => {
         if (event.key !== 'Enter') return;
         if (event.metaKey || event.ctrlKey || event.altKey) return;
         const target = event.target as HTMLElement | null;
         if (target?.tagName === 'TEXTAREA') return;
         event.preventDefault();
-        if (!canContinue || busy !== 'none') return;
-        if (isLast) void handleFinish();
-        else goTo(stepIndex + 1);
+        if (busy !== 'none') return;
+        if (testing && !canTest) return;
+        if (!testing && !canContinue) return;
+        handlePrimary();
       }}
     >
       <div className="onboarding-sky" aria-hidden="true">
@@ -505,18 +464,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
           </h1>
           <p className="onboarding-line">{scene.line}</p>
 
-          {step === 'welcome' ? (
-            <ul className="onboarding-marks">
-              {(['host', 'key', 'crew'] as StepId[]).map((entry, index) => (
-                <li key={entry} className="onboarding-mark">
-                  <span className="onboarding-mark-index">{index + 1}</span>
-                  {SCENES[entry].eyebrow}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-
-          {step === 'host' ? (
+          {step === 'setup' ? (
             <>
               <div className="onboarding-field">
                 <label
@@ -539,13 +487,51 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                 />
               </div>
 
+              <div className="onboarding-field">
+                <label
+                  className="onboarding-field-label"
+                  htmlFor="setup-key"
+                >
+                  API key
+                </label>
+                <input
+                  id="setup-key"
+                  type="password"
+                  value={apiKey}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="API_SERVER_KEY"
+                  onChange={(event) => {
+                    setApiKey(event.target.value);
+                    setError('');
+                    setNotice('');
+                  }}
+                />
+              </div>
+
+              <div className="onboarding-actions">
+                <button
+                  type="button"
+                  className="onboarding-button is-quiet"
+                  disabled={busy !== 'none' || !host.trim()}
+                  onClick={() => void handleImport()}
+                >
+                  {busy === 'import' ? 'Reading…' : `Read it from ${host}`}
+                </button>
+                {hasKey ? (
+                  <span className="onboarding-stamp">In the Keychain</span>
+                ) : null}
+              </div>
+
               <button
                 type="button"
                 className="onboarding-link"
                 aria-expanded={advanced}
                 onClick={() => setAdvanced((current) => !current)}
               >
-                {advanced ? 'Hide the ports' : 'The ports, if they are not the usual ones'}
+                {advanced
+                  ? 'Hide the ports'
+                  : 'The ports, if they are not the usual ones'}
               </button>
 
               {advanced ? (
@@ -589,51 +575,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                   <code className="onboarding-command">{tunnelCommand}</code>
                 </div>
               ) : null}
-            </>
-          ) : null}
 
-          {step === 'key' ? (
-            <>
-              <div className="onboarding-field">
-                <label
-                  className="onboarding-field-label"
-                  htmlFor="setup-key"
-                >
-                  API key
-                </label>
-                <input
-                  id="setup-key"
-                  type="password"
-                  value={apiKey}
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder="API_SERVER_KEY"
-                  onChange={(event) => {
-                    setApiKey(event.target.value);
-                    setError('');
-                    setNotice('');
-                  }}
-                />
-              </div>
-
-              <div className="onboarding-actions">
-                <button
-                  type="button"
-                  className="onboarding-button is-quiet"
-                  disabled={busy !== 'none' || !host.trim()}
-                  onClick={() => void handleImport()}
-                >
-                  {busy === 'import' ? 'Reading…' : `Read it from ${host}`}
-                </button>
-                {hasKey ? (
-                  <span className="onboarding-stamp">In the Keychain</span>
-                ) : null}
-              </div>
-            </>
-          ) : null}
-
-          {step === 'connect' ? (
-            <>
               <ul className="onboarding-checks">
                 {checks.map((check) => (
                   <li
@@ -668,99 +610,47 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
             </>
           ) : null}
 
-          {step === 'crew' ? (
+          {step === 'bot' ? (
             <>
-              <ul className="onboarding-crew">
-                {primary ? (
-                  <li className="onboarding-crew-item">
-                    <AgentAvatar
-                      avatar={{
-                        color: avatarColor(primary.color, 'default'),
-                        shape: botShape(primary.shape),
-                      }}
-                      size={44}
-                      showBadge={false}
-                    />
-                    <span className="onboarding-crew-name">
-                      {primary.title?.trim() || 'Chief of Staff'}
-                    </span>
-                  </li>
-                ) : null}
-                {bots.map((bot) => (
-                  <li key={bot.name} className="onboarding-crew-item">
-                    <AgentAvatar
-                      avatar={{
-                        color: avatarColor(bot.color, bot.name),
-                        shape: botShape(bot.shape),
-                      }}
-                      size={44}
-                      showBadge={false}
-                    />
-                    <span className="onboarding-crew-name">
-                      {bot.title?.trim() || bot.name}
-                    </span>
-                  </li>
-                ))}
-                {!primary && !bots.length ? (
-                  <li className="onboarding-crew-empty">
-                    The host answered, but it serves no bot yet.
-                  </li>
-                ) : null}
-              </ul>
+              {primary || bots.length ? (
+                <ul className="onboarding-crew">
+                  {primary ? (
+                    <li className="onboarding-crew-item">
+                      <AgentAvatar
+                        avatar={{
+                          color: avatarColor(primary.color, 'default'),
+                          shape: botShape(primary.shape),
+                        }}
+                        size={40}
+                        showBadge={false}
+                      />
+                      <span className="onboarding-crew-name">
+                        {primary.title?.trim() || 'Chief of Staff'}
+                      </span>
+                    </li>
+                  ) : null}
+                  {bots.map((bot) => (
+                    <li key={bot.name} className="onboarding-crew-item">
+                      <AgentAvatar
+                        avatar={{
+                          color: avatarColor(bot.color, bot.name),
+                          shape: botShape(bot.shape),
+                        }}
+                        size={40}
+                        showBadge={false}
+                      />
+                      <span className="onboarding-crew-name">
+                        {bot.title?.trim() || bot.name}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="onboarding-empty">
+                  Nothing answers yet. The first bot is yours to make.
+                </p>
+              )}
 
-              <details className="onboarding-maker">
-                <summary>Make another bot</summary>
-                <div className="onboarding-field">
-                  <label
-                    className="onboarding-field-label"
-                    htmlFor="setup-bot-name"
-                  >
-                    Bot name
-                  </label>
-                  <input
-                    id="setup-bot-name"
-                    type="text"
-                    value={botName}
-                    maxLength={64}
-                    spellCheck={false}
-                    placeholder="e.g. Research assistant"
-                    onChange={(event) => {
-                      setBotName(event.target.value);
-                      setError('');
-                    }}
-                  />
-                </div>
-
-                <div className="onboarding-maker-grid">
-                  <div className="onboarding-maker-picker">
-                    <span className="onboarding-field-label">Shape</span>
-                    <ShapeGrid
-                      value={botFace}
-                      color={botColor}
-                      onChange={setBotFace}
-                    />
-                  </div>
-                  <div className="onboarding-maker-picker">
-                    <span className="onboarding-field-label">Colour</span>
-                    <ColorGrid
-                      value={botColor}
-                      onChange={(next) => {
-                        setBotTouched(true);
-                        setBotColor(next);
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="onboarding-button is-quiet"
-                  disabled={busy !== 'none' || !botName.trim()}
-                  onClick={() => void handleCreateBot()}
-                >
-                  {busy === 'bot' ? 'Creating…' : 'Create the bot'}
-                </button>
-              </details>
             </>
           ) : null}
 
@@ -781,7 +671,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
             </ul>
           ) : null}
 
-          {error && step !== 'connect' ? (
+          {error && step !== 'setup' ? (
             <p className="onboarding-error is-alone">{error}</p>
           ) : null}
           {notice ? <p className="onboarding-notice">{notice}</p> : null}
@@ -830,17 +720,10 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
           <button
             type="button"
             className="onboarding-button is-primary"
-            disabled={!canContinue || busy !== 'none'}
-            onClick={() => {
-              if (isLast) void handleFinish();
-              else goTo(stepIndex + 1);
-            }}
+            disabled={busy !== 'none' || (testing ? !canTest : !canContinue)}
+            onClick={handlePrimary}
           >
-            {isLast
-              ? 'Start talking'
-              : step === 'welcome'
-                ? 'Begin'
-                : 'Continue'}
+            {busy === 'handshake' ? 'Connecting…' : primaryLabel}
           </button>
         </div>
       </footer>

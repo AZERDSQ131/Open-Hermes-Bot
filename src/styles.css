@@ -3282,8 +3282,7 @@ button:focus-visible {
   pointer-events: none;
 }
 
-/* A lamp is a circle of colour, blurred until it is light. The big one
-   wears the colour of the actor: the window changes with it. */
+/* A lamp is a circle of colour, blurred until it is light. */
 .onboarding-glow {
   position: absolute;
   width: 760px;
@@ -3835,38 +3834,17 @@ button:focus-visible {
 
 .onboarding-maker {
   width: 100%;
-  margin-top: 22px;
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.025);
   text-align: left;
   animation: onboarding-rise 620ms 300ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
-.onboarding-maker summary {
-  display: inline-block;
-  padding: 8px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 999px;
-  color: #9c9ca4;
-  font-size: 13px;
-  cursor: pointer;
-  list-style: none;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
-}
-
-.onboarding-maker summary::-webkit-details-marker {
-  display: none;
-}
-
-.onboarding-maker summary:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #d6d6db;
-}
-
-.onboarding-maker[open] summary {
-  margin-bottom: 4px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #d6d6db;
+.onboarding-maker .onboarding-field {
+  margin-top: 0;
 }
 
 .onboarding-maker-grid {
@@ -3874,7 +3852,7 @@ button:focus-visible {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 22px;
   align-items: start;
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
 .onboarding-maker-picker {
@@ -3884,7 +3862,19 @@ button:focus-visible {
 }
 
 .onboarding-maker .onboarding-button {
-  margin-top: 16px;
+  margin-top: 18px;
+}
+
+.onboarding-empty {
+  width: 100%;
+  margin: 26px 0 0;
+  padding: 18px;
+  border: 1px dashed rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  color: #6f6f76;
+  font-size: 14px;
+  line-height: 1.5;
+  animation: onboarding-rise 620ms 240ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
 .onboarding-facts {

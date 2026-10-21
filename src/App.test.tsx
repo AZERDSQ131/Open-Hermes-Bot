@@ -1262,9 +1262,10 @@ describe('the setup', () => {
       await screen.findByRole('button', { name: 'Begin' }),
     );
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
-    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await userEvent.type(screen.getByLabelText('API key'), 'sk-secret');
-    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Test the connection' }),
+    );
     await waitFor(() => expect(bridge.connect).toHaveBeenCalled());
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
