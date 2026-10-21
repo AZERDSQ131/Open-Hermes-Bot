@@ -115,7 +115,6 @@ describe('a recorder that is asked for its bytes too early', () => {
   });
 
   it('is not upset when the recorder is already done', async () => {
-    const broken = { ...FakeRecorder.prototype };
     class Broken extends FakeRecorder {
       stop = vi.fn(() => {
         throw new Error('already done');
