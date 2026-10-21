@@ -173,6 +173,11 @@ Nothing about a conversation is written on this machine — no file, no keychain
 `localStorage` — so the app can be closed, wiped or replaced and the conversation is
 still there, on the host that owns it.
 
+That is the boundary: Hermes is the harness — it decides what the bot does next,
+calls the model and runs the tools — and this app is the interface, which writes
+the turn, draws what comes back, and keeps the room the bots share. Neither one
+holds the other's work.
+
 A group is not a Hermes object, so it is rebuilt from the titles of its members’
 conversations: a private conversation carries the bot's name, a group member’s
 carries `Group · <group> · <member>`. Renaming a bot or a group renames those
