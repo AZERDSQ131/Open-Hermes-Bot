@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { HermesProfile, HermesStatus } from './hermes';
+import type { HermesStatus } from './hermes';
 import { AgentAvatar } from './components/AgentAvatar';
-import { botShape, BLOUB_COLOR_OPTIONS } from './components/Bloub';
+import { BLOUB_COLOR_OPTIONS } from './components/Bloub';
 import { ColorGrid, ShapeGrid } from './components/LogoControls';
 import { StageBloub } from './components/StageBloub';
 import { BLOUB_SHAPES, type BloubShape } from './components/bloubFrames';
@@ -21,9 +21,16 @@ import type { StateId } from './vendor/bloub/states';
  * the bots stay where they are: on the host.
  */
 
-type StepId = 'welcome' | 'setup' | 'bot' | 'ready';
+type StepId = 'welcome' | 'setup' | 'name' | 'face' | 'colour' | 'ready';
 
-const STEPS: StepId[] = ['welcome', 'setup', 'bot', 'ready'];
+const STEPS: StepId[] = [
+  'welcome',
+  'setup',
+  'name',
+  'face',
+  'colour',
+  'ready',
+];
 
 /** The colours the actor wears. Every one of them is a colour Hermes has. */
 const ACTOR_COLORS = BLOUB_COLOR_OPTIONS.map((color) => color.hex);
@@ -64,11 +71,27 @@ const SCENES: Record<StepId, Scene> = {
     state: 'idle',
     expression: 'attentif',
   },
-  bot: {
+  name: {
     eyebrow: 'Your first bot',
-    title: 'Give it a face.',
-    line: 'A bot is a profile on the host: its own key, its own memory.',
+    title: 'What is it called?',
+    line: 'The name you will call it by.',
     shape: 'goutte',
+    state: 'idle',
+    expression: 'attentif',
+  },
+  face: {
+    eyebrow: 'Its face',
+    title: 'What shape?',
+    line: 'The face it wears, everywhere it shows up.',
+    shape: 'galet',
+    state: 'idle',
+    expression: 'curieux',
+  },
+  colour: {
+    eyebrow: 'Its colour',
+    title: 'What colour?',
+    line: 'Hermes keeps it, and the app paints it with it.',
+    shape: 'squircle',
     state: 'idle',
     expression: 'heureux',
   },
@@ -156,8 +179,6 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   const [checks, setChecks] = useState<Check[]>(emptyChecks);
   const [connected, setConnected] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [bots, setBots] = useState<HermesProfile[]>([]);
-  const [primary, setPrimary] = useState<HermesProfile | undefined>(undefined);
   const [madeBot, setMadeBot] = useState<MadeBot | null>(null);
   const [botName, setBotName] = useState('');
   const [botFace, setBotFace] = useState<BloubShape>('cercle');
@@ -216,19 +237,6 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     },
     [stepIndex],
   );
-
-  const loadCrew = useCallback(async () => {
-    if (!bridge?.profiles) return;
-    try {
-      const result = await bridge.profiles();
-      if (!result.ok) return;
-      setBots(result.profiles ?? []);
-      setPrimary(result.primary);
-    } catch {
-      // A crew that cannot be listed is not a reason to block the setup: the
-      // app asks the server again once it is open.
-    }
-  }, [bridge]);
 
   const runHandshake = useCallback(async () => {
     if (!bridge?.test) return;
@@ -321,13 +329,6 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     setBusy('none');
   }, [apiKey, apiPort, bridge, host, localPort]);
 
-  // The crew is read back from the host, the way the app reads everything
-  // else: the sidebar is the server's own list of bots.
-  useEffect(() => {
-    if (step !== 'bot') return;
-    void loadCrew();
-  }, [loadCrew, step]);
-
   async function handleImport() {
     if (!bridge?.importKey) return;
     setBusy('import');
@@ -346,10 +347,10 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     setBusy('none');
   }
 
-  async function handleCreateBot() {
-    if (!bridge?.createBot) return;
+  async function handleCreateBot(): Promise<boolean> {
+    if (!bridge?.createBot) return false;
     const title = botName.trim();
-    if (!title) return;
+    if (!title) return false;
     setBusy('bot');
     setError('');
     setNotice('');
@@ -371,7 +372,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     if (!result.ok) {
       setError(result.error ?? 'The bot could not be created.');
       setBusy('none');
-      return;
+      return false;
     }
     const name = result.name || toProfileId(title);
     setMadeBot({
@@ -382,9 +383,8 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     });
     setBotName('');
     setBotTouched(false);
-    setNotice(`${title} is on the host.`);
     setBusy('none');
-    await loadCrew();
+    return true;
   }
 
   async function remember(completed: boolean) {
@@ -412,14 +412,16 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     switch (step) {
       case 'setup':
         return connected;
-      case 'bot':
-        // A machine that has just been installed has no bot yet: the person
-        // makes the first one before the door opens.
-        return Boolean(madeBot) || bots.length > 0 || Boolean(primary);
+      case 'name':
+        // The bot is not the point of the setup: the person can leave it
+        // alone and talk to the default bot instead.
+        return botName.trim() !== '' || madeBot !== null;
+      case 'colour':
+        return botName.trim() !== '' || madeBot !== null;
       default:
         return true;
     }
-  }, [bots.length, connected, madeBot, primary, step]);
+  }, [botName, connected, madeBot, step]);
 
   const isLast = stepIndex === STEPS.length - 1;
   const testing = step === 'setup' && !connected;
@@ -430,18 +432,29 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   // The actor reacts to what happens: it thinks while the tunnel opens, and
   // it celebrates when the host answers.
   const actor = useMemo(() => {
+    // The actor is the bot while the bot is being made: it takes the shape
+    // that is being picked, and the colour that is being picked.
     const base =
-      step === 'welcome' ? { ...scene, shape: actorShape } : scene;
+      step === 'welcome'
+        ? { ...scene, shape: actorShape }
+        : step === 'face'
+          ? { ...scene, shape: botFace }
+          : scene;
     if (step !== 'setup') return base;
     if (failed) return { ...base, state: 'alert' as StateId };
     if (connected) return { ...base, state: 'wide' as StateId };
     if (busy === 'handshake') return { ...base, state: 'thinking' as StateId };
     return base;
-  }, [actorShape, busy, connected, failed, scene, step]);
+  }, [actorShape, botFace, busy, connected, failed, scene, step]);
 
   // The light of the window follows the actor, and the last scene follows the
   // bot the person made.
-  const light = step === 'ready' && madeBot ? madeBot.color : actorColor;
+  const light =
+    step === 'ready'
+      ? (madeBot?.color ?? actorColor)
+      : step === 'colour'
+        ? botColor
+        : actorColor;
 
   const primaryLabel = isLast
     ? 'Start talking'
@@ -449,16 +462,24 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       ? 'Begin'
       : testing
         ? 'Test the connection'
-        : 'Continue';
+        : step === 'colour' && !madeBot
+          ? 'Make the bot'
+          : 'Continue';
 
-  function handlePrimary() {
+  async function handlePrimary() {
     if (isLast) {
-      void handleFinish();
+      await handleFinish();
       return;
     }
     if (testing) {
-      void runHandshake();
+      await runHandshake();
       return;
+    }
+    if (step === 'colour' && !madeBot) {
+      // The bot is made on the way out: the person sees it appear on the
+      // last page, not a form that says it was made.
+      const made = await handleCreateBot();
+      if (!made) return;
     }
     goTo(stepIndex + 1);
   }
@@ -479,7 +500,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
         if (busy !== 'none') return;
         if (testing && !canTest) return;
         if (!testing && !canContinue) return;
-        handlePrimary();
+        void handlePrimary();
       }}
     >
       <div className="onboarding-sky" aria-hidden="true">
@@ -680,100 +701,58 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
             </>
           ) : null}
 
-          {step === 'bot' ? (
+          {step === 'name' ? (
             <>
-              {primary || bots.length ? (
-                <ul className="onboarding-crew">
-                  {primary ? (
-                    <li className="onboarding-crew-item">
-                      <AgentAvatar
-                        avatar={{
-                          color: avatarColor(primary.color, 'default'),
-                          shape: botShape(primary.shape),
-                        }}
-                        size={40}
-                        showBadge={false}
-                      />
-                      <span className="onboarding-crew-name">
-                        {primary.title?.trim() || 'Chief of Staff'}
-                      </span>
-                    </li>
-                  ) : null}
-                  {bots.map((bot) => (
-                    <li key={bot.name} className="onboarding-crew-item">
-                      <AgentAvatar
-                        avatar={{
-                          color: avatarColor(bot.color, bot.name),
-                          shape: botShape(bot.shape),
-                        }}
-                        size={40}
-                        showBadge={false}
-                      />
-                      <span className="onboarding-crew-name">
-                        {bot.title?.trim() || bot.name}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="onboarding-empty">
-                  Nothing answers yet. The first bot is yours to make.
-                </p>
-              )}
-
-              <div className="onboarding-maker">
-                <div className="onboarding-field">
-                  <label
-                    className="onboarding-field-label"
-                    htmlFor="setup-bot-name"
-                  >
-                    Its name
-                  </label>
-                  <input
-                    id="setup-bot-name"
-                    type="text"
-                    value={botName}
-                    maxLength={64}
-                    spellCheck={false}
-                    placeholder="e.g. Research assistant"
-                    onChange={(event) => {
-                      setBotName(event.target.value);
-                      setError('');
-                    }}
-                  />
-                </div>
-
-                <div className="onboarding-maker-grid">
-                  <div className="onboarding-maker-picker">
-                    <span className="onboarding-field-label">Shape</span>
-                    <ShapeGrid
-                      value={botFace}
-                      color={botColor}
-                      onChange={setBotFace}
-                    />
-                  </div>
-                  <div className="onboarding-maker-picker">
-                    <span className="onboarding-field-label">Colour</span>
-                    <ColorGrid
-                      value={botColor}
-                      onChange={(next) => {
-                        setBotTouched(true);
-                        setBotColor(next);
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="onboarding-button is-quiet"
-                  disabled={busy !== 'none' || !botName.trim()}
-                  onClick={() => void handleCreateBot()}
+              <div className="onboarding-field is-centred">
+                <label
+                  className="onboarding-field-label"
+                  htmlFor="setup-bot-name"
                 >
-                  {busy === 'bot' ? 'Creating…' : 'Create the bot'}
-                </button>
+                  Its name
+                </label>
+                <input
+                  id="setup-bot-name"
+                  type="text"
+                  value={botName}
+                  maxLength={64}
+                  spellCheck={false}
+                  placeholder="e.g. Research assistant"
+                  onChange={(event) => {
+                    setBotName(event.target.value);
+                    setError('');
+                  }}
+                />
               </div>
+              <button
+                type="button"
+                className="onboarding-link"
+                onClick={() => goTo(STEPS.length - 1)}
+              >
+                Not now
+              </button>
             </>
+          ) : null}
+
+          {step === 'face' ? (
+            <div className="onboarding-picker">
+              <ShapeGrid
+                value={botFace}
+                color={botColor}
+                onChange={setBotFace}
+              />
+            </div>
+          ) : null}
+
+          {step === 'colour' ? (
+            <div className="onboarding-picker">
+              <ColorGrid
+                value={botColor}
+                onChange={(next) => {
+                  setBotTouched(true);
+                  setBotColor(next);
+                }}
+              />
+            </div>
           ) : null}
 
           {step === 'ready' ? (
@@ -845,7 +824,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
             type="button"
             className="onboarding-button is-primary"
             disabled={busy !== 'none' || (testing ? !canTest : !canContinue)}
-            onClick={handlePrimary}
+            onClick={() => void handlePrimary()}
           >
             {busy === 'handshake' ? 'Connecting…' : primaryLabel}
           </button>
