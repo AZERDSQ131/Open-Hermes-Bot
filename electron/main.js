@@ -1029,6 +1029,84 @@ ipcMain.handle('hermes:attachment:upload', async (_event, payload) => {
   };
 });
 
+// The dictation: the browser's own speech service is not an option — the key
+// Chromium carries is refused by the service, and a refusal looks exactly like
+// a broken connection. Hermes transcribes instead: the recording is copied to
+// the server and handed to the transcription Hermes already has.
+const TRANSCRIBE_VOICE_PYTHON = `import json
+import sys
+
+sys.path.insert(0, "/home/jules/.hermes/hermes-agent")
+
+from tools.transcription_tools import transcribe_audio
+
+try:
+    print(json.dumps(transcribe_audio(sys.argv[1]), separators=(",", ":")))
+except Exception as exc:
+    print(json.dumps({"success": False, "transcript": "", "error": str(exc)}, separators=(",", ":")))
+`;
+
+ipcMain.handle('hermes:voice:transcribe', async (_event, payload) => {
+  const data = String(payload?.data ?? '');
+  const mimeType = String(payload?.mimeType ?? 'audio/webm');
+  if (!data) return { ok: false, error: 'Nothing was recorded' };
+  const bytes = Buffer.from(data, 'base64');
+  if (!bytes.length) return { ok: false, error: 'Nothing was recorded' };
+  if (bytes.length > ATTACHMENT_MAX_BYTES) {
+    return { ok: false, error: 'The recording is too large (8 MB max)' };
+  }
+  const extension = mimeType.includes('wav') ? 'wav' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+  const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
+  const remote = `"$HOME/.hermes/attachments/${stamp}-voice.${extension}"`;
+  const script = Buffer.from(TRANSCRIBE_VOICE_PYTHON, 'utf8').toString('base64');
+  const connection = storedConnection();
+  const result = await runSsh(
+    connection.sshHost,
+    [
+      `printf %s ${shellQuote(script)} | base64 -d > /tmp/grokbot-voice.py`,
+      'mkdir -p "$HOME/.hermes/attachments"',
+      `cat > ${remote}`,
+      // Hermes runs with its own python and its own dependencies: the ones the
+      // gateway was started with are the ones that can transcribe.
+      'PY=$(ls "$HOME"/.hermes/tools/python-*/bin/python3 2>/dev/null | head -1)',
+      'PP=$(ls -d "$HOME"/.hermes/cache/uv/archive-v0/*/ 2>/dev/null | tr "\\n" ":")',
+      `cd "$HOME/.hermes/hermes-agent" && PYTHONPATH="$PP" "$PY" /tmp/grokbot-voice.py ${remote}`,
+      'rm -f /tmp/grokbot-voice.py',
+    ].join('\n'),
+    180000,
+    bytes,
+  );
+  if (!result.ok) {
+    return {
+      ok: false,
+      error:
+        result.stderr.trim() ||
+        result.error ||
+        'The recording could not be transcribed on the server',
+    };
+  }
+  const answer = lastJsonObject(result.stdout);
+  if (!answer) {
+    return {
+      ok: false,
+      error:
+        result.stderr.trim() ||
+        'The server did not answer with a transcription',
+    };
+  }
+  if (!answer.success) {
+    return {
+      ok: false,
+      error: String(answer.error || 'The recording could not be transcribed'),
+    };
+  }
+  const transcript = String(answer.transcript || '').trim();
+  if (!transcript) {
+    return { ok: false, error: 'Nothing was heard.' };
+  }
+  return { ok: true, transcript };
+});
+
 // Model inventory for the picker. Hermes answers with one row per provider;
 // only the authenticated ones can actually run a turn, so those are the ones
 // worth offering, plus whatever is currently configured.

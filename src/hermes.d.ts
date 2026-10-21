@@ -157,6 +157,12 @@ export type HermesBridge = {
     bytes?: number;
     error?: string;
   }>;
+  /** Hands a recording to Hermes, which transcribes it. */
+  transcribeVoice: (payload: {
+    /** The recording, base64 encoded. */
+    data: string;
+    mimeType?: string;
+  }) => Promise<{ ok: boolean; transcript?: string; error?: string }>;
   models: (payload: { profile?: string }) => Promise<HermesModelList>;
   profiles: () => Promise<HermesProfileList>;
   sendChat: (payload: {

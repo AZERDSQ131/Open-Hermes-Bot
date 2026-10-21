@@ -35,11 +35,7 @@ import type {
   HermesStatus,
 } from './hermes';
 import { defaultModelPick, profileKey } from './modelPrefs';
-import {
-  dictationErrorText,
-  speechRecognition,
-  type Dictation,
-} from './dictation';
+import { blobToBase64, startRecording, type Recording } from './recording';
 import {
   findSession,
   groupSeeds,
@@ -2436,55 +2432,62 @@ export default function App() {
     event.target.value = '';
   }
 
-  // The dictation runs while the person talks; the words land in the composer.
-  const dictationRef = useRef<Dictation | null>(null);
+  // The dictation: the app records, Hermes writes it down.
+  const recordingRef = useRef<Recording | null>(null);
   const [dictationNote, setDictationNote] = useState('');
 
-  function startDictation() {
-    const Recognition = speechRecognition();
-    if (!Recognition) {
-      setDictationNote('This build of Electron cannot listen.');
-      return;
-    }
+  async function startDictation() {
     setDictationNote('');
-    const recognition = new Recognition();
-    recognition.lang = 'fr-FR';
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    // The text already in the composer stays; the dictation is added to it.
-    const base = draft.trim();
-    recognition.onresult = (event) => {
-      let said = '';
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        said += event.results[index][0].transcript;
-      }
-      const spoken = said.trim();
-      if (!spoken) return;
-      setDraft(base ? `${base} ${spoken}` : spoken);
-    };
-    recognition.onerror = (event) => {
-      setDictationNote(dictationErrorText(event.error));
-      setListening(false);
-    };
-    recognition.onend = () => {
-      dictationRef.current = null;
-      setListening(false);
-    };
-    dictationRef.current = recognition;
     try {
-      recognition.start();
+      recordingRef.current = await startRecording();
       setListening(true);
-    } catch {
-      dictationRef.current = null;
-      setDictationNote('The microphone could not be started.');
+    } catch (reason) {
+      recordingRef.current = null;
       setListening(false);
+      setDictationNote(
+        reason instanceof Error && reason.name === 'NotAllowedError'
+          ? 'The microphone is not allowed. macOS asks for permission the first time.'
+          : 'The microphone could not be started.',
+      );
     }
   }
 
-  function stopDictation() {
-    dictationRef.current?.stop();
-    dictationRef.current = null;
+  // The recording is handed to Hermes, which transcribes it; the words land in
+  // the composer, where the person can read them before sending.
+  async function stopDictation() {
+    const recording = recordingRef.current;
+    recordingRef.current = null;
     setListening(false);
+    if (!recording) return;
+    recording.stop();
+    const bridge = window.hermes;
+    if (!bridge?.transcribeVoice) {
+      setDictationNote('This build cannot transcribe a recording.');
+      return;
+    }
+    setDictationNote('Transcribing…');
+    try {
+      const blob = await recording.blob();
+      const data = await blobToBase64(blob);
+      const result = await bridge.transcribeVoice({
+        data,
+        mimeType: recording.mimeType,
+      });
+      if (!result.ok || !result.transcript) {
+        setDictationNote(result.error ?? 'The recording could not be transcribed.');
+        return;
+      }
+      const said = result.transcript.trim();
+      const base = draft.trim();
+      setDraft(base ? `${base} ${said}` : said);
+      setDictationNote('');
+    } catch (reason) {
+      setDictationNote(
+        reason instanceof Error && reason.message
+          ? reason.message
+          : 'The recording could not be transcribed.',
+      );
+    }
   }
 
   function toggleListening() {

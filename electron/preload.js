@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('hermes', {
   deleteSession: (payload) => ipcRenderer.invoke('hermes:session:delete', payload),
   uploadAttachment: (payload) =>
     ipcRenderer.invoke('hermes:attachment:upload', payload),
+  transcribeVoice: (payload) =>
+    ipcRenderer.invoke('hermes:voice:transcribe', payload),
   createSession: (payload) => ipcRenderer.invoke('hermes:session', payload),
   sessions: (payload) => ipcRenderer.invoke('hermes:sessions', payload),
   messages: (payload) => ipcRenderer.invoke('hermes:messages', payload),
