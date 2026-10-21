@@ -6,6 +6,8 @@
  * We never re-draw an avatar by hand: the site renders the same geometry the
  * desktop app renders.
  *
+ * Needs esbuild, which comes with Vite.
+ *
  * Usage: node site/tools/extract-bloub.mjs
  */
 import { build } from 'esbuild';

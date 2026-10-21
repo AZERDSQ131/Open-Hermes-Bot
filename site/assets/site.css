@@ -420,7 +420,7 @@ svg {
 
 .app-body {
   display: grid;
-  height: 520px;
+  height: 548px;
   grid-template-columns: 208px minmax(0, 1fr);
 }
 
@@ -579,6 +579,7 @@ svg {
   font-size: 13.5px;
   letter-spacing: -0.004em;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .app-bubble.is-assistant {
@@ -1311,6 +1312,23 @@ svg {
   font-weight: 500;
 }
 
+.settings-value-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-tag {
+  display: inline-flex;
+  height: 24px;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill);
+  color: #b8b8bf;
+  font-size: 11.5px;
+}
+
 .settings-value.is-secret {
   color: #b6b6bd;
 }
@@ -1377,6 +1395,13 @@ svg {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+}
+
+.closing-note {
+  flex: 1 0 100%;
+  color: var(--text-3);
+  font-size: 13.5px;
+  line-height: 1.5;
 }
 
 /* --------------------------------------------------------------- footer */
@@ -1485,7 +1510,9 @@ svg {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .faces-grid {
+  .faces-grid,
+  .models-grid,
+  .connect-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -1499,19 +1526,28 @@ svg {
     justify-content: space-between;
   }
 
-  .rescue {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .rescue-arrow {
-    justify-self: start;
-    transform: rotate(90deg);
-  }
-
-  .model-notes,
-  .facts,
+  .models-grid,
+  .connect-grid,
   .footer-inner {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .split-lists {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .split-list + .split-list {
+    padding-left: 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .split-list {
+    padding: 24px 0 26px;
+  }
+
+  .zero-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .protocol {
@@ -1530,8 +1566,8 @@ svg {
   }
 
   .app-body {
-    height: 380px;
-    grid-template-columns: 64px minmax(0, 1fr);
+    height: 470px;
+    grid-template-columns: 56px minmax(0, 1fr);
   }
 
   .app-sidebar .app-search,

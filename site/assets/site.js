@@ -148,6 +148,11 @@
   ];
 
   function animate(el, shape) {
+    if (el.bloubTimer) {
+      window.clearTimeout(el.bloubTimer);
+      el.bloubTimer = 0;
+    }
+
     var step = 0;
 
     function tick() {
@@ -155,8 +160,8 @@
       var frame = TIMELINE[step];
       paint(el, shape, el.dataset.color, frame.variant);
       step = (step + 1) % TIMELINE.length;
-      var id = window.setTimeout(tick, frame.duration);
-      timers.push(id);
+      el.bloubTimer = window.setTimeout(tick, frame.duration);
+      timers.push(el.bloubTimer);
     }
 
     tick();
@@ -205,12 +210,16 @@
     var observer = new IntersectionObserver(
       function (entries) {
         entries.forEach(function (entry) {
-          if (!entry.isIntersecting) return;
-          entry.target.classList.add('is-in');
-          observer.unobserve(entry.target);
+          /* Anything on screen, and anything already scrolled past, is shown.
+             A jump to an anchor would otherwise leave the sections in between
+             blank. */
+          if (entry.isIntersecting || entry.boundingClientRect.top < 0) {
+            entry.target.classList.add('is-in');
+            observer.unobserve(entry.target);
+          }
         });
       },
-      { rootMargin: '0px 0px -12% 0px', threshold: 0.12 }
+      { rootMargin: '0px 0px 10% 0px', threshold: 0 }
     );
 
     Array.prototype.forEach.call(items, function (el) {
@@ -258,11 +267,24 @@
       color: preview.dataset.color || '#4f9d8f'
     };
 
+    function label() {
+      var shape = SHAPES.filter(function (item) {
+        return item.id === state.shape;
+      })[0];
+      var color = COLORS.filter(function (item) {
+        return item.hex === state.color;
+      })[0];
+      return (shape ? shape.label : state.shape) + ', ' + (color ? color.name : state.color);
+    }
+
     function refresh() {
       preview.dataset.shape = state.shape;
       preview.dataset.color = state.color;
       paint(preview, state.shape, state.color, 'neutral');
       animate(preview, state.shape);
+
+      var caption = document.getElementById('face-name');
+      if (caption) caption.textContent = label();
     }
 
     SHAPES.forEach(function (shape) {

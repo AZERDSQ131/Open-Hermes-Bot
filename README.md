@@ -136,6 +136,7 @@ src/group.ts            Group protocol: silence, tapbacks, @mentions, turns
 src/turns.ts            The rules of a turn: tapbacks, quota, a server installing
 src/styles.css          Design system and layout
 build/                  App icon (.icns + .png) and icon source
+site/                   The project site (static, no build step)
 ```
 
 The `+` button creates either a bot (with its own Bloub shape and color) or a group
