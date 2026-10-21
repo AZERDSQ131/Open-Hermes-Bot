@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A new push makes the run before it pointless.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# The workflow only reads the code.
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typecheck, tests and build
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check the code out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck and build
+        run: npm run build
+
+      - name: Test
+        run: npm test
