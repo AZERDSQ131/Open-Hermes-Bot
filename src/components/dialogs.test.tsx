@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { CreateAgentDialog, toProfileId } from './CreateAgentDialog';
 import { EditAgentDialog } from './EditAgentDialog';
 import type { CreateCandidate } from './CreateAgentDialog';
-import type { Thread } from '../data';
+import type { AvatarSpec, Thread } from '../data';
 
 const candidates: CreateCandidate[] = [
   {
@@ -47,7 +47,11 @@ describe('the dialog that creates a bot', () => {
   });
 
   it('creates the bot with the name and the face that were chosen', async () => {
-    const onCreateBot = vi.fn(async () => ({ ok: true as const }));
+    const onCreateBot = vi.fn(
+      async (_input: { name: string; shape: string; color: string }) => ({
+        ok: true as const,
+      }),
+    );
     render(
       <CreateAgentDialog
         candidates={candidates}
@@ -63,9 +67,9 @@ describe('the dialog that creates a bot', () => {
       screen.getByText('Create bot', { selector: 'button' }),
     );
     await waitFor(() => expect(onCreateBot).toHaveBeenCalled());
-    const call = onCreateBot.mock.calls[0][0];
-    expect(call.name).toBe('Nova');
-    expect(call.shape).toBe('galet');
+    const call = onCreateBot.mock.calls[0]?.[0];
+    expect(call?.name).toBe('Nova');
+    expect(call?.shape).toBe('galet');
   });
 
   it('says what went wrong when the bot could not be created', async () => {
@@ -91,7 +95,9 @@ describe('the dialog that creates a bot', () => {
   });
 
   it('builds a group out of the bots that were picked', async () => {
-    const onCreateGroup = vi.fn();
+    const onCreateGroup = vi.fn(
+      (_input: { name: string; members: { name: string }[] }) => undefined,
+    );
     render(
       <CreateAgentDialog
         candidates={candidates}
@@ -108,9 +114,9 @@ describe('the dialog that creates a bot', () => {
       screen.getByText('Create group', { selector: 'button' }),
     );
     await waitFor(() => expect(onCreateGroup).toHaveBeenCalled());
-    const call = onCreateGroup.mock.calls[0][0];
-    expect(call.name).toBe('The crew');
-    expect(call.members.map((member: { name: string }) => member.name)).toEqual([
+    const call = onCreateGroup.mock.calls[0]?.[0];
+    expect(call?.name).toBe('The crew');
+    expect(call?.members.map((member) => member.name)).toEqual([
       'Bob',
       'Alice',
     ]);
@@ -169,7 +175,9 @@ describe('the dialog that edits a bot', () => {
   });
 
   it('saves the new name and the new face', async () => {
-    const onSave = vi.fn();
+    const onSave = vi.fn(
+      (_input: { name: string; avatar: AvatarSpec }) => undefined,
+    );
     render(
       <EditAgentDialog
         thread={thread}
@@ -183,9 +191,11 @@ describe('the dialog that edits a bot', () => {
     await userEvent.click(screen.getByLabelText('Squircle'));
     await userEvent.click(screen.getByText('Save changes'));
     expect(onSave).toHaveBeenCalled();
-    const call = onSave.mock.calls[0][0];
-    expect(call.name).toBe('Bobby');
-    expect(call.avatar.shape).toBe('squircle');
+    const call = onSave.mock.calls[0]?.[0];
+    expect(call?.name).toBe('Bobby');
+    if (call?.avatar.kind !== 'group') {
+      expect(call.avatar.shape).toBe('squircle');
+    }
   });
 
   it('keeps the name of the default bot', () => {
@@ -202,7 +212,9 @@ describe('the dialog that edits a bot', () => {
   });
 
   it('edits the members of a group one by one', async () => {
-    const onSave = vi.fn();
+    const onSave = vi.fn(
+      (_input: { name: string; avatar: AvatarSpec }) => undefined,
+    );
     const group: Thread = {
       ...thread,
       id: 'group:crew',
@@ -226,10 +238,10 @@ describe('the dialog that edits a bot', () => {
     await userEvent.click(screen.getByLabelText('Capsule'));
     await userEvent.click(screen.getByText('Save changes'));
     expect(onSave).toHaveBeenCalled();
-    const call = onSave.mock.calls[0][0];
-    expect(call.avatar.kind).toBe('group');
-    if (call.avatar.kind === 'group') {
-      expect(call.avatar.members[1].shape).toBe('capsule');
+    const call = onSave.mock.calls[0]?.[0];
+    expect(call?.avatar.kind).toBe('group');
+    if (call?.avatar.kind === 'group') {
+      expect(call.avatar.members[1]?.shape).toBe('capsule');
     }
   });
 

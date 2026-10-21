@@ -36,7 +36,7 @@ describe('the face of a bot', () => {
 
   it('moves when it is animated', () => {
     const { container } = render(
-      <AnimatedBloub color="#e8483f" shape="cercle" variant="neutral" />,
+      <AnimatedBloub color="#e8483f" shape="cercle" />,
     );
     expect(container.querySelector('svg')).toBeTruthy();
   });
