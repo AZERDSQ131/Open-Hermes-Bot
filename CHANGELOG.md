@@ -10,13 +10,24 @@ follow [semantic versioning](https://semver.org/).
 
 - **A setup, step by step.** The first time the app opens, it asks where
   Hermes lives, for the key that opens the door, and who answers on the other
-  side — one question at a time. It shakes hands with the host, shows the bots
-  it serves, and lets the first one be made on the spot. The setup can be run
-  again from **Settings → Setup**, whenever Hermes moves to another machine.
+  side. It shakes hands with the host, asks it for the first bot, and shows
+  that bot on the last page. The setup can be run again from
+  **Settings → Setup**, whenever Hermes moves to another machine.
 - **An actor for the setup.** The setup is not a page of forms: it is a scene
-  with one character in it, that breathes, blinks, changes shape from one
-  question to the next, thinks while the tunnel opens, and celebrates when the
-  host answers.
+  with one character in it, that breathes, blinks, thinks while the tunnel
+  opens, and celebrates when the host answers.
+- **An actor that changes its mind.** Every two seconds it takes another
+  colour and another shape, and the light of the window takes the colour with
+  it.
+
+### Changed
+
+- **The connection is one page.** Where Hermes lives, the key, and the
+  handshake that says whether the two of them are talking: all three on the
+  same page, tested by the button at the bottom.
+- **The first bot is asked for.** An app that has just been installed has no
+  agents, so the setup asks for the first one — its name, its shape, its
+  colour — instead of listing what is not there yet.
 
 ### Fixed
 

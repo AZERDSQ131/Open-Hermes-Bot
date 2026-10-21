@@ -25,17 +25,21 @@ responsible for, and it says what it is not.
 
 ## Setup
 
-The door the person walks through the first time the app opens. It asks three
-things, one at a time: where Hermes lives, the key that opens the door, and
-who answers on the other side.
+The door the person walks through the first time the app opens. Four scenes:
+the welcome, the connection, the first bot, and the door that opens.
 
 **The setup is the app talking, not the harness.** It reads the bots from the
 host the way the sidebar does, and it writes down one fact of its own: that it
 has been walked through.
 
 **The setup is a scene, not a form.** One character acts in it — it breathes,
-it blinks, it takes a new shape for each question, it thinks while the tunnel
-opens, and it is happy when the host answers. The words are few on purpose.
+it blinks, it thinks while the tunnel opens, and it is happy when the host
+answers. The words are few on purpose.
+
+**The setup makes the first bot.** An app that has just been installed has no
+agents: there is nothing to list, so the setup asks for the first one — its
+name, its shape, its colour — and the last scene shows that bot instead of
+the actor. It is the one the conversation will be with.
 
 ## Bot
 
