@@ -147,6 +147,7 @@ describe('the model a bot falls back to', () => {
       label: 'm',
     });
     expect(defaultModelPick('bob', emptyPrefs())).toBeNull();
+    expect(defaultModelPick('bob')).toBeNull();
   });
 });
 
@@ -197,8 +198,8 @@ describe('the preferences, read from the server', () => {
     expect(screen.getByTestId('loading')).toHaveTextContent('false');
     await userEvent.click(screen.getByText('pin'));
     await waitFor(() => expect(savePrefs).toHaveBeenCalled());
-    expect(savePrefs.mock.calls[0][0]).toMatchObject({
-      prefs: { favorites: ['p:z', 'p:a'] },
+    expect(savePrefs).toHaveBeenCalledWith({
+      prefs: expect.objectContaining({ favorites: ['p:z', 'p:a'] }),
     });
   });
 
@@ -232,6 +233,27 @@ describe('the preferences, read from the server', () => {
     await waitFor(() =>
       expect(screen.getByTestId('loading')).toHaveTextContent('false'),
     );
+  });
+
+  it('are forgotten when the app closes before the server answers', async () => {
+    let answer: (value: unknown) => void = () => undefined;
+    (window as unknown as { hermes: unknown }).hermes = {
+      prefs: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            answer = resolve;
+          }),
+      ),
+      savePrefs: vi.fn(async () => ({ ok: true })),
+    };
+    const view = render(
+      <ModelPrefsProvider>
+        <PrefsProbe />
+      </ModelPrefsProvider>,
+    );
+    view.unmount();
+    answer({ ok: true, prefs: { favorites: ['p:z'] } });
+    expect(screen.queryByTestId('favorites')).toBeNull();
   });
 
   it('are empty when the bridge is not there', async () => {

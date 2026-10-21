@@ -27,6 +27,20 @@ const member = (id: string, name: string, profile: string): GroupMember => ({
   avatar: { color: '#888888', shape: 'cercle', variant: 'neutral' },
 });
 
+const chief = member('bot:chief', 'Chief of Staff', 'default');
+const bob = member('bot:bob', 'Bob', 'bob');
+
+const wire = (transcript: string[], speaker: string, cue: string) =>
+  [
+    '[Group chat “Test” — members: @Chief of Staff, @Bob, and the person (shown as @You).]',
+    '',
+    'Conversation so far:',
+    ...transcript,
+    '',
+    `You are @${speaker}. ${cue}`,
+    'It is your turn.',
+  ].join('\n');
+
 describe('session titles', () => {
   it('names a group conversation after the group and the member', () => {
     expect(groupSessionTitle('Test', 'Bob')).toBe('Group · Test · Bob');
@@ -93,6 +107,17 @@ describe('groups rebuilt from the server', () => {
       ['default', [session('Chief of Staff', 'a')]],
     ]);
     expect(groupSeeds(perProfile)).toEqual([]);
+  });
+
+  it('takes the conversation that ran last when a name is in two profiles', () => {
+    const perProfile = new Map<string, HermesSession[]>([
+      ['default', [session('Group · Test · Bob', 'a', 5)]],
+      ['bob', [session('Group · Test · Bob', 'b', 9)]],
+    ]);
+    const seeds = groupSeeds(perProfile);
+    expect(seeds).toHaveLength(1);
+    expect(seeds[0].members[0].profile).toBe('bob');
+    expect(seeds[0].members[0].sessionId).toBe('b');
   });
 });
 
@@ -177,21 +202,39 @@ describe('a group turn read back', () => {
   });
 });
 
+describe('the lines of a transcript', () => {
+  it('reads the person, the members and the notes', () => {
+    expect(
+      readTranscript([
+        '@You: Hello',
+        '@Bob: Hi there',
+        '(note) Bob stayed silent.',
+      ]),
+    ).toEqual([
+      { kind: 'person', text: 'Hello' },
+      { kind: 'member', name: 'Bob', text: 'Hi there' },
+      { kind: 'note', text: 'Bob stayed silent.' },
+    ]);
+  });
+
+  it('keeps a message that runs on several lines', () => {
+    expect(readTranscript(['@You: one', 'two', 'three'])).toEqual([
+      { kind: 'person', text: 'one\ntwo\nthree' },
+    ]);
+    expect(readTranscript(['@Bob: one', 'two'])).toEqual([
+      { kind: 'member', name: 'Bob', text: 'one\ntwo' },
+    ]);
+    expect(readTranscript(['(note) one', 'two'])).toEqual([
+      { kind: 'note', text: 'one\ntwo' },
+    ]);
+  });
+
+  it('drops a line that continues nothing', () => {
+    expect(readTranscript(['a line of its own'])).toEqual([]);
+  });
+});
+
 describe('a group conversation read back', () => {
-  const chief = member('bot:chief', 'Chief of Staff', 'default');
-  const bob = member('bot:bob', 'Bob', 'bob');
-
-  const wire = (transcript: string[], speaker: string, cue: string) =>
-    [
-      '[Group chat “Test” — members: @Chief of Staff, @Bob, and the person (shown as @You).]',
-      '',
-      'Conversation so far:',
-      ...transcript,
-      '',
-      `You are @${speaker}. ${cue}`,
-      'It is your turn.',
-    ].join('\n');
-
   it('puts the person and the members back in order', () => {
     const transcripts = new Map<string, HermesMessage[]>([
       [
@@ -291,5 +334,154 @@ describe('a group conversation read back', () => {
       'Chief of Staff',
       'Bob',
     ]);
+  });
+
+  it('notes the silence of a member that was named', () => {
+    const transcripts = new Map<string, HermesMessage[]>([
+      [
+        'bot:chief',
+        [
+          row(
+            'user',
+            wire(
+              ['@You: Hello'],
+              'Chief of Staff',
+              '@Bob mentioned you by name. You have the floor now.',
+            ),
+            10,
+          ),
+          row('assistant', '[[silent]]', 20),
+        ],
+      ],
+    ]);
+    const messages = groupTranscript([chief], transcripts);
+    expect(
+      messages.some(
+        (message) =>
+          message.role === 'event' &&
+          message.text === 'Chief of Staff stayed silent.',
+      ),
+    ).toBe(true);
+  });
+
+  it('taps the last line when the one it answered is not in the room', () => {
+    // The member's transcript names a line that never made it into the room:
+    // the tapback falls back to the last line that is there.
+    const transcripts = new Map<string, HermesMessage[]>([
+      [
+        'bot:chief',
+        [
+          row('user', wire(['@You: Hello'], 'Chief of Staff', 'The last line is new in the group.'), 10),
+          row('user', wire(['@You: Gone'], 'Chief of Staff', 'The last line is new in the group.'), 11),
+          row('assistant', '[[react:👍]] Here', 20),
+        ],
+      ],
+    ]);
+    const messages = groupTranscript([chief], transcripts);
+    const withReaction = messages.find(
+      (message) =>
+        (message as { reactions?: unknown[] }).reactions?.length,
+    );
+    expect(withReaction).toBeTruthy();
+  });
+
+  it('reads a turn that is not a group turn', () => {    const transcripts = new Map<string, HermesMessage[]>([
+      [
+        'bot:chief',
+        [
+          row('user', 'a plain message that is not a turn', 10),
+          row('assistant', 'Here', 20),
+        ],
+      ],
+    ]);
+    const messages = groupTranscript([chief], transcripts);
+    expect(messages.map((message) => message.text)).toEqual(['Here']);
+  });
+
+  it('taps the line before when the one it answered is not in the room', () => {
+    // The member answers a line that was said before it joined the room: the
+    // tapback falls back to the last line that is there.
+    const transcripts = new Map<string, HermesMessage[]>([
+      [
+        'bot:chief',
+        [
+          row(
+            'user',
+            wire(
+              ['@You: Hello', '@Bob: Said before the chief joined'],
+              'Chief of Staff',
+              'The last line is new in the group.',
+            ),
+            10,
+          ),
+          row('assistant', '[[react:👍]] Here', 20),
+        ],
+      ],
+    ]);
+    const messages = groupTranscript([chief], transcripts);
+    const withReaction = messages.find(
+      (message) =>
+        (message as { reactions?: unknown[] }).reactions?.length,
+    );
+    expect(withReaction).toBeTruthy();
+  });
+
+  it('taps nothing when the room holds nothing but a note', () => {
+    const transcripts = new Map<string, HermesMessage[]>([
+      [
+        'bot:chief',
+        [
+          row(
+            'user',
+            wire(
+              ['(note) Bob stayed silent.'],
+              'Chief of Staff',
+              'The last line is new in the group.',
+            ),
+            10,
+          ),
+          row('assistant', '[[silent]]', 20),
+        ],
+      ],
+    ]);
+    const messages = groupTranscript([chief], transcripts);
+    expect(messages).toEqual([]);
+  });
+});
+
+describe('a room that is not whole', () => {
+  it('has nothing to say about a member that never answered', () => {
+    expect(groupTranscript([chief], new Map())).toEqual([]);
+  });
+
+  it('skips the lines that are not turns', () => {
+    const transcripts = new Map<string, HermesMessage[]>([
+      [
+        'bot:chief',
+        [
+          row('tool', '{"output": "noise"}', 5),
+          row('user', wire(['@You: Hello'], 'Chief of Staff', 'The last line is new in the group.'), 10),
+          row('assistant', 'Hi', 20),
+        ],
+      ],
+    ]);
+    const messages = groupTranscript([chief], transcripts);
+    expect(messages.map((message) => message.text)).toEqual(['Hello', 'Hi']);
+  });
+
+  it('survives a line with nothing in it', () => {
+    const transcripts = new Map<string, HermesMessage[]>([
+      [
+        'bot:chief',
+        [
+          {
+            role: 'assistant',
+            content: undefined as unknown as string,
+            timestamp: 5,
+          },
+        ],
+      ],
+    ]);
+    expect(groupTranscript([chief], transcripts)).toEqual([]);
   });
 });

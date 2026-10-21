@@ -96,3 +96,41 @@ describe('the bytes of a recording', () => {
     expect(atob(data).length).toBe(long.length);
   });
 });
+
+describe('a recorder that is asked for its bytes too early', () => {
+  it('waits for the recording to stop', async () => {
+    vi.stubGlobal('MediaRecorder', FakeRecorder);
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      mediaDevices: {
+        getUserMedia: vi.fn(async () => ({
+          getTracks: () => [{ stop: () => undefined }],
+        })),
+      },
+    });
+    const recording = await startRecording();
+    const bytes = recording.blob();
+    recording.stop();
+    expect((await bytes).size).toBeGreaterThan(0);
+  });
+
+  it('is not upset when the recorder is already done', async () => {
+    const broken = { ...FakeRecorder.prototype };
+    class Broken extends FakeRecorder {
+      stop = vi.fn(() => {
+        throw new Error('already done');
+      });
+    }
+    vi.stubGlobal('MediaRecorder', Broken);
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      mediaDevices: {
+        getUserMedia: vi.fn(async () => ({
+          getTracks: () => [{ stop: () => undefined }],
+        })),
+      },
+    });
+    const recording = await startRecording();
+    expect(() => recording.stop()).not.toThrow();
+  });
+});

@@ -290,3 +290,12 @@ describe('the limits of a group round', () => {
     expect(MAX_GROUP_WAVES).toBeGreaterThan(0);
   });
 });
+
+describe('a line without an author', () => {
+  it('is signed by the bot that wrote it', () => {
+    const text = formatTranscript([
+      { id: '1', role: 'assistant', text: 'Hi', authorId: 'bot:1' },
+    ]);
+    expect(text).toBe('@Bot: Hi');
+  });
+});

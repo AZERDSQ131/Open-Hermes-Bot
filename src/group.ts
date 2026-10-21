@@ -93,7 +93,8 @@ export function splitMentions(text: string, members: GroupMember[]): MentionSegm
   const segments: MentionSegment[] = [];
   let cursor = 0;
   for (const match of text.matchAll(pattern)) {
-    const start = match.index ?? 0;
+    // matchAll always knows where the match is.
+    const start = match.index as number;
     if (start > cursor) {
       segments.push({ text: text.slice(cursor, start), mention: false });
     }

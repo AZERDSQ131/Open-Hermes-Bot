@@ -62,7 +62,13 @@ export function findSession(
 /** A group as the sessions describe it: a name, and the members in it. */
 export type GroupSeed = {
   name: string;
-  members: { name: string; profile: string; sessionId: string }[];
+  members: {
+    name: string;
+    profile: string;
+    sessionId: string;
+    /** When the conversation last ran, to tell two apart. */
+    lastActive: number;
+  }[];
 };
 
 /**
@@ -80,19 +86,14 @@ export function groupSeeds(
       if (!parsed) continue;
       const members = groups.get(parsed.group) ?? new Map();
       const known = members.get(parsed.member);
-      if (!known) {
-        members.set(parsed.member, {
-          name: parsed.member,
-          profile,
-          sessionId: session.id,
-        });
-      } else if (session.lastActive > known.lastActive) {
+      if (!known || session.lastActive > known.lastActive) {
         // The same member name in two profiles: the conversation that ran last
         // is the one the group was talking on.
         members.set(parsed.member, {
           name: parsed.member,
           profile,
           sessionId: session.id,
+          lastActive: session.lastActive,
         });
       }
       groups.set(parsed.group, members);
@@ -340,9 +341,7 @@ export function groupTranscript(
     // when the room was live: the whole wave taps the same message.
     const at = keys.get(event.target);
     const target =
-      at === undefined ? lastSpoken() : messages[at]?.role !== 'event'
-        ? (messages[at] as Spoken)
-        : undefined;
+      at === undefined ? lastSpoken() : (messages[at] as Spoken);
     if (turn.silent) {
       // Silence is a move, and it leaves a tapback: the app forces one, so a
       // member that sat this one out is acknowledged all the same.
