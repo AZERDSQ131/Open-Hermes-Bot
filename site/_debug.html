@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>debug</title>
+  </head>
+  <body>
+    <iframe id="f" src="./index.html" style="width: 390px; height: 800px; border: 0"></iframe>
+    <pre id="out">pending</pre>
+    <script>
+      var frame = document.getElementById('f');
+      frame.addEventListener('load', function () {
+        var doc = frame.contentDocument;
+        var limit = doc.documentElement.clientWidth;
+        var lines = ['client=' + limit + ' scroll=' + doc.documentElement.scrollWidth];
+        doc.querySelectorAll('body *').forEach(function (el) {
+          var r = el.getBoundingClientRect();
+          if (r.right > limit + 0.5 || r.left < -0.5) {
+            lines.push(
+              el.tagName +
+                '.' +
+                (el.className && el.className.baseVal !== undefined
+                  ? el.className.baseVal
+                  : el.className) +
+                ' left=' +
+                Math.round(r.left) +
+                ' right=' +
+                Math.round(r.right) +
+                ' w=' +
+                Math.round(r.width)
+            );
+          }
+        });
+        document.getElementById('out').textContent = lines.slice(0, 40).join('\n');
+      });
+    </script>
+  </body>
+</html>

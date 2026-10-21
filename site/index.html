@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Grok Bot - a native macOS app for Hermes agents</title>
+    <meta
+      name="description"
+      content="Grok Bot is a native macOS chat app for Hermes agents. Every agent keeps its own memory and its own face, and a group lets several of them answer the same question at once."
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0e0e10" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Grok Bot" />
+    <meta
+      property="og:description"
+      content="A native macOS chat app for Hermes agents. Put your agents in the same room."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@fontsource-variable/geist@5.2.6/index.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@fontsource-variable/geist-mono@5.2.6/index.css"
+    />
+    <link rel="stylesheet" href="./assets/site.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Grok Bot",
+        "applicationCategory": "ProductivityApplication",
+        "operatingSystem": "macOS",
+        "description": "A native macOS chat app for Hermes agents. Every agent keeps its own memory and its own face, and a group lets several of them answer the same question at once.",
+        "license": "https://opensource.org/licenses/MIT",
+        "codeRepository": "https://github.com/AZERDSQ131/Open-Grok-Bot",
+        "author": { "@type": "Person", "name": "Jules Yzerd" }
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="nav" id="top">
+      <div class="nav-inner">
+        <a class="brand" href="#top" aria-label="Grok Bot, back to the top">
+          <span class="brand-mark" aria-hidden="true">
+            <img src="./assets/favicon.svg" alt="" width="26" height="26" />
+          </span>
+          <span class="brand-name">Grok Bot</span>
+        </a>
+
+        <nav class="nav-links" aria-label="Sections">
+          <a href="#crew">Groups</a>
+          <a href="#faces">Faces</a>
+          <a href="#models">Models</a>
+          <a href="#connect">Connect</a>
+        </nav>
+
+        <div class="nav-actions">
+          <a
+            class="icon-link"
+            href="https://github.com/AZERDSQ131/Open-Grok-Bot"
+            aria-label="Grok Bot on GitHub"
+            rel="noreferrer noopener"
+            target="_blank"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12Z"
+              />
+            </svg>
+          </a>
+          <a
+            class="button button-primary button-small"
+            href="https://github.com/AZERDSQ131/Open-Grok-Bot"
+            rel="noreferrer noopener"
+            target="_blank"
+            >Get Grok Bot</a
+          >
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ------------------------------------------------------------ hero -->
+      <section class="hero">
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow" data-reveal>Native macOS app</p>
+            <h1 data-reveal data-reveal-delay="1">Put your agents in the same room.</h1>
+            <p class="lede" data-reveal data-reveal-delay="2">
+              A native macOS app for Hermes agents. Each keeps its own memory, and a group
+              lets them answer together.
+            </p>
+            <div class="hero-actions" data-reveal data-reveal-delay="3">
+              <a
+                class="button button-primary"
+                href="https://github.com/AZERDSQ131/Open-Grok-Bot"
+                rel="noreferrer noopener"
+                target="_blank"
+                >Get Grok Bot</a
+              >
+              <a class="button button-ghost" href="#crew">See a group chat</a>
+            </div>
+          </div>
+
+          <div class="hero-stage" data-reveal data-reveal-delay="2">
+            <div class="app-window" aria-label="A Grok Bot window showing a group conversation">
+              <div class="app-titlebar">
+                <span class="traffic" aria-hidden="true">
+                  <i></i><i></i><i></i>
+                </span>
+                <span class="app-title">Launch crew</span>
+              </div>
+
+              <div class="app-body">
+                <aside class="app-sidebar">
+                  <div class="app-search">
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                      <circle cx="7" cy="7" r="4.4" fill="none" stroke="currentColor" stroke-width="1.4" />
+                      <path d="M10.4 10.4 14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+                    </svg>
+                    <span>Search</span>
+                  </div>
+
+                  <div class="app-pins" aria-hidden="true">
+                    <span class="bloub" data-shape="cercle" data-color="#7a5bc2" data-size="34"></span>
+                    <span class="bloub" data-shape="capsule" data-color="#4f9d8f" data-size="34"></span>
+                    <span class="bloub" data-shape="hexagone" data-color="#e0b34e" data-size="34"></span>
+                  </div>
+
+                  <div class="app-list">
+                    <div class="app-row is-active">
+                      <span class="bloub" data-group="capsule:#4f9d8f|hexagone:#e0b34e|nuage:#e152b0" data-size="30"></span>
+                      <span class="app-row-copy">
+                        <span class="app-row-name">Launch crew</span>
+                        <span class="app-row-preview">Docs writer: I can take the migration steps.</span>
+                      </span>
+                    </div>
+                    <div class="app-row">
+                      <span class="bloub" data-shape="cercle" data-color="#7a5bc2" data-size="30"></span>
+                      <span class="app-row-copy">
+                        <span class="app-row-name">Chief of Staff</span>
+                        <span class="app-row-preview">Here is the week in three lines.</span>
+                      </span>
+                    </div>
+                    <div class="app-row">
+                      <span class="bloub" data-shape="capsule" data-color="#4f9d8f" data-size="30"></span>
+                      <span class="app-row-copy">
+                        <span class="app-row-name">Research assistant</span>
+                        <span class="app-row-preview">Typing...</span>
+                      </span>
+                    </div>
+                    <div class="app-row">
+                      <span class="bloub" data-shape="hexagone" data-color="#e0b34e" data-size="30"></span>
+                      <span class="app-row-copy">
+                        <span class="app-row-name">Release captain</span>
+                        <span class="app-row-preview">The rollback path is ready.</span>
+                      </span>
+                    </div>
+                  </div>
+                </aside>
+
+                <div class="app-chat">
+                  <div class="app-chat-header">
+                    <span class="bloub" data-group="capsule:#4f9d8f|hexagone:#e0b34e|nuage:#e152b0" data-size="26"></span>
+                    <span class="app-chat-title">Launch crew</span>
+                    <span class="app-chat-count">3 bots</span>
+                  </div>
+
+                  <div class="app-scroll">
+                    <div class="app-time">Today, 09:41</div>
+
+                    <div class="app-message is-user">
+                      <div class="app-bubble-wrap">
+                        <div class="app-bubble is-user">Draft the launch notes for Thursday.</div>
+                        <div class="app-reactions">
+                          <button class="app-pill" type="button" data-reaction="2">&#128077;<span>2</span></button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="app-message is-group">
+                      <span class="bloub" data-shape="capsule" data-color="#4f9d8f" data-size="28"></span>
+                      <div>
+                        <p class="app-author">Research assistant</p>
+                        <div class="app-bubble is-assistant">
+                          The notes are on the server already: what ships, what it costs, what
+                          stays open.
+                        </div>
+                      </div>
+                    </div>
+
+                    <p class="app-event">Release captain stayed silent.</p>
+
+                    <div class="app-message is-group">
+                      <span class="bloub" data-shape="nuage" data-color="#e152b0" data-size="28"></span>
+                      <div>
+                        <p class="app-author">Docs writer</p>
+                        <div class="app-bubble is-assistant">
+                          I can take the migration steps. @Release captain, is rollback ready?
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="app-live">
+                      <span class="bloub" data-shape="capsule" data-color="#4f9d8f" data-size="22"></span>
+                      <span class="app-live-label">Research assistant is thinking...</span>
+                    </div>
+                  </div>
+
+                  <div class="app-composer">
+                    <div class="app-composer-inner">
+                      <button class="app-icon-button" type="button" aria-label="Attach a file">
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                          <path d="M8 3.2v9.6M3.2 8h9.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                        </svg>
+                      </button>
+                      <span class="app-composer-text">Message the group</span>
+                      <button class="app-icon-button is-mic" type="button" aria-label="Voice message">
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                          <rect x="5.6" y="2" width="4.8" height="8" rx="2.4" fill="currentColor" />
+                          <path d="M3.6 7.6a4.4 4.4 0 0 0 8.8 0M8 12v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ----------------------------------------------------------- groups -->
+      <section class="section" id="crew">
+        <div class="container">
+          <div class="section-head">
+            <h2 data-reveal>A group is a room, not a broadcast.</h2>
+            <p data-reveal data-reveal-delay="1">
+              One message asks every member at once, and their answers stream side by side.
+              A member with nothing to add says so, and the app leaves a tapback in its
+              place, so an answer never simply vanishes.
+            </p>
+          </div>
+
+          <div class="bento">
+            <article class="bento-cell cell-tall" data-reveal>
+              <h3>Every member is asked at the same time</h3>
+              <p>
+                One message makes one request per agent, in parallel. A later wave only
+                includes the agents the previous line mentioned.
+              </p>
+              <div class="sample">
+                <div class="app-live">
+                  <span class="bloub" data-shape="hexagone" data-color="#e0b34e" data-size="22"></span>
+                  <span class="app-live-label">Release captain is thinking...</span>
+                </div>
+                <div class="app-live">
+                  <span class="bloub" data-shape="nuage" data-color="#e152b0" data-size="22"></span>
+                  <span class="app-live-label">Docs writer is thinking...</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="bento-cell" data-reveal data-reveal-delay="1">
+              <h3>Silence leaves a trace</h3>
+              <p>
+                A member that sits out gets an acknowledgement the app picks for it. The
+                turn was seen, it just had nothing to add.
+              </p>
+              <div class="sample">
+                <p class="app-event">Release captain stayed silent.</p>
+                <div class="app-message is-group">
+                  <span class="bloub" data-shape="hexagone" data-color="#e0b34e" data-size="28"></span>
+                  <div>
+                    <p class="app-author">Release captain</p>
+                    <div class="app-bubble is-assistant">I have nothing to add here.</div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="bento-cell is-tinted" data-reveal data-reveal-delay="2">
+              <h3>A tapback says who tapped</h3>
+              <p>
+                In a group, reactions are signed, so two agents can tap the same line. Click
+                the pill to see which ones did.
+              </p>
+              <div class="sample">
+                <div class="app-message is-user">
+                  <div class="app-bubble-wrap">
+                    <div class="app-bubble is-user">Ship it once the rollback path is green.</div>
+                    <div class="app-reactions">
+                      <button class="app-pill" type="button" data-reaction="2">&#128077;<span>2</span></button>
+                      <button class="app-pill" type="button" data-reaction="1">&#128202;<span>1</span></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <ul class="protocol">
+            <li><strong>@Name</strong> hands the floor over, and the mentioned agent answers next.</li>
+            <li>A round stops after eight spoken lines, and no member speaks more than twice.</li>
+            <li>Type <strong>@</strong> in the composer to pick a member from the roster.</li>
+            <li>Each member answers with its own model, in its own session, with its own memory.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------------ faces -->
+      <section class="section section-alt" id="faces">
+        <div class="container faces-grid">
+          <div class="faces-copy">
+            <h2 data-reveal>Give every agent a face.</h2>
+            <p data-reveal data-reveal-delay="1">
+              Eight shapes and twelve colours. The name, the colour and the shape are written
+              into the agent's own profile on the host, next to the metadata Hermes already
+              paints it with. An agent that comes back after a restart is the same agent.
+            </p>
+            <p class="faces-note" data-reveal data-reveal-delay="2">
+              Pick a shape and a colour. This is the same editor the app opens when you
+              click a logo in the header.
+            </p>
+          </div>
+
+          <div class="faces-stage" data-reveal data-reveal-delay="1">
+            <div class="faces-canvas">
+              <span
+                class="bloub is-large"
+                id="face-preview"
+                data-shape="capsule"
+                data-color="#4f9d8f"
+                data-size="220"
+              ></span>
+              <span class="faces-name" id="face-name">Research assistant</span>
+            </div>
+
+            <div class="faces-controls">
+              <div class="faces-control">
+                <span class="faces-label">Shape</span>
+                <div class="shape-grid" id="shape-grid" role="radiogroup" aria-label="Shape"></div>
+              </div>
+              <div class="faces-control">
+                <span class="faces-label">Color</span>
+                <div class="color-grid" id="color-grid" role="radiogroup" aria-label="Color"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ----------------------------------------------------------- models -->
+      <section class="section" id="models">
+        <div class="container">
+          <div class="section-head">
+            <h2 data-reveal>When the quota runs out, the answer still lands.</h2>
+            <p data-reveal data-reveal-delay="1">
+              Grok Bot remembers the model each agent last answered on, so a new
+              conversation starts where the last one finished. When the chosen model is
+              exhausted, the turn is retried on a free model from the same provider, and
+              the thread says so.
+            </p>
+          </div>
+
+          <div class="rescue" data-reveal>
+            <div class="rescue-side">
+              <span class="rescue-tag">Without a rescue</span>
+              <div class="app-bubble is-assistant is-quiet">
+                The bot stopped answering. The model may be out of quota, or the server
+                cannot reach it. Try another model from the picker.
+              </div>
+            </div>
+
+            <span class="rescue-arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+
+            <div class="rescue-side">
+              <span class="rescue-tag">With one</span>
+              <div class="app-bubble is-assistant">
+                grok-free is out of quota. Answered with muse instead.
+              </div>
+              <div class="model-menu">
+                <div class="model-menu-search">Search models</div>
+                <div class="model-menu-group">Favorites</div>
+                <div class="model-menu-item is-selected">
+                  <span class="model-menu-star" aria-hidden="true">&#9733;</span>
+                  <span>muse</span>
+                  <span class="model-menu-flag">current</span>
+                </div>
+                <div class="model-menu-group">OpenCode</div>
+                <div class="model-menu-item"><span>deepseek</span></div>
+                <div class="model-menu-item"><span>grok-free</span></div>
+              </div>
+            </div>
+          </div>
+
+          <ul class="model-notes">
+            <li>The pick is sent with the turn, so the model in the chip is the one that runs.</li>
+            <li>A hand-picked model is never overwritten by the rescue.</li>
+            <li>Only authenticated providers are listed, so a choice cannot fail on send.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------------- connect -->
+      <section class="section section-alt" id="connect">
+        <div class="container">
+          <p class="eyebrow" data-reveal>Where it lives</p>
+          <h2 data-reveal data-reveal-delay="1">The conversation never touches this Mac.</h2>
+          <p class="lede-narrow" data-reveal data-reveal-delay="2">
+            A conversation is a Hermes session, and Hermes is the only place it is kept. Grok
+            Bot reads it back over an SSH tunnel and writes nothing locally: no file, no
+            keychain entry, no localStorage. Close the app, wipe the machine, install it
+            again, and the thread is still there.
+          </p>
+
+          <div class="terminal" data-reveal data-reveal-delay="3">
+            <div class="terminal-bar">
+              <span class="terminal-dot"></span>
+              <span class="terminal-dot"></span>
+              <span class="terminal-dot"></span>
+              <span class="terminal-title">ssh tunnel to the Hermes host</span>
+            </div>
+            <pre class="terminal-body"><code>ssh -o BatchMode=yes -o ExitOnForwardFailure=yes \
+  -N -L 127.0.0.1:18742:127.0.0.1:8642 my-hermes-host</code></pre>
+          </div>
+
+          <div class="facts">
+            <div class="fact" data-reveal>
+              <h3>Keychain</h3>
+              <p>
+                The API key is kept in the macOS Keychain, in an item Grok Bot owns. It is
+                never written by the app and never sent anywhere but the host.
+              </p>
+            </div>
+            <div class="fact" data-reveal data-reveal-delay="1">
+              <h3>Microphone</h3>
+              <p>
+                Dictation is the only thing macOS asks permission for. The words are
+                transcribed on your own host, and they land in the composer so you can read
+                them before sending.
+              </p>
+            </div>
+            <div class="fact" data-reveal data-reveal-delay="2">
+              <h3>Native chrome</h3>
+              <p>
+                Native traffic lights, a hidden inset title bar, and a window that behaves
+                like the rest of the desktop rather than like a web page in a frame.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------------- end -->
+      <section class="closing">
+        <div class="container closing-inner">
+          <div>
+            <h2 data-reveal>Build it from source.</h2>
+            <p data-reveal data-reveal-delay="1">
+              Electron, React and TypeScript. The test suite covers the protocol, the
+              transcript reader and the group rules, and the build fails when a line of
+              them stops being exercised.
+            </p>
+          </div>
+          <div class="closing-actions" data-reveal data-reveal-delay="2">
+            <div class="terminal terminal-compact">
+              <div class="terminal-bar">
+                <span class="terminal-dot"></span>
+                <span class="terminal-dot"></span>
+                <span class="terminal-dot"></span>
+                <span class="terminal-title">terminal</span>
+              </div>
+              <pre class="terminal-body"><code>npm install
+npm run dev</code></pre>
+            </div>
+            <a
+              class="button button-primary"
+              href="https://github.com/AZERDSQ131/Open-Grok-Bot"
+              rel="noreferrer noopener"
+              target="_blank"
+              >Get Grok Bot</a
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <div class="footer-brand">
+          <span class="brand-mark is-small" aria-hidden="true">
+            <img src="./assets/favicon.svg" alt="" width="30" height="30" />
+          </span>
+          <p>
+            MIT licensed.<br />
+            Copyright 2026 Jules Yzerd.
+          </p>
+        </div>
+
+        <div class="footer-stack">
+          <p class="footer-label">Built with</p>
+          <ul class="footer-list">
+            <li>React 19</li>
+            <li>Electron 44</li>
+            <li>TypeScript</li>
+            <li>Vite 8</li>
+            <li>Vitest</li>
+          </ul>
+        </div>
+
+        <div class="footer-stack">
+          <p class="footer-label">Elsewhere</p>
+          <ul class="footer-list">
+            <li>
+              <a href="https://github.com/AZERDSQ131/Open-Grok-Bot" rel="noreferrer noopener" target="_blank"
+                >Source on GitHub</a
+              >
+            </li>
+            <li>
+              <a href="https://github.com/AZERDSQ131/Open-Grok-Bot#readme" rel="noreferrer noopener" target="_blank"
+                >README</a
+              >
+            </li>
+            <li>
+              <a href="https://github.com/jeremy-prt/bloub" rel="noreferrer noopener" target="_blank"
+                >Avatar geometry by Bloub</a
+              >
+            </li>
+          </ul>
+        </div>
+      </div>
+    </footer>
+
+    <script src="./assets/bloub.js"></script>
+    <script src="./assets/site.js"></script>
+  </body>
+</html>
