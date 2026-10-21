@@ -199,3 +199,22 @@ describe('a tapback in a group', () => {
     expect(attachGroupReaction(messages, '👍', 'Alice')).toBe(messages);
   });
 });
+
+describe('waiting for the install', () => {
+  it('waits on its own when nothing else is said', async () => {
+    vi.useFakeTimers();
+    try {
+      const call = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, error: 'installing dependencies' })
+        .mockResolvedValueOnce({ ok: true, text: 'there' });
+      const pending = retryWhileDependenciesInstall(call, () => true);
+      await vi.advanceTimersByTimeAsync(9000);
+      const result = await pending;
+      expect(result.ok).toBe(true);
+      expect(call).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

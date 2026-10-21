@@ -268,3 +268,20 @@ describe('the preferences, read from the server', () => {
     expect(screen.getByTestId('favorites')).toHaveTextContent('');
   });
 });
+
+describe('the preferences without the server', () => {
+  it('are empty, and changing them does nothing', async () => {
+    function Bare() {
+      const { prefs, update } = useModelPrefs();
+      return (
+        <button onClick={() => update(withFavorite(prefs, 'p:a'))}>
+          {prefs.favorites.join(',') || 'none'}
+        </button>
+      );
+    }
+    render(<Bare />);
+    expect(screen.getByText('none')).toBeTruthy();
+    await userEvent.click(screen.getByText('none'));
+    expect(screen.getByText('none')).toBeTruthy();
+  });
+});

@@ -10,6 +10,7 @@
     "build": "tsc --noEmit && vite build",
     "start": "npm run build && electron .",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "preview": "vite preview"
   },
   "dependencies": {
