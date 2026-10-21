@@ -270,7 +270,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     if (result.ok) {
       setHasKey(true);
       setApiKey('');
-      setNotice(`Read from ${host || 'the server'} and kept in the Keychain.`);
+      setNotice(`Read from ${host} and kept in the Keychain.`);
     } else {
       setError(result.error ?? 'The key could not be read from the server.');
     }
@@ -489,9 +489,15 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                   SSH, so the server never has to expose a port to the world.
                 </p>
 
-                <label className="onboarding-field">
-                  <span className="onboarding-field-label">SSH host</span>
+                <div className="onboarding-field">
+                  <label
+                    className="onboarding-field-label"
+                    htmlFor="setup-host"
+                  >
+                    SSH host
+                  </label>
                   <input
+                    id="setup-host"
                     type="text"
                     value={host}
                     spellCheck={false}
@@ -506,7 +512,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                     The name your SSH config already knows — the one you would
                     type after <code>ssh</code>.
                   </span>
-                </label>
+                </div>
 
                 <div className="onboarding-advanced">
                   <button
@@ -528,11 +534,15 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                   {advanced ? (
                     <div className="onboarding-advanced-body">
                       <div className="onboarding-field-row">
-                        <label className="onboarding-field">
-                          <span className="onboarding-field-label">
+                        <div className="onboarding-field">
+                          <label
+                            className="onboarding-field-label"
+                            htmlFor="setup-api-port"
+                          >
                             Remote API port
-                          </span>
+                          </label>
                           <input
+                            id="setup-api-port"
                             type="number"
                             value={apiPort}
                             min={1}
@@ -540,12 +550,16 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                             spellCheck={false}
                             onChange={(event) => setApiPort(event.target.value)}
                           />
-                        </label>
-                        <label className="onboarding-field">
-                          <span className="onboarding-field-label">
+                        </div>
+                        <div className="onboarding-field">
+                          <label
+                            className="onboarding-field-label"
+                            htmlFor="setup-local-port"
+                          >
                             Local tunnel port
-                          </span>
+                          </label>
                           <input
+                            id="setup-local-port"
                             type="number"
                             value={localPort}
                             min={1}
@@ -553,7 +567,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                             spellCheck={false}
                             onChange={(event) => setLocalPort(event.target.value)}
                           />
-                        </label>
+                        </div>
                       </div>
                       <div className="onboarding-command">
                         <span className="onboarding-field-label">
@@ -578,9 +592,15 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                   macOS Keychain and never writes it anywhere else.
                 </p>
 
-                <label className="onboarding-field">
-                  <span className="onboarding-field-label">API key</span>
+                <div className="onboarding-field">
+                  <label
+                    className="onboarding-field-label"
+                    htmlFor="setup-key"
+                  >
+                    API key
+                  </label>
                   <input
+                    id="setup-key"
                     type="password"
                     value={apiKey}
                     autoComplete="off"
@@ -596,7 +616,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                     It lives in <code>~/.hermes/.env</code> on the host, under
                     the name <code>API_SERVER_KEY</code>.
                   </span>
-                </label>
+                </div>
 
                 <div className="onboarding-field-actions">
                   <button
@@ -607,7 +627,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                   >
                     {busy === 'import'
                       ? 'Reading…'
-                      : `Read it from ${host || 'the host'}`}
+                      : `Read it from ${host}`}
                   </button>
                   {hasKey ? (
                     <span className="onboarding-stamp">In the Keychain</span>
@@ -722,9 +742,15 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                     </p>
                   </div>
 
-                  <label className="onboarding-field">
-                    <span className="onboarding-field-label">Bot name</span>
+                  <div className="onboarding-field">
+                    <label
+                      className="onboarding-field-label"
+                      htmlFor="setup-bot-name"
+                    >
+                      Bot name
+                    </label>
                     <input
+                      id="setup-bot-name"
                       type="text"
                       value={botName}
                       maxLength={64}
@@ -735,7 +761,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                         setError('');
                       }}
                     />
-                  </label>
+                  </div>
 
                   <div className="onboarding-maker-grid">
                     <div className="onboarding-maker-picker">
