@@ -1219,6 +1219,17 @@ export default function App() {
     setContextMenu(null);
   }
 
+  // The sidebar is rebuilt from the server after a deletion: the index of
+  // conversations it holds still names what was just deleted, and the group
+  // comes back empty until the next refresh.
+  async function refreshConversations() {
+    const bridge = window.hermes;
+    if (!bridge?.profiles) return;
+    const result = await bridge.profiles();
+    if (!result.ok || !result.profiles) return;
+    await loadConversations(result.profiles);
+  }
+
   // The deletion happens where the conversation is kept. A bot is a Hermes
   // profile: deleting the profile deletes the bot, with everything it
   // remembers. A group is a set of conversations: they go one by one.
@@ -1239,6 +1250,7 @@ export default function App() {
           // not in the app.
         }
       }
+      await refreshConversations();
       return;
     }
     if (!target.profile) return;
@@ -1266,6 +1278,7 @@ export default function App() {
     } catch {
       // Nothing to report: the bot is gone from the app either way.
     }
+    await refreshConversations();
   }
 
   function startEditingThread(id: string) {
