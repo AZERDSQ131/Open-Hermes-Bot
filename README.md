@@ -8,6 +8,23 @@ The bots, the groups and the conversations live there, not on this machine.
 
 MIT licensed — see [LICENSE](LICENSE).
 
+## What this is
+
+This app is an **interface for Hermes**. It is not a harness.
+
+Hermes is the harness: it runs the agent loop, keeps the memory, owns the
+conversations, executes the tools and calls the models. This app is the macOS
+shell in front of that — the sidebar, the avatars, the bubbles, the composer,
+and the rules that decide which bot answers next.
+
+So the app runs no model and keeps no transcript: the conversation lives on the
+Hermes host, and closing the app, wiping the disk or moving to another machine
+changes nothing about it. The only secret on this machine is the Hermes API
+key, in the login Keychain.
+
+What the app owns is the room: the identity of the bots, the group protocol,
+and the way a turn reads.
+
 ## Install
 
 Grab the `.dmg` from the [releases](https://github.com/AZERDSQ131/Open-Grok-Bot/releases),
