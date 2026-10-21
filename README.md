@@ -8,6 +8,8 @@ The bots, the groups and the conversations live there, not on this machine.
 
 MIT licensed — see [LICENSE](LICENSE).
 
+The site is at <https://azerdsq131.github.io/Open-Hermes-Bot/>.
+
 ## What this is
 
 This app is an **interface for Hermes**. It is not a harness.
