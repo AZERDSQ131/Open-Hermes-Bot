@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { HermesProfile, HermesStatus } from './hermes';
 import { AgentAvatar } from './components/AgentAvatar';
-import { BloubSvg, botShape } from './components/Bloub';
+import { botShape } from './components/Bloub';
 import { ColorGrid, ShapeGrid } from './components/LogoControls';
-import type { BloubShape, BloubVariant } from './components/bloubFrames';
+import { StageBloub } from './components/StageBloub';
+import type { BloubShape } from './components/bloubFrames';
 import { toProfileId } from './components/CreateAgentDialog';
 import { avatarColor, profileColor } from './profileColor';
+import type { StateId } from './vendor/bloub/states';
 
 /**
  * The setup: the door the person walks through the first time the app opens.
@@ -21,29 +23,83 @@ import { avatarColor, profileColor } from './profileColor';
 
 type StepId = 'welcome' | 'host' | 'key' | 'connect' | 'crew' | 'ready';
 
-const STEPS: { id: StepId; label: string }[] = [
-  { id: 'welcome', label: 'Welcome' },
-  { id: 'host', label: 'The host' },
-  { id: 'key', label: 'The key' },
-  { id: 'connect', label: 'The handshake' },
-  { id: 'crew', label: 'Your crew' },
-  { id: 'ready', label: 'All set' },
+const STEPS: StepId[] = [
+  'welcome',
+  'host',
+  'key',
+  'connect',
+  'crew',
+  'ready',
 ];
 
-const DEFAULT_COLOR = '#5b5bda';
-
-/** The face the mascot wears, one per step. */
-const MASCOT: Record<
-  StepId,
-  { shape: BloubShape; variant: BloubVariant }
-> = {
-  welcome: { shape: 'nuage', variant: 'curious' },
-  host: { shape: 'nuage', variant: 'neutral' },
-  key: { shape: 'nuage', variant: 'attentive' },
-  connect: { shape: 'nuage', variant: 'attentive' },
-  crew: { shape: 'nuage', variant: 'wide' },
-  ready: { shape: 'nuage', variant: 'wink' },
+/**
+ * A scene: what it says, and what the one that acts is doing while it says
+ * it. The words are few on purpose — the person is reading, not studying.
+ */
+type Scene = {
+  eyebrow: string;
+  title: string;
+  line: string;
+  /** The shape of the actor: it glides into the next one. */
+  shape: BloubShape;
+  /** What it is doing. */
+  state: StateId;
+  /** How it feels about it. */
+  expression: string;
 };
+
+const SCENES: Record<StepId, Scene> = {
+  welcome: {
+    eyebrow: 'Welcome',
+    title: 'A window onto your agents.',
+    line: 'Hermes runs them. The app draws them.',
+    shape: 'nuage',
+    state: 'idle',
+    expression: 'curieux',
+  },
+  host: {
+    eyebrow: 'The host',
+    title: 'Where does Hermes run?',
+    line: 'The name your SSH already knows.',
+    shape: 'galet',
+    state: 'idle',
+    expression: 'attentif',
+  },
+  key: {
+    eyebrow: 'The key',
+    title: 'The key to the door.',
+    line: 'It stays in the Keychain, and nowhere else.',
+    shape: 'goutte',
+    state: 'idle',
+    expression: 'attentif',
+  },
+  connect: {
+    eyebrow: 'The handshake',
+    title: "Let's shake hands.",
+    line: 'The app opens a tunnel and says hello.',
+    shape: 'squircle',
+    state: 'thinking',
+    expression: 'neutre',
+  },
+  crew: {
+    eyebrow: 'Your crew',
+    title: 'Who answers?',
+    line: 'The bots Hermes serves on that host.',
+    shape: 'capsule',
+    state: 'idle',
+    expression: 'heureux',
+  },
+  ready: {
+    eyebrow: 'All set',
+    title: "You're all set.",
+    line: 'Hermes is reachable. The rest is talking.',
+    shape: 'hexagone',
+    state: 'idle',
+    expression: 'hilare',
+  },
+};
+
+const DEFAULT_COLOR = '#5b5bda';
 
 type CheckState = 'waiting' | 'working' | 'done' | 'failed';
 
@@ -101,6 +157,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   const [notice, setNotice] = useState('');
   const [checks, setChecks] = useState<Check[]>(emptyChecks);
   const [connected, setConnected] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [bots, setBots] = useState<HermesProfile[]>([]);
   const [primary, setPrimary] = useState<HermesProfile | undefined>(undefined);
   const [botName, setBotName] = useState('');
@@ -108,7 +165,8 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   const [botColor, setBotColor] = useState(DEFAULT_COLOR);
   const [botTouched, setBotTouched] = useState(false);
 
-  const step = STEPS[stepIndex].id;
+  const step = STEPS[stepIndex];
+  const scene = SCENES[step];
 
   // The setup starts from what the app already knows: a host that is already
   // written down is a host the person does not have to type twice.
@@ -162,6 +220,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     if (!bridge?.test) return;
     setBusy('handshake');
     setError('');
+    setFailed(false);
     setChecks(emptyChecks());
     setChecks((current) => markCheck(current, 'reach', 'working'));
     const port = Number.parseInt(apiPort, 10) || 8642;
@@ -187,6 +246,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     if (result.state !== 'connected') {
       setChecks((current) => markCheck(current, 'reach', 'failed'));
       setError(result.message ?? 'The host did not answer.');
+      setFailed(true);
       setBusy('none');
       return;
     }
@@ -219,6 +279,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     if (!saved?.ok) {
       setChecks((current) => markCheck(current, 'tunnel', 'failed'));
       setError(saved?.error ?? 'The connection could not be saved.');
+      setFailed(true);
       setBusy('none');
       return;
     }
@@ -234,6 +295,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     if (status?.state !== 'connected') {
       setChecks((current) => markCheck(current, 'tunnel', 'failed'));
       setError(status?.message ?? 'The tunnel did not open.');
+      setFailed(true);
       setBusy('none');
       return;
     }
@@ -270,7 +332,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     if (result.ok) {
       setHasKey(true);
       setApiKey('');
-      setNotice(`Read from ${host} and kept in the Keychain.`);
+      setNotice(`Read from ${host}, and kept in the Keychain.`);
     } else {
       setError(result.error ?? 'The key could not be read from the server.');
     }
@@ -326,8 +388,6 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
 
   const canContinue = useMemo(() => {
     switch (step) {
-      case 'welcome':
-        return true;
       case 'host':
         return host.trim() !== '';
       case 'key':
@@ -345,9 +405,18 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   }:127.0.0.1:${apiPort || '8642'} ${host || '<host>'}`;
   const crewSummary = useMemo(() => {
     const count = bots.length + (primary ? 1 : 0);
-    if (!count) return `the default one on ${host}`;
-    return `${count} ${count === 1 ? 'bot' : 'bots'} on ${host}`;
-  }, [bots.length, host, primary]);
+    if (!count) return 'the default one';
+    return `${count} ${count === 1 ? 'bot' : 'bots'}`;
+  }, [bots.length, primary]);
+
+  // The actor reacts to what happens: it thinks while the tunnel opens, and
+  // it celebrates when the host answers.
+  const actor = useMemo(() => {
+    if (step !== 'connect') return scene;
+    if (failed) return { ...scene, state: 'alert' as StateId, expression: 'neutre' };
+    if (connected) return { ...scene, state: 'wide' as StateId, expression: 'heureux' };
+    return scene;
+  }, [connected, failed, scene, step]);
 
   return (
     <div
@@ -366,309 +435,197 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
         else goTo(stepIndex + 1);
       }}
     >
-      <aside className="onboarding-rail">
-        <div className="onboarding-mark">
-          <span className="onboarding-mark-face">
-            <BloubSvg
+      <div className="onboarding-sky" aria-hidden="true">
+        <span className="onboarding-glow is-violet" />
+        <span className="onboarding-glow is-teal" />
+        <span className="onboarding-glow is-rose" />
+      </div>
+
+      <span className="onboarding-timeline" aria-hidden="true">
+        <span
+          className="onboarding-timeline-fill"
+          style={{
+            width: `${((stepIndex + (canContinue ? 0.5 : 0)) / STEPS.length) * 100}%`,
+          }}
+        />
+      </span>
+
+      <header className="onboarding-bar">
+        <span className="onboarding-brand">Hermes Bot</span>
+        <span className="onboarding-count">
+          {stepIndex + 1} <i>/</i> {STEPS.length}
+        </span>
+      </header>
+
+      <main className="onboarding-stage">
+        <div className="onboarding-scene" key={step} data-direction={direction}>
+          <div className="onboarding-actor">
+            <span className="onboarding-halo" aria-hidden="true" />
+            <StageBloub
               color="#8b5cf6"
-              shape={MASCOT[step].shape}
-              variant={MASCOT[step].variant}
+              shape={actor.shape}
+              state={actor.state}
+              expression={actor.expression}
+              size={196}
             />
-          </span>
-          <span className="onboarding-mark-name">Hermes Bot</span>
-        </div>
-
-        <nav className="onboarding-steps" aria-label="Setup steps">
-          {STEPS.map((entry, index) => {
-            const state =
-              index === stepIndex
-                ? 'current'
-                : index < stepIndex
-                  ? 'done'
-                  : 'ahead';
-            return (
-              <button
-                key={entry.id}
-                type="button"
-                className={`onboarding-step is-${state}`}
-                aria-current={state === 'current' ? 'step' : undefined}
-                disabled={state === 'ahead'}
-                onClick={() => goTo(index)}
-              >
-                <span className="onboarding-step-dot" aria-hidden="true">
-                  {state === 'done' ? '✓' : index + 1}
-                </span>
-                <span className="onboarding-step-label">{entry.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        <p className="onboarding-rail-note">
-          The app draws the conversation.
-          <br />
-          Hermes decides what happens in it.
-        </p>
-      </aside>
-
-      <div className="onboarding-main">
-        <header className="onboarding-topbar">
-          <span className="onboarding-count">
-            Step {stepIndex + 1} of {STEPS.length}
-          </span>
-          <div
-            className="onboarding-progress"
-            role="progressbar"
-            aria-label="Setup progress"
-            aria-valuemin={1}
-            aria-valuemax={STEPS.length}
-            aria-valuenow={stepIndex + 1}
-          >
-            {STEPS.map((entry, index) => (
-              <span
-                key={entry.id}
-                className={`onboarding-progress-segment ${
-                  index < stepIndex ? 'is-done' : ''
-                } ${index === stepIndex ? 'is-current' : ''}`}
-              />
-            ))}
           </div>
-        </header>
 
-        <div className="onboarding-stage">
-          <div className="onboarding-card" key={step} data-direction={direction}>
-            {step === 'welcome' ? (
-              <>
-                <p className="onboarding-eyebrow">Welcome</p>
-                <h1 id="onboarding-title" className="onboarding-title">
-                  A window onto your agents.
-                </h1>
-                <p className="onboarding-lede">
-                  Hermes Bot draws the conversations. Hermes runs them — the
-                  models, the memory, the tools. Three things to set up, and the
-                  door opens.
-                </p>
+          <p className="onboarding-eyebrow">{scene.eyebrow}</p>
+          <h1 id="onboarding-title" className="onboarding-title">
+            {scene.title}
+          </h1>
+          <p className="onboarding-line">{scene.line}</p>
 
-                <ul className="onboarding-pitch">
-                  <li className="onboarding-pitch-card">
-                    <span className="onboarding-pitch-index">1</span>
-                    <h2>The host</h2>
-                    <p>
-                      Where Hermes lives. Reached over SSH, the way you already
-                      reach it — no port is opened on the server.
-                    </p>
-                  </li>
-                  <li className="onboarding-pitch-card">
-                    <span className="onboarding-pitch-index">2</span>
-                    <h2>The key</h2>
-                    <p>
-                      The one secret. It goes into the macOS Keychain and stays
-                      there, under the app&apos;s own name.
-                    </p>
-                  </li>
-                  <li className="onboarding-pitch-card">
-                    <span className="onboarding-pitch-index">3</span>
-                    <h2>The crew</h2>
-                    <p>
-                      The bots that answer. They are already waiting on the
-                      host; the app just gives them a face.
-                    </p>
-                  </li>
-                </ul>
-              </>
-            ) : null}
+          {step === 'welcome' ? (
+            <ul className="onboarding-marks">
+              {(['host', 'key', 'crew'] as StepId[]).map((entry, index) => (
+                <li key={entry} className="onboarding-mark">
+                  <span className="onboarding-mark-index">{index + 1}</span>
+                  {SCENES[entry].eyebrow}
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
-            {step === 'host' ? (
-              <>
-                <p className="onboarding-eyebrow">The host</p>
-                <h1 id="onboarding-title" className="onboarding-title">
-                  Where does Hermes run?
-                </h1>
-                <p className="onboarding-lede">
-                  Hermes lives on a machine of yours. The app reaches it over
-                  SSH, so the server never has to expose a port to the world.
-                </p>
+          {step === 'host' ? (
+            <>
+              <div className="onboarding-field">
+                <label
+                  className="onboarding-field-label"
+                  htmlFor="setup-host"
+                >
+                  SSH host
+                </label>
+                <input
+                  id="setup-host"
+                  type="text"
+                  value={host}
+                  spellCheck={false}
+                  autoComplete="off"
+                  placeholder="hermes-box.local"
+                  onChange={(event) => {
+                    setHost(event.target.value);
+                    setError('');
+                  }}
+                />
+              </div>
 
-                <div className="onboarding-field">
-                  <label
-                    className="onboarding-field-label"
-                    htmlFor="setup-host"
-                  >
-                    SSH host
-                  </label>
-                  <input
-                    id="setup-host"
-                    type="text"
-                    value={host}
-                    spellCheck={false}
-                    autoComplete="off"
-                    placeholder="hermes-box.local"
-                    onChange={(event) => {
-                      setHost(event.target.value);
-                      setError('');
-                    }}
-                  />
-                  <span className="onboarding-field-note">
-                    The name your SSH config already knows — the one you would
-                    type after <code>ssh</code>.
-                  </span>
-                </div>
+              <button
+                type="button"
+                className="onboarding-link"
+                aria-expanded={advanced}
+                onClick={() => setAdvanced((current) => !current)}
+              >
+                {advanced ? 'Hide the ports' : 'The ports, if they are not the usual ones'}
+              </button>
 
+              {advanced ? (
                 <div className="onboarding-advanced">
-                  <button
-                    type="button"
-                    className="onboarding-advanced-toggle"
-                    aria-expanded={advanced}
-                    onClick={() => setAdvanced((current) => !current)}
+                  <div className="onboarding-field-row">
+                    <div className="onboarding-field">
+                      <label
+                        className="onboarding-field-label"
+                        htmlFor="setup-api-port"
+                      >
+                        Remote API port
+                      </label>
+                      <input
+                        id="setup-api-port"
+                        type="number"
+                        value={apiPort}
+                        min={1}
+                        max={65535}
+                        spellCheck={false}
+                        onChange={(event) => setApiPort(event.target.value)}
+                      />
+                    </div>
+                    <div className="onboarding-field">
+                      <label
+                        className="onboarding-field-label"
+                        htmlFor="setup-local-port"
+                      >
+                        Local tunnel port
+                      </label>
+                      <input
+                        id="setup-local-port"
+                        type="number"
+                        value={localPort}
+                        min={1}
+                        max={65535}
+                        spellCheck={false}
+                        onChange={(event) => setLocalPort(event.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <code className="onboarding-command">{tunnelCommand}</code>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+
+          {step === 'key' ? (
+            <>
+              <div className="onboarding-field">
+                <label
+                  className="onboarding-field-label"
+                  htmlFor="setup-key"
+                >
+                  API key
+                </label>
+                <input
+                  id="setup-key"
+                  type="password"
+                  value={apiKey}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="API_SERVER_KEY"
+                  onChange={(event) => {
+                    setApiKey(event.target.value);
+                    setError('');
+                    setNotice('');
+                  }}
+                />
+              </div>
+
+              <div className="onboarding-actions">
+                <button
+                  type="button"
+                  className="onboarding-button is-quiet"
+                  disabled={busy !== 'none' || !host.trim()}
+                  onClick={() => void handleImport()}
+                >
+                  {busy === 'import' ? 'Reading…' : `Read it from ${host}`}
+                </button>
+                {hasKey ? (
+                  <span className="onboarding-stamp">In the Keychain</span>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+
+          {step === 'connect' ? (
+            <>
+              <ul className="onboarding-checks">
+                {checks.map((check) => (
+                  <li
+                    key={check.id}
+                    className={`onboarding-check is-${check.state}`}
                   >
                     <span
-                      className={`onboarding-chevron ${
-                        advanced ? 'is-open' : ''
-                      }`}
+                      className="onboarding-check-dot"
                       aria-hidden="true"
-                    >
-                      ›
+                    />
+                    <span className="onboarding-check-label">{check.label}</span>
+                    <span className="onboarding-check-detail">
+                      {check.detail ?? ''}
                     </span>
-                    Advanced
-                  </button>
-                  {advanced ? (
-                    <div className="onboarding-advanced-body">
-                      <div className="onboarding-field-row">
-                        <div className="onboarding-field">
-                          <label
-                            className="onboarding-field-label"
-                            htmlFor="setup-api-port"
-                          >
-                            Remote API port
-                          </label>
-                          <input
-                            id="setup-api-port"
-                            type="number"
-                            value={apiPort}
-                            min={1}
-                            max={65535}
-                            spellCheck={false}
-                            onChange={(event) => setApiPort(event.target.value)}
-                          />
-                        </div>
-                        <div className="onboarding-field">
-                          <label
-                            className="onboarding-field-label"
-                            htmlFor="setup-local-port"
-                          >
-                            Local tunnel port
-                          </label>
-                          <input
-                            id="setup-local-port"
-                            type="number"
-                            value={localPort}
-                            min={1}
-                            max={65535}
-                            spellCheck={false}
-                            onChange={(event) => setLocalPort(event.target.value)}
-                          />
-                        </div>
-                      </div>
-                      <div className="onboarding-command">
-                        <span className="onboarding-field-label">
-                          The command that will run
-                        </span>
-                        <code>{tunnelCommand}</code>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              </>
-            ) : null}
+                  </li>
+                ))}
+              </ul>
 
-            {step === 'key' ? (
-              <>
-                <p className="onboarding-eyebrow">The key</p>
-                <h1 id="onboarding-title" className="onboarding-title">
-                  The key to the door.
-                </h1>
-                <p className="onboarding-lede">
-                  Hermes checks one key before it answers. The app puts it in the
-                  macOS Keychain and never writes it anywhere else.
-                </p>
-
-                <div className="onboarding-field">
-                  <label
-                    className="onboarding-field-label"
-                    htmlFor="setup-key"
-                  >
-                    API key
-                  </label>
-                  <input
-                    id="setup-key"
-                    type="password"
-                    value={apiKey}
-                    autoComplete="off"
-                    spellCheck={false}
-                    placeholder="API_SERVER_KEY"
-                    onChange={(event) => {
-                      setApiKey(event.target.value);
-                      setError('');
-                      setNotice('');
-                    }}
-                  />
-                  <span className="onboarding-field-note">
-                    It lives in <code>~/.hermes/.env</code> on the host, under
-                    the name <code>API_SERVER_KEY</code>.
-                  </span>
-                </div>
-
-                <div className="onboarding-field-actions">
-                  <button
-                    type="button"
-                    className="onboarding-button is-quiet"
-                    disabled={busy !== 'none' || !host.trim()}
-                    onClick={() => void handleImport()}
-                  >
-                    {busy === 'import'
-                      ? 'Reading…'
-                      : `Read it from ${host}`}
-                  </button>
-                  {hasKey ? (
-                    <span className="onboarding-stamp">In the Keychain</span>
-                  ) : null}
-                </div>
-              </>
-            ) : null}
-
-            {step === 'connect' ? (
-              <>
-                <p className="onboarding-eyebrow">The handshake</p>
-                <h1 id="onboarding-title" className="onboarding-title">
-                  Let&apos;s shake hands.
-                </h1>
-                <p className="onboarding-lede">
-                  The app opens a tunnel to the host and asks the gateway who it
-                  is. If the host answers, everything after this is just
-                  talking.
-                </p>
-
-                <ul className="onboarding-checks">
-                  {checks.map((check) => (
-                    <li
-                      key={check.id}
-                      className={`onboarding-check is-${check.state}`}
-                    >
-                      <span
-                        className="onboarding-check-dot"
-                        aria-hidden="true"
-                      />
-                      <span className="onboarding-check-label">{check.label}</span>
-                      <span className="onboarding-check-detail">
-                        {check.detail ?? ''}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-
-                {error ? <p className="onboarding-error">{error}</p> : null}
-
-                {error ? (
+              {error ? (
+                <div className="onboarding-actions">
+                  <span className="onboarding-error">{error}</span>
                   <button
                     type="button"
                     className="onboarding-button is-quiet"
@@ -677,210 +634,187 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                   >
                     Try again
                   </button>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+
+          {step === 'crew' ? (
+            <>
+              <ul className="onboarding-crew">
+                {primary ? (
+                  <li className="onboarding-crew-item">
+                    <AgentAvatar
+                      avatar={{
+                        color: avatarColor(primary.color, 'default'),
+                        shape: botShape(primary.shape),
+                      }}
+                      size={44}
+                      showBadge={false}
+                    />
+                    <span className="onboarding-crew-name">
+                      {primary.title?.trim() || 'Chief of Staff'}
+                    </span>
+                  </li>
                 ) : null}
-              </>
-            ) : null}
+                {bots.map((bot) => (
+                  <li key={bot.name} className="onboarding-crew-item">
+                    <AgentAvatar
+                      avatar={{
+                        color: avatarColor(bot.color, bot.name),
+                        shape: botShape(bot.shape),
+                      }}
+                      size={44}
+                      showBadge={false}
+                    />
+                    <span className="onboarding-crew-name">
+                      {bot.title?.trim() || bot.name}
+                    </span>
+                  </li>
+                ))}
+                {!primary && !bots.length ? (
+                  <li className="onboarding-crew-empty">
+                    The host answered, but it serves no bot yet.
+                  </li>
+                ) : null}
+              </ul>
 
-            {step === 'crew' ? (
-              <>
-                <p className="onboarding-eyebrow">Your crew</p>
-                <h1 id="onboarding-title" className="onboarding-title">
-                  Who answers on the other side?
-                </h1>
-                <p className="onboarding-lede">
-                  These are the bots Hermes serves on that host. The first one
-                  is always there; the others are yours to make.
-                </p>
+              <details className="onboarding-maker">
+                <summary>Make another bot</summary>
+                <div className="onboarding-field">
+                  <label
+                    className="onboarding-field-label"
+                    htmlFor="setup-bot-name"
+                  >
+                    Bot name
+                  </label>
+                  <input
+                    id="setup-bot-name"
+                    type="text"
+                    value={botName}
+                    maxLength={64}
+                    spellCheck={false}
+                    placeholder="e.g. Research assistant"
+                    onChange={(event) => {
+                      setBotName(event.target.value);
+                      setError('');
+                    }}
+                  />
+                </div>
 
-                <ul className="onboarding-crew">
-                  {primary ? (
-                    <li className="onboarding-crew-item">
-                      <AgentAvatar
-                        avatar={{
-                          color: avatarColor(primary.color, 'default'),
-                          shape: botShape(primary.shape),
-                        }}
-                        size={36}
-                        showBadge={false}
-                      />
-                      <span className="onboarding-crew-name">
-                        {primary.title?.trim() || 'Chief of Staff'}
-                      </span>
-                      <span className="onboarding-crew-meta">the default bot</span>
-                    </li>
-                  ) : null}
-                  {bots.map((bot) => (
-                    <li key={bot.name} className="onboarding-crew-item">
-                      <AgentAvatar
-                        avatar={{
-                          color: avatarColor(bot.color, bot.name),
-                          shape: botShape(bot.shape),
-                        }}
-                        size={36}
-                        showBadge={false}
-                      />
-                      <span className="onboarding-crew-name">
-                        {bot.title?.trim() || bot.name}
-                      </span>
-                      <span className="onboarding-crew-meta">{bot.name}</span>
-                    </li>
-                  ))}
-                  {!primary && !bots.length ? (
-                    <li className="onboarding-crew-empty">
-                      The host answered, but it serves no bot yet. The default
-                      one is waiting for the gateway to name it.
-                    </li>
-                  ) : null}
-                </ul>
-
-                <div className="onboarding-maker">
-                  <div className="onboarding-maker-head">
-                    <h2>Make another bot</h2>
-                    <p>
-                      A bot is a Hermes profile on the host: its own key, its
-                      own memory, its own face.
-                    </p>
+                <div className="onboarding-maker-grid">
+                  <div className="onboarding-maker-picker">
+                    <span className="onboarding-field-label">Shape</span>
+                    <ShapeGrid
+                      value={botFace}
+                      color={botColor}
+                      onChange={setBotFace}
+                    />
                   </div>
-
-                  <div className="onboarding-field">
-                    <label
-                      className="onboarding-field-label"
-                      htmlFor="setup-bot-name"
-                    >
-                      Bot name
-                    </label>
-                    <input
-                      id="setup-bot-name"
-                      type="text"
-                      value={botName}
-                      maxLength={64}
-                      spellCheck={false}
-                      placeholder="e.g. Research assistant"
-                      onChange={(event) => {
-                        setBotName(event.target.value);
-                        setError('');
+                  <div className="onboarding-maker-picker">
+                    <span className="onboarding-field-label">Colour</span>
+                    <ColorGrid
+                      value={botColor}
+                      onChange={(next) => {
+                        setBotTouched(true);
+                        setBotColor(next);
                       }}
                     />
                   </div>
-
-                  <div className="onboarding-maker-grid">
-                    <div className="onboarding-maker-picker">
-                      <span className="onboarding-field-label">Shape</span>
-                      <ShapeGrid
-                        value={botFace}
-                        color={botColor}
-                        onChange={setBotFace}
-                      />
-                    </div>
-                    <div className="onboarding-maker-picker">
-                      <span className="onboarding-field-label">Colour</span>
-                      <ColorGrid
-                        value={botColor}
-                        onChange={(next) => {
-                          setBotTouched(true);
-                          setBotColor(next);
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="onboarding-button is-quiet"
-                    disabled={busy !== 'none' || !botName.trim()}
-                    onClick={() => void handleCreateBot()}
-                  >
-                    {busy === 'bot' ? 'Creating…' : 'Create the bot'}
-                  </button>
                 </div>
-              </>
-            ) : null}
 
-            {step === 'ready' ? (
-              <>
-                <p className="onboarding-eyebrow">All set</p>
-                <h1 id="onboarding-title" className="onboarding-title">
-                  You&apos;re all set.
-                </h1>
-                <p className="onboarding-lede">
-                  Everything Hermes needs is where it should be. The
-                  conversation is yours — the app only draws it.
-                </p>
+                <button
+                  type="button"
+                  className="onboarding-button is-quiet"
+                  disabled={busy !== 'none' || !botName.trim()}
+                  onClick={() => void handleCreateBot()}
+                >
+                  {busy === 'bot' ? 'Creating…' : 'Create the bot'}
+                </button>
+              </details>
+            </>
+          ) : null}
 
-                <dl className="onboarding-summary">
-                  <div className="onboarding-summary-row">
-                    <dt>Host</dt>
-                    <dd>{host}</dd>
-                  </div>
-                  <div className="onboarding-summary-row">
-                    <dt>Key</dt>
-                    <dd>in the macOS Keychain</dd>
-                  </div>
-                  <div className="onboarding-summary-row">
-                    <dt>Tunnel</dt>
-                    <dd>127.0.0.1:{localPort}</dd>
-                  </div>
-                  <div className="onboarding-summary-row">
-                    <dt>Bots</dt>
-                    <dd>{crewSummary}</dd>
-                  </div>
-                </dl>
+          {step === 'ready' ? (
+            <ul className="onboarding-facts">
+              <li>
+                <span>Host</span>
+                <strong>{host}</strong>
+              </li>
+              <li>
+                <span>Key</span>
+                <strong>in the Keychain</strong>
+              </li>
+              <li>
+                <span>Crew</span>
+                <strong>{crewSummary}</strong>
+              </li>
+            </ul>
+          ) : null}
 
-                <p className="onboarding-footnote">
-                  The setup lives in the settings: run it again whenever you
-                  move Hermes to another machine.
-                </p>
-              </>
-            ) : null}
-
-            {error && step !== 'connect' ? (
-              <p className="onboarding-error">{error}</p>
-            ) : null}
-            {notice ? <p className="onboarding-notice">{notice}</p> : null}
-          </div>
+          {error && step !== 'connect' ? (
+            <p className="onboarding-error is-alone">{error}</p>
+          ) : null}
+          {notice ? <p className="onboarding-notice">{notice}</p> : null}
         </div>
+      </main>
 
-        <footer className="onboarding-foot">
-          <div className="onboarding-foot-left">
-            {stepIndex === 0 ? (
-              <button
-                type="button"
-                className="onboarding-button is-quiet"
-                onClick={() => void handleDismiss()}
-              >
-                Skip for now
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="onboarding-button is-quiet"
-                disabled={busy !== 'none'}
-                onClick={() => goTo(stepIndex - 1)}
-              >
-                Back
-              </button>
-            )}
-          </div>
-
-          <div className="onboarding-foot-right">
+      <footer className="onboarding-foot">
+        <div className="onboarding-foot-left">
+          {stepIndex === 0 ? (
             <button
               type="button"
-              className="onboarding-button is-primary"
-              disabled={!canContinue || busy !== 'none'}
-              onClick={() => {
-                if (isLast) void handleFinish();
-                else goTo(stepIndex + 1);
-              }}
+              className="onboarding-button is-quiet"
+              onClick={() => void handleDismiss()}
             >
-              {isLast
-                ? 'Start talking'
-                : step === 'welcome'
-                  ? 'Set up Hermes Bot'
-                  : 'Continue'}
+              Skip
             </button>
-          </div>
-        </footer>
-      </div>
+          ) : (
+            <button
+              type="button"
+              className="onboarding-button is-quiet"
+              disabled={busy !== 'none'}
+              onClick={() => goTo(stepIndex - 1)}
+            >
+              Back
+            </button>
+          )}
+        </div>
+
+        <nav className="onboarding-dots" aria-label="Setup steps">
+          {STEPS.map((entry, index) => (
+            <button
+              key={entry}
+              type="button"
+              className={`onboarding-dot ${
+                index === stepIndex ? 'is-current' : ''
+              } ${index < stepIndex ? 'is-done' : ''}`}
+              aria-label={SCENES[entry].eyebrow}
+              aria-current={index === stepIndex ? 'step' : undefined}
+              disabled={index > stepIndex}
+              onClick={() => goTo(index)}
+            />
+          ))}
+        </nav>
+
+        <div className="onboarding-foot-right">
+          <button
+            type="button"
+            className="onboarding-button is-primary"
+            disabled={!canContinue || busy !== 'none'}
+            onClick={() => {
+              if (isLast) void handleFinish();
+              else goTo(stepIndex + 1);
+            }}
+          >
+            {isLast
+              ? 'Start talking'
+              : step === 'welcome'
+                ? 'Begin'
+                : 'Continue'}
+          </button>
+        </div>
+      </footer>
     </div>
   );
 }
