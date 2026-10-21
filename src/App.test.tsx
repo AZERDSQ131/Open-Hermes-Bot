@@ -1058,3 +1058,100 @@ describe('the small things', () => {
     await waitFor(() => expect(attempt).toBeGreaterThan(1), { timeout: 3000 });
   });
 });
+
+describe('the rest of the conversation', () => {
+  it('shows the tool the bot is using', async () => {
+    let onTool: ((payload: { requestId: string; tool: string }) => void) | null =
+      null;
+    const bridge = makeBridge({
+      onChatDelta: vi.fn(() => () => undefined),
+      onChatTool: vi.fn((callback) => {
+        onTool = callback;
+        return () => undefined;
+      }),
+      sendChat: vi.fn(
+        async () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve({ ok: true, text: 'Done' }), 200);
+          }),
+      ),
+    });
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Do it');
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(bridge.onChatTool).toHaveBeenCalled());
+    const requestId = bridge.sendChat.mock.calls[0]?.[0]?.requestId;
+    await act(async () => {
+      onTool?.({ requestId: requestId ?? 'any', tool: 'terminal' });
+    });
+    expect((await screen.findAllByText(/terminal/)).length).toBeGreaterThan(0);
+  });
+
+  it('closes the editor of the logo with the escape', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    await userEvent.click(screen.getByLabelText('Change logo'));
+    await screen.findByLabelText('Circle');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByLabelText('Circle')).toBeNull();
+  });
+
+  it('takes an attachment back', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    const input = document.querySelector(
+      'input[type=file]',
+    ) as HTMLInputElement;
+    await userEvent.upload(
+      input,
+      new File(['hello'], 'note.txt', { type: 'text/plain' }),
+    );
+    await waitFor(() => expect(screen.getByText('note.txt')).toBeTruthy());
+    await userEvent.click(screen.getByLabelText('Remove note.txt'));
+    await waitFor(() => expect(screen.queryByText('note.txt')).toBeNull());
+  });
+
+  it('clears the unread mark when the conversation is opened', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    const row = screen.getByText('Bob').closest('button');
+    await userEvent.pointer({ keys: '[MouseRight]', target: row as Element });
+    await userEvent.click(await screen.findByText('Mark as unread'));
+    expect(document.querySelector('.thread-row.is-unread')).toBeTruthy();
+    await userEvent.click(screen.getByText('Bob'));
+    await waitFor(() =>
+      expect(document.querySelector('.thread-row.is-unread')).toBeNull(),
+    );
+  });
+
+  it('deletes the conversations of a group that is deleted', async () => {
+    const groupSessions = [
+      {
+        id: 'sess-chief',
+        title: 'Group · Crew · Chief of Staff',
+        messageCount: 0,
+        lastActive: 20,
+        archived: false,
+      },
+      {
+        id: 'sess-bob',
+        title: 'Group · Crew · Bob',
+        messageCount: 0,
+        lastActive: 21,
+        archived: false,
+      },
+    ];
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+    });
+    await renderApp(bridge);
+    const row = (await screen.findByText('Crew')).closest('button');
+    await userEvent.pointer({ keys: '[MouseRight]', target: row as Element });
+    await userEvent.click(await screen.findByText('Delete group'));
+    await waitFor(() => expect(bridge.deleteSession).toHaveBeenCalled());
+  });
+});
