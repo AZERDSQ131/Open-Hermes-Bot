@@ -1268,6 +1268,9 @@ describe('the setup', () => {
     );
     await waitFor(() => expect(bridge.connect).toHaveBeenCalled());
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await userEvent.type(await screen.findByLabelText('Its name'), 'Nova');
+    await userEvent.click(screen.getByRole('button', { name: 'Create the bot' }));
+    await waitFor(() => expect(bridge.createBot).toHaveBeenCalled());
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await userEvent.click(
       await screen.findByRole('button', { name: 'Start talking' }),

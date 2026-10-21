@@ -76,7 +76,7 @@ async function walkToBot(
 ) {
   await walkTo(bridge, options);
   await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
-  await screen.findByText(/Who answers\?/);
+  await screen.findByText(/Give it a face/);
 }
 
 afterEach(() => {
@@ -272,15 +272,62 @@ describe('the setup', () => {
     });
     renderSetup();
     await walkToBot(bridge);
-    expect(await screen.findByText(/Nothing answers yet/)).toBeTruthy();
+    expect(
+      await screen.findByText(/Nothing answers yet/),
+    ).toBeTruthy();
   });
 
-  it('lists the bots the host serves', async () => {
+  it('creates the first bot on the host', async () => {
     const bridge = makeBridge();
     renderSetup();
     await walkToBot(bridge);
-    expect(await screen.findByText('Bob')).toBeTruthy();
-    expect(screen.getByText('Chief of Staff')).toBeTruthy();
+    await userEvent.type(await screen.findByLabelText('Its name'), 'Nova');
+    await userEvent.click(screen.getByRole('button', { name: 'Create the bot' }));
+    await waitFor(() => expect(bridge.createBot).toHaveBeenCalled());
+    expect(bridge.createBot).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'nova', title: 'Nova' }),
+    );
+  });
+
+  it('shows the bot that was made on the last page', async () => {
+    const bridge = makeBridge();
+    renderSetup();
+    await walkToBot(bridge);
+    await userEvent.type(await screen.findByLabelText('Its name'), 'Nova');
+    await userEvent.click(screen.getByRole('button', { name: 'Create the bot' }));
+    await waitFor(() => expect(bridge.createBot).toHaveBeenCalled());
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText(/You're all set/)).toBeTruthy();
+    expect(screen.getByText('Nova')).toBeTruthy();
+  });
+
+  it('keeps the colour the person picked for the bot', async () => {
+    const bridge = makeBridge();
+    renderSetup();
+    await walkToBot(bridge);
+    await userEvent.type(await screen.findByLabelText('Its name'), 'Nova');
+    await userEvent.click(screen.getByRole('button', { name: 'Red' }));
+    await userEvent.clear(screen.getByLabelText('Its name'));
+    await userEvent.type(screen.getByLabelText('Its name'), 'Nova');
+    await userEvent.click(screen.getByRole('button', { name: 'Create the bot' }));
+    await waitFor(() => expect(bridge.createBot).toHaveBeenCalled());
+    expect(bridge.createBot).toHaveBeenCalledWith(
+      expect.objectContaining({ color: '#e8483f' }),
+    );
+  });
+
+  it('says when the bot could not be created', async () => {
+    const bridge = makeBridge({
+      createBot: vi.fn(async () => ({
+        ok: false,
+        error: 'the profile already exists',
+      })),
+    });
+    renderSetup();
+    await walkToBot(bridge);
+    await userEvent.type(await screen.findByLabelText('Its name'), 'Nova');
+    await userEvent.click(screen.getByRole('button', { name: 'Create the bot' }));
+    expect(await screen.findByText('the profile already exists')).toBeTruthy();
   });
 
   it('says what went wrong when the test itself falls over', async () => {
@@ -334,11 +381,26 @@ describe('the setup', () => {
     );
   });
 
+  it('calls the bot by the name it was given when the server says nothing', async () => {
+    const bridge = makeBridge({
+      createBot: vi.fn(async () => ({ ok: true })),
+    });
+    renderSetup();
+    await walkToBot(bridge);
+    await userEvent.type(await screen.findByLabelText('Its name'), 'Nova');
+    await userEvent.click(screen.getByRole('button', { name: 'Create the bot' }));
+    await waitFor(() => expect(bridge.createBot).toHaveBeenCalled());
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText('Nova')).toBeTruthy();
+  });
 
   it('finishes the setup and remembers that it was done', async () => {
     const bridge = makeBridge();
     const { onFinish, onDismiss } = renderSetup();
     await walkToBot(bridge);
+    await userEvent.type(await screen.findByLabelText('Its name'), 'Nova');
+    await userEvent.click(screen.getByRole('button', { name: 'Create the bot' }));
+    await waitFor(() => expect(bridge.createBot).toHaveBeenCalled());
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await userEvent.click(
       await screen.findByRole('button', { name: 'Start talking' }),
@@ -376,10 +438,23 @@ describe('the setup', () => {
     ).toBeTruthy();
     // The steps ahead are not there yet.
     expect(
-      within(steps).getByRole('button', { name: /Your crew/ }),
+      within(steps).getByRole('button', { name: /Your first bot/ }),
     ).toBeDisabled();
   });
 
+  it('calls the bots by their profile name when they have no title', async () => {
+    const bridge = makeBridge({
+      profiles: vi.fn(async () => ({
+        ok: true,
+        profiles: [{ name: 'bob', color: '#e8483f', shape: 'galet' }],
+        primary: { name: 'default', color: '#8b5cf6', shape: 'cercle' },
+      })),
+    });
+    renderSetup();
+    await walkToBot(bridge);
+    expect(await screen.findByText('Chief of Staff')).toBeTruthy();
+    expect(screen.getByText('bob')).toBeTruthy();
+  });
 
   it('goes on with the enter key', async () => {
     makeBridge();
@@ -436,6 +511,9 @@ describe('the setup', () => {
     });
     const { onFinish } = renderSetup();
     await walkToBot(bridge);
+    await userEvent.type(await screen.findByLabelText('Its name'), 'Nova');
+    await userEvent.click(screen.getByRole('button', { name: 'Create the bot' }));
+    await waitFor(() => expect(bridge.createBot).toHaveBeenCalled());
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await userEvent.click(
       await screen.findByRole('button', { name: 'Start talking' }),
