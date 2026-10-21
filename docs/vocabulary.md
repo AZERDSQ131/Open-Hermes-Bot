@@ -33,6 +33,10 @@ who answers on the other side.
 host the way the sidebar does, and it writes down one fact of its own: that it
 has been walked through.
 
+**The setup is a scene, not a form.** One character acts in it — it breathes,
+it blinks, it takes a new shape for each question, it thinks while the tunnel
+opens, and it is happy when the host answers. The words are few on purpose.
+
 ## Bot
 
 A Hermes profile with a face. A bot has a name, a colour and a shape, and

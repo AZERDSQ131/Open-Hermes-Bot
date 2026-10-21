@@ -13,6 +13,17 @@ follow [semantic versioning](https://semver.org/).
   side — one question at a time. It shakes hands with the host, shows the bots
   it serves, and lets the first one be made on the spot. The setup can be run
   again from **Settings → Setup**, whenever Hermes moves to another machine.
+- **An actor for the setup.** The setup is not a page of forms: it is a scene
+  with one character in it, that breathes, blinks, changes shape from one
+  question to the next, thinks while the tunnel opens, and celebrates when the
+  host answers.
+
+### Fixed
+
+- **An error the person can read.** A command that never ran has no stderr to
+  read, and reading it anyway threw: the app answered with an exception
+  instead of saying what went wrong. It shows up on a machine that has not been
+  told where Hermes lives yet.
 
 ## [1.0.0] — 2026-10-21
 
