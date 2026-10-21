@@ -18,7 +18,12 @@ permissions:
 jobs:
   check:
     name: Typecheck, tests and build
-    runs-on: macos-latest
+    # The checks are platform-independent: the typecheck, the tests and the
+    # renderer build say the same thing on Linux as on macOS, and the Linux
+    # runners are a far bigger pool — a push does not wait for a Mac to be
+    # free. The Mac is where the app is built, and that is the release
+    # workflow's job.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Check the code out
