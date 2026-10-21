@@ -9,7 +9,8 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { AgentAvatar } from './components/AgentAvatar';
-import { BLOUB_SHAPES, type BloubShape } from './components/bloubFrames';
+import { botShape } from './components/Bloub';
+import { type BloubShape } from './components/bloubFrames';
 import {
   CreateAgentDialog,
   toProfileId,
@@ -209,10 +210,6 @@ function threadForBot(profile: HermesProfile): Thread {
 
 // The face a bot wears is kept with the bot, on the server: a bot that came
 // back after a restart must be the same bot.
-function botShape(shape?: string): BloubShape {
-  const wanted = String(shape ?? '').trim() as BloubShape;
-  return BLOUB_SHAPES.includes(wanted) ? wanted : 'cercle';
-}
 
 // Real bots only: anything the gateway no longer serves leaves the sidebar, and
 // threads without a profile (groups) stay where they are.
