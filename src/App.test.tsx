@@ -1238,7 +1238,7 @@ describe('the setup', () => {
     });
     await renderApp(bridge);
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Skip for now' }),
+      await screen.findByRole('button', { name: 'Skip' }),
     );
     await waitFor(() =>
       expect(screen.queryByText(/A window onto your agents/)).toBeNull(),
@@ -1259,7 +1259,7 @@ describe('the setup', () => {
     });
     await renderApp(bridge);
     await userEvent.click(
-      await screen.findByRole('button', { name: /Set up Hermes Bot/ }),
+      await screen.findByRole('button', { name: 'Begin' }),
     );
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));

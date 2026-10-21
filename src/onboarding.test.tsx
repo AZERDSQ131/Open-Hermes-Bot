@@ -52,7 +52,7 @@ async function walkTo(
   bridge: Record<string, unknown>,
   { host = 'hermes-box.local', key = 'sk-secret' } = {},
 ) {
-  await userEvent.click(screen.getByRole('button', { name: /Set up Hermes Bot/ }));
+  await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
   await userEvent.type(screen.getByLabelText('SSH host'), host);
   await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
   await userEvent.type(screen.getByLabelText('API key'), key);
@@ -65,15 +65,15 @@ describe('the setup', () => {
     makeBridge();
     renderSetup();
     expect(screen.getByText(/A window onto your agents/)).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'The host' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'The key' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'The crew' })).toBeTruthy();
+    expect(screen.getByText('The host')).toBeTruthy();
+    expect(screen.getByText('The key')).toBeTruthy();
+    expect(screen.getByText('Your crew')).toBeTruthy();
   });
 
   it('does not go on without a host', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: /Set up Hermes Bot/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     const next = screen.getByRole('button', { name: 'Continue' });
     expect(next).toBeDisabled();
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
@@ -83,7 +83,7 @@ describe('the setup', () => {
   it('does not go on without a key', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: /Set up Hermes Bot/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     const next = screen.getByRole('button', { name: 'Continue' });
@@ -95,7 +95,7 @@ describe('the setup', () => {
   it('reads the key from the server when the person asks it to', async () => {
     const bridge = makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: /Set up Hermes Bot/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await userEvent.click(
@@ -183,7 +183,7 @@ describe('the setup', () => {
   it('lets the person walk away from the setup', async () => {
     const bridge = makeBridge();
     const { onFinish, onDismiss } = renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Skip for now' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Skip' }));
     await waitFor(() => expect(onDismiss).toHaveBeenCalled());
     expect(onFinish).not.toHaveBeenCalled();
     expect(bridge.setOnboarding).toHaveBeenCalledWith({ completed: true });
@@ -192,7 +192,7 @@ describe('the setup', () => {
   it('goes back to the step before', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: /Set up Hermes Bot/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByText(/The key to the door/)).toBeTruthy();
@@ -204,7 +204,7 @@ describe('the setup', () => {
     makeBridge();
     renderSetup();
     const steps = screen.getByRole('navigation', { name: 'Setup steps' });
-    await userEvent.click(screen.getByRole('button', { name: /Set up Hermes Bot/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(
@@ -219,7 +219,7 @@ describe('the setup', () => {
   it('goes on with the enter key', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: /Set up Hermes Bot/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local{Enter}');
     expect(screen.getByText(/The key to the door/)).toBeTruthy();
   });
@@ -227,9 +227,9 @@ describe('the setup', () => {
   it('shows the ports and the command that will run', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: /Set up Hermes Bot/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
-    await userEvent.click(screen.getByRole('button', { name: 'Advanced' }));
+    await userEvent.click(screen.getByRole('button', { name: /The ports/ }));
     expect(screen.getByLabelText('Remote API port')).toBeTruthy();
     expect(screen.getByLabelText('Local tunnel port')).toBeTruthy();
     expect(
@@ -242,9 +242,9 @@ describe('the setup', () => {
   it('falls back on the port Hermes uses when the field is emptied', async () => {
     const bridge = makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: /Set up Hermes Bot/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
-    await userEvent.click(screen.getByRole('button', { name: 'Advanced' }));
+    await userEvent.click(screen.getByRole('button', { name: /The ports/ }));
     await userEvent.clear(screen.getByLabelText('Remote API port'));
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await userEvent.type(screen.getByLabelText('API key'), 'sk-secret');
@@ -258,7 +258,7 @@ describe('the setup', () => {
   it('uses the key in the Keychain when there is none to type', async () => {
     const bridge = makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: /Set up Hermes Bot/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await userEvent.click(
@@ -367,7 +367,7 @@ describe('the setup', () => {
     await waitFor(() => expect(bridge.connect).toHaveBeenCalled());
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(await screen.findByText('1 bot on hermes-box.local')).toBeTruthy();
+    expect(await screen.findByText('1 bot')).toBeTruthy();
   });
 
   it('finishes even when the app could not write the flag down', async () => {
