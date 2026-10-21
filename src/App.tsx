@@ -384,7 +384,6 @@ export default function App() {
   // A reply lands after the person may have moved on: unread is decided against
   // the thread that is open now, not the one that was open at send time.
   const activeIdRef = useRef(activeId);
-  const [botsLoaded, setBotsLoaded] = useState(false);
   const [botsError, setBotsError] = useState('');
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState('');
@@ -482,10 +481,7 @@ export default function App() {
   // bots created or removed on the machine meanwhile.
   useEffect(() => {
     const bridge = window.hermes;
-    if (!bridge?.profiles) {
-      setBotsLoaded(true);
-      return;
-    }
+    if (!bridge?.profiles) return;
     let cancelled = false;
     bridge
       .profiles()
@@ -515,9 +511,7 @@ export default function App() {
         }
       })
       .catch(() => undefined)
-      .finally(() => {
-        if (!cancelled) setBotsLoaded(true);
-      });
+      .finally(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -2560,7 +2554,6 @@ export default function App() {
         onClick={() => setSidebarOpen(false)}
       />
 
-      {activeThread ? (
       <main className="chat">
         <header className="chat-header">
           <div className="chat-header-inner">
@@ -3045,35 +3038,6 @@ export default function App() {
           </div>
         </div>
       </main>
-      ) : (
-        <main className="chat">
-          <div className="empty-state no-bots">
-            <h2>
-              {!botsLoaded
-                ? 'Looking for your bots…'
-                : botsError
-                  ? 'Hermes is out of reach'
-                  : 'No bots yet'}
-            </h2>
-            <p>
-              {!botsLoaded
-                ? 'Asking Hermes which bots you have.'
-                : botsError
-                  ? botsError
-                  : 'Bots live in Hermes. Create one and it appears here.'}
-            </p>
-            {botsLoaded ? (
-              <button
-                type="button"
-                className="button-primary no-bots-action"
-                onClick={botsError ? openSettings : openCreateDialog}
-              >
-                {botsError ? 'Open Connection' : 'Create a bot'}
-              </button>
-            ) : null}
-          </div>
-        </main>
-      )}
 
       {contextMenu && contextThread ? (
         <ThreadContextMenu
