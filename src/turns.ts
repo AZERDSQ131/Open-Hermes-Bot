@@ -1,0 +1,91 @@
+// The rules of a turn: what a tapback lands on, what happens when the model
+// is out of quota, and what to do when the server is still installing.
+
+import type { Message } from './data';
+
+/** A model that said "not for you" because the quota is spent. */
+const QUOTA_ERROR = /usage limit|quota|rate limit|too many requests|429|exhausted/i;
+
+/** A server that is still installing what it needs. */
+const DEPENDENCY_BUSY = /installing dependencies|hermes pm install/i;
+const DEPENDENCY_RETRY_MS = 8000;
+const DEPENDENCY_RETRIES = 2;
+
+export type ChatOutcome = { ok: boolean; error?: string; canceled?: boolean };
+
+/** Is the model out of quota? */
+export function isQuotaFailure(message?: string): boolean {
+  return Boolean(message && QUOTA_ERROR.test(message));
+}
+
+/** Is the server still installing what it needs? */
+export function isInstallingDependencies(message?: string): boolean {
+  return Boolean(message && DEPENDENCY_BUSY.test(message));
+}
+
+/**
+ * A profile whose environment is being provisioned refuses turns until the
+ * install finishes. That is a "come back in a moment", not a dead end — the
+ * group especially tends to hit it on the first parallel turn of several bots.
+ */
+export async function retryWhileDependenciesInstall<T extends ChatOutcome>(
+  call: () => Promise<T>,
+  stillWanted: () => boolean,
+  wait: (ms: number) => Promise<void> = (ms) =>
+    new Promise((resolve) => setTimeout(resolve, ms)),
+): Promise<T> {
+  let result = await call();
+  for (let attempt = 0; attempt < DEPENDENCY_RETRIES; attempt += 1) {
+    if (result.ok || result.canceled) return result;
+    if (!isInstallingDependencies(result.error)) return result;
+    if (!stillWanted()) return result;
+    await wait(DEPENDENCY_RETRY_MS);
+    if (!stillWanted()) return result;
+    result = await call();
+  }
+  return result;
+}
+
+/** A tapback belongs on the user's latest message: the one the bot was answering. */
+export function attachReaction(
+  messages: Message[],
+  emoji?: string,
+): Message[] {
+  if (!emoji) return messages;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role !== 'user') continue;
+    return messages.map((message, at) =>
+      at === index ? { ...message, reaction: emoji } : message,
+    );
+  }
+  return messages;
+}
+
+/**
+ * In a group, a tapback lands on the last line the reactor did not write, and
+ * is signed: two bots can react to the same message without overwriting one
+ * another. Reacting to your own line would be talking to yourself.
+ */
+export function attachGroupReaction(
+  messages: Message[],
+  emoji: string | undefined,
+  by: string,
+): Message[] {
+  if (!emoji) return messages;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const target = messages[index];
+    if (target.role === 'event') continue;
+    if (target.role === 'assistant' && target.authorName === by) continue;
+    return messages.map((message, at) => {
+      if (at !== index || message.role === 'event') return message;
+      const others = (message.reactions ?? []).filter(
+        (reaction) => reaction.by !== by,
+      );
+      return {
+        ...message,
+        reactions: [...others, { emoji, by }],
+      };
+    });
+  }
+  return messages;
+}

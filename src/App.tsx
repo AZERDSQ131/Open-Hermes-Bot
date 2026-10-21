@@ -55,6 +55,12 @@ import {
   stripReactionMarkers,
 } from './reactions';
 import {
+  attachGroupReaction,
+  attachReaction,
+  isQuotaFailure,
+  retryWhileDependenciesInstall,
+} from './turns';
+import {
   cleanProtocol,
   groupInstructions,
   groupTurnMessage,
@@ -86,10 +92,6 @@ import {
 
 const MAX_PINNED = 3;
 
-function isQuotaFailure(message?: string): boolean {
-  return Boolean(message && QUOTA_ERROR.test(message));
-}
-
 // A model picked once stays picked: new conversations start on the last one the
 // person chose for that bot, instead of the profile's configured model — which
 // may be the one that just refused to answer.
@@ -119,36 +121,6 @@ async function configuredModelFor(
   return resolved;
 }
 
-// A configured model can be out of quota while a free one on the same provider
-// still answers. That is not a conversation-ending failure, so the first turn
-// rescues itself; the picker then shows the model that actually replied.
-const QUOTA_ERROR = /usage limit|quota|rate limit|too many requests|429|exhausted/i;
-
-// A profile whose environment is being provisioned refuses turns until the
-// install finishes. That is a "come back in a moment", not a dead end — the
-// group especially tends to hit it on the first parallel turn of several bots.
-const DEPENDENCY_BUSY = /installing dependencies|hermes pm install/i;
-const DEPENDENCY_RETRY_MS = 8000;
-const DEPENDENCY_RETRIES = 2;
-
-type ChatOutcome = { ok: boolean; error?: string; canceled?: boolean };
-
-async function retryWhileDependenciesInstall<T extends ChatOutcome>(
-  call: () => Promise<T>,
-  stillWanted: () => boolean,
-): Promise<T> {
-  let result = await call();
-  for (let attempt = 0; attempt < DEPENDENCY_RETRIES; attempt += 1) {
-    if (result.ok || result.canceled) return result;
-    if (!DEPENDENCY_BUSY.test(result.error ?? '')) return result;
-    if (!stillWanted()) return result;
-    await new Promise((resolve) => setTimeout(resolve, DEPENDENCY_RETRY_MS));
-    if (!stillWanted()) return result;
-    result = await call();
-  }
-  return result;
-}
-
 async function freeModelFor(profile?: string): Promise<PreferredModel | null> {
   const bridge = window.hermes;
   if (!bridge?.models) return null;
@@ -170,18 +142,6 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// A tapback belongs on the user's latest message: the one the bot was answering.
-function attachReaction(messages: Message[], emoji?: string): Message[] {
-  if (!emoji) return messages;
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index].role !== 'user') continue;
-    return messages.map((message, at) =>
-      at === index ? { ...message, reaction: emoji } : message,
-    );
-  }
-  return messages;
-}
-
 /** Every reaction on a message: the ones the bots left. */
 function messageReactions(message: Message, botName: string): Reaction[] {
   if (message.role === 'event') return [];
@@ -197,33 +157,6 @@ function messageReactions(message: Message, botName: string): Reaction[] {
 function reactionLabel(group: ReactionGroup): string {
   const who = group.by.join(', ') || 'Un bot';
   return `${who} a réagi ${group.emoji}`;
-}
-
-// In a group, a tapback lands on the last line the reactor did not write, and
-// is signed: two bots can react to the same message without overwriting one
-// another. Reacting to your own line would be talking to yourself.
-function attachGroupReaction(
-  messages: Message[],
-  emoji: string | undefined,
-  by: string,
-): Message[] {
-  if (!emoji) return messages;
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const target = messages[index];
-    if (target.role === 'event') continue;
-    if (target.role === 'assistant' && target.authorName === by) continue;
-    return messages.map((message, at) => {
-      if (at !== index || message.role === 'event') return message;
-      const others = (message.reactions ?? []).filter(
-        (reaction) => reaction.by !== by,
-      );
-      return {
-        ...message,
-        reactions: [...others, { emoji, by }],
-      };
-    });
-  }
-  return messages;
 }
 
 // The primary Hermes profile lives at ~/.hermes itself, not under profiles/, so
