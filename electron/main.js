@@ -352,7 +352,7 @@ async function waitForTunnel(state, apiKey) {
         status: 0,
         error:
           state?.error ||
-          state?.stderr.trim() ||
+          String(state?.stderr ?? '').trim() ||
           tunnelError ||
           'SSH tunnel closed',
       };
@@ -436,6 +436,16 @@ function runSsh(host, command, timeoutMs = 20000, input) {
   });
 }
 
+/**
+ * The stderr of a command that never ran is nothing: the host may not even be
+ * known yet, and the tunnel may have died before writing a word. Reading it
+ * must not throw — an error the person can read is worth more than an
+ * exception nobody sees.
+ */
+function stderrOf(result) {
+  return String(result?.stderr ?? '').trim();
+}
+
 function parseEnvValue(raw) {
   let value = String(raw ?? '').split('\n')[0].trim();
   const quoted =
@@ -508,7 +518,7 @@ ipcMain.handle('hermes:key:import', async (_event, payload) => {
       ok: false,
       error:
         result.error ||
-        result.stderr.trim() ||
+        stderrOf(result) ||
         'API_SERVER_KEY not found in the remote ~/.hermes/.env',
     };
   }
@@ -934,7 +944,7 @@ ipcMain.handle('hermes:bot:update', async (_event, payload) => {
   if (!result.ok) {
     return {
       ok: false,
-      error: result.stderr.trim() || result.error || 'Could not update the bot',
+      error: stderrOf(result) || result.error || 'Could not update the bot',
     };
   }
   let meta = { title: '', color: '', shape: '' };
@@ -1033,7 +1043,7 @@ ipcMain.handle('hermes:bot:delete', async (_event, payload) => {
     return {
       ok: false,
       error:
-        result.stderr.trim() ||
+        stderrOf(result) ||
         result.error ||
         'Could not delete the bot on the server',
     };
@@ -1078,7 +1088,7 @@ ipcMain.handle('hermes:attachment:upload', async (_event, payload) => {
     return {
       ok: false,
       error:
-        result.stderr.trim() ||
+        stderrOf(result) ||
         result.error ||
         `Could not copy ${name} to ${connection.sshHost}`,
     };
@@ -1142,7 +1152,7 @@ ipcMain.handle('hermes:voice:transcribe', async (_event, payload) => {
     return {
       ok: false,
       error:
-        result.stderr.trim() ||
+        stderrOf(result) ||
         result.error ||
         'The recording could not be transcribed on the server',
     };
@@ -1152,7 +1162,7 @@ ipcMain.handle('hermes:voice:transcribe', async (_event, payload) => {
     return {
       ok: false,
       error:
-        result.stderr.trim() ||
+        stderrOf(result) ||
         'The server did not answer with a transcription',
     };
   }
@@ -1234,7 +1244,7 @@ ipcMain.handle('hermes:prefs', async () => {
     return {
       ok: false,
       error:
-        result.stderr.trim() ||
+        stderrOf(result) ||
         result.error ||
         'The preferences could not be read from the server',
     };
@@ -1254,7 +1264,7 @@ ipcMain.handle('hermes:prefs:save', async (_event, payload) => {
     return {
       ok: false,
       error:
-        result.stderr.trim() ||
+        stderrOf(result) ||
         result.error ||
         'The preferences could not be saved on the server',
     };
@@ -2070,7 +2080,7 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
     ok: false,
     error:
       result.error ||
-      result.stderr.trim() ||
+      stderrOf(result) ||
       `Could not create the bot on ${connection.sshHost}`,
   };
 });
