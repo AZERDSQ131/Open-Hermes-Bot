@@ -1271,9 +1271,9 @@ describe('the setup', () => {
     await userEvent.type(await screen.findByLabelText('Its name'), 'Nova');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await screen.findByText(/What shape/);
-    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await userEvent.click(screen.getByLabelText('Hexagon'));
     await screen.findByText(/What colour/);
-    await userEvent.click(screen.getByRole('button', { name: 'Make the bot' }));
+    await userEvent.click(screen.getByLabelText('Amber'));
     await waitFor(() => expect(bridge.createBot).toHaveBeenCalled());
     await userEvent.click(
       await screen.findByRole('button', { name: 'Start talking' }),

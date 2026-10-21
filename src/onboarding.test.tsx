@@ -85,9 +85,11 @@ async function walkToReady(bridge: Record<string, unknown>, name = 'Nova') {
   await userEvent.type(screen.getByLabelText('Its name'), name);
   await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
   await screen.findByText(/What shape\?/);
-  await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+  // A click on the shape is the way forward.
+  await userEvent.click(screen.getByLabelText('Hexagon'));
   await screen.findByText(/What colour\?/);
-  await userEvent.click(screen.getByRole('button', { name: 'Make the bot' }));
+  // A click on the colour makes the bot.
+  await userEvent.click(screen.getByLabelText('Amber'));
   await waitFor(() => expect(bridge.createBot).toHaveBeenCalled());
 }
 
@@ -295,7 +297,8 @@ describe('the setup', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByText(/What shape\?/)).toBeTruthy();
     expect(screen.getByLabelText('Pebble')).toBeTruthy();
-    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    // The click on the shape is the way on.
+    await userEvent.click(screen.getByLabelText('Pebble'));
     expect(await screen.findByText(/What colour\?/)).toBeTruthy();
     expect(screen.getByLabelText('Red')).toBeTruthy();
   });
@@ -347,13 +350,12 @@ describe('the setup', () => {
     await userEvent.type(screen.getByLabelText('Its name'), 'Nova');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await screen.findByText(/What shape\?/);
-    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await userEvent.click(screen.getByLabelText('Hexagon'));
     await screen.findByText(/What colour\?/);
-    await userEvent.click(screen.getByRole('button', { name: 'Red' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Make the bot' }));
+    await userEvent.click(screen.getByLabelText('Red'));
     await waitFor(() => expect(bridge.createBot).toHaveBeenCalled());
     expect(bridge.createBot).toHaveBeenCalledWith(
-      expect.objectContaining({ color: '#e8483f' }),
+      expect.objectContaining({ color: '#e8483f', shape: 'hexagone' }),
     );
   });
 
@@ -369,9 +371,9 @@ describe('the setup', () => {
     await userEvent.type(screen.getByLabelText('Its name'), 'Nova');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await screen.findByText(/What shape\?/);
-    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await userEvent.click(screen.getByLabelText('Hexagon'));
     await screen.findByText(/What colour\?/);
-    await userEvent.click(screen.getByRole('button', { name: 'Make the bot' }));
+    await userEvent.click(screen.getByLabelText('Amber'));
     expect(await screen.findByText('the profile already exists')).toBeTruthy();
   });
 
