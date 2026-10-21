@@ -1,3 +1,8 @@
+// This file is the Hermes bridge. The app is an interface, not a harness:
+// Hermes runs the agent, keeps the memory and calls the models, and
+// everything below only carries a turn to it and hands back what it says.
+// docs/architecture.md says where the boundary runs.
+
 const {
   app,
   BrowserWindow,
