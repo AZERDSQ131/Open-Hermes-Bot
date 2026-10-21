@@ -428,7 +428,22 @@ type AttachmentFile = {
   size: number;
   type: string;
   previewUrl?: string;
+  /** Where the file is on the server, once it is there. */
+  path?: string;
+  status?: 'uploading' | 'ready' | 'failed';
 };
+
+/** The bytes of a file, as the text the bridge carries. */
+async function fileToBase64(file: File): Promise<string> {
+  const buffer = new Uint8Array(await file.arrayBuffer());
+  let binary = '';
+  // The string is built in pieces: one big concat blows the call stack.
+  const piece = 0x8000;
+  for (let index = 0; index < buffer.length; index += piece) {
+    binary += String.fromCharCode(...buffer.subarray(index, index + piece));
+  }
+  return btoa(binary);
+}
 
 function fileExtension(name: string) {
   const dot = name.lastIndexOf('.');
@@ -454,6 +469,7 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState('');
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
+  const [attachmentNote, setAttachmentNote] = useState('');
   const [listening, setListening] = useState(false);
   const [mentionIndex, setMentionIndex] = useState(0);
   // Escape closes the roster without changing what was typed.
@@ -2011,13 +2027,25 @@ export default function App() {
     const text = draft.trim();
     const thread = activeThread;
     if (!text || !thread) return;
+    // A file that is still on its way to the server would be lost by the
+    // message: the person is told to wait a moment.
+    if (attachments.some((attachment) => attachment.status === 'uploading')) {
+      setAttachmentNote('The file is still being copied to the server.');
+      return;
+    }
+    const attached = attachments.filter(
+      (attachment) => attachment.status === 'ready' && attachment.path,
+    );
+    if (attachments.length > attached.length) {
+      setAttachmentNote('A file could not be copied to the server and was not sent.');
+    }
 
     // A group speaks with many voices: it gets its own relay, not the single
     // bot turn below.
     if (thread.avatar.kind === 'group') {
-      const outgoing = attachments.length
-        ? `${text}\n\nAttached: ${attachments
-            .map((attachment) => attachment.name)
+      const outgoing = attached.length
+        ? `${text}\n\nAttached: ${attached
+            .map((attachment) => attachment.path)
             .join(', ')}`
         : text;
       await sendGroupMessage(thread, outgoing, text);
@@ -2053,9 +2081,11 @@ export default function App() {
     const isCurrent = () => requestThread.current.get(threadId) === requestId;
     // Sending is an intent to look at the answer, even from inside older turn.
     stickToBottom.current = true;
-    const outgoing = attachments.length
-      ? `${text}\n\nAttached: ${attachments
-          .map((attachment) => attachment.name)
+    // The bot reads the file where it lives on the server, so the message
+    // carries its path.
+    const outgoing = attached.length
+      ? `${text}\n\nAttached: ${attached
+          .map((attachment) => attachment.path)
           .join(', ')}`
       : text;
     const userMessage: Message = { id: uid(), role: 'user', text: outgoing };
@@ -2316,22 +2346,69 @@ export default function App() {
     }
   }
 
+  // A file the person attaches is copied to the server, where the bot can
+  // read it. Until it is there, the chip says so.
+  async function uploadAttachment(file: File) {
+    const id = uid();
+    const bridge = window.hermes;
+    setAttachments((current) => [
+      ...current,
+      {
+        id,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        previewUrl: file.type.startsWith('image/')
+          ? URL.createObjectURL(file)
+          : undefined,
+        status: 'uploading',
+      },
+    ]);
+    if (!bridge?.uploadAttachment) {
+      setAttachments((current) =>
+        current.map((attachment) =>
+          attachment.id === id
+            ? { ...attachment, status: 'failed' }
+            : attachment,
+        ),
+      );
+      return;
+    }
+    try {
+      const data = await fileToBase64(file);
+      const result = await bridge.uploadAttachment({
+        name: file.name,
+        data,
+      });
+      if (!result.ok) {
+        throw new Error(result.error ?? 'The file could not be copied');
+      }
+      setAttachments((current) =>
+        current.map((attachment) =>
+          attachment.id === id
+            ? { ...attachment, status: 'ready', path: result.path }
+            : attachment,
+        ),
+      );
+    } catch (reason) {
+      setAttachmentNote(
+        reason instanceof Error && reason.message
+          ? reason.message
+          : 'The file could not be copied to the server',
+      );
+      setAttachments((current) =>
+        current.map((attachment) =>
+          attachment.id === id
+            ? { ...attachment, status: 'failed' }
+            : attachment,
+        ),
+      );
+    }
+  }
+
   function handleFiles(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
-    if (files.length) {
-      setAttachments((current) => [
-        ...current,
-        ...files.map((file) => ({
-          id: uid(),
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          previewUrl: file.type.startsWith('image/')
-            ? URL.createObjectURL(file)
-            : undefined,
-        })),
-      ]);
-    }
+    for (const file of files) void uploadAttachment(file);
     event.target.value = '';
   }
 
@@ -2853,7 +2930,7 @@ export default function App() {
                     <div
                       className={`attachment ${
                         attachment.previewUrl ? 'is-image' : 'is-file'
-                      }`}
+                      } ${attachment.status === 'failed' ? 'is-failed' : ''}`}
                       key={attachment.id}
                     >
                       <div className="attachment-visual">
@@ -2889,12 +2966,22 @@ export default function App() {
                           {attachment.name}
                         </span>
                         <span className="attachment-size">
-                          {formatFileSize(attachment.size)}
+                          {attachment.status === 'uploading'
+                            ? 'Copying…'
+                            : attachment.status === 'failed'
+                              ? 'Not copied'
+                              : formatFileSize(attachment.size)}
                         </span>
                       </div>
                     </div>
                   ))}
                 </div>
+              ) : null}
+
+              {attachmentNote ? (
+                <p className="composer-note" role="status">
+                  {attachmentNote}
+                </p>
               ) : null}
 
               {dictationNote ? (

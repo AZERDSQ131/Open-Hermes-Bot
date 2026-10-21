@@ -56,6 +56,11 @@ Conversations survive a restart: reopening a thread recreates its session by tit
 and if Hermes already has a session under that title the app resumes it instead of
 failing with “Title already in use”.
 
+A file the person attaches is copied to the server, where the bot can read it: the
+app sends it over the SSH it already uses, and the message carries its path. The
+microphone dictates — Chromium writes the words down and they land in the composer —
+and says so when it cannot listen.
+
 ## Where a conversation lives
 
 A conversation is a Hermes session, and Hermes is the only place it is kept. The app

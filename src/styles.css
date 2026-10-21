@@ -875,6 +875,15 @@ button:focus-visible {
   letter-spacing: -0.004em;
 }
 
+/* A file that could not be copied says so instead of waiting for ever. */
+.attachment.is-failed {
+  opacity: 0.55;
+}
+
+.attachment.is-failed .attachment-size {
+  color: #ff8f88;
+}
+
 .mention {
   padding: 0 3px;
   border-radius: 5px;

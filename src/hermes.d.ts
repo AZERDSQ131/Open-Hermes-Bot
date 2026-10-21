@@ -143,6 +143,18 @@ export type HermesBridge = {
   deleteBot: (payload: {
     name: string;
   }) => Promise<{ ok: boolean; name?: string; error?: string }>;
+  /** Copies an attached file to the server, where the bot can read it. */
+  uploadAttachment: (payload: {
+    name: string;
+    /** The file, base64 encoded. */
+    data: string;
+  }) => Promise<{
+    ok: boolean;
+    name?: string;
+    path?: string;
+    bytes?: number;
+    error?: string;
+  }>;
   models: (payload: { profile?: string }) => Promise<HermesModelList>;
   profiles: () => Promise<HermesProfileList>;
   sendChat: (payload: {

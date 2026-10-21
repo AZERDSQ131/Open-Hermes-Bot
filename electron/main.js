@@ -358,15 +358,21 @@ function statusFromProbe(probe, sshHost) {
   };
 }
 
-function runSsh(host, command, timeoutMs = 20000) {
+function runSsh(host, command, timeoutMs = 20000, input) {
   return new Promise((resolve) => {
     const child = spawn(
       'ssh',
       ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', host, command],
-      { stdio: ['ignore', 'pipe', 'pipe'] },
+      { stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'] },
     );
     let stdout = '';
     let stderr = '';
+    if (input && child.stdin) {
+      // The bytes go down the pipe the command reads: a file the person
+      // attached never passes through a command line.
+      child.stdin.on('error', () => undefined);
+      child.stdin.end(input);
+    }
     const timer = setTimeout(() => {
       child.kill('SIGKILL');
       resolve({ ok: false, error: 'SSH command timed out' });
@@ -963,6 +969,55 @@ ipcMain.handle('hermes:bot:delete', async (_event, payload) => {
   }
   profileKeys.delete(name);
   return { ok: true, name };
+});
+
+// A file the person attaches has to live where the bot can read it: the app
+// copies it to the server over the SSH it already uses, and the message
+// carries its path. The bytes go down the pipe, never through a command line.
+const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
+
+ipcMain.handle('hermes:attachment:upload', async (_event, payload) => {
+  const name = String(payload?.name ?? '').trim();
+  const data = String(payload?.data ?? '');
+  if (!name) return { ok: false, error: 'The file has no name' };
+  if (!data) return { ok: false, error: 'The file is empty' };
+  const bytes = Buffer.from(data, 'base64');
+  if (!bytes.length) return { ok: false, error: 'The file is empty' };
+  if (bytes.length > ATTACHMENT_MAX_BYTES) {
+    return { ok: false, error: 'The file is too large (8 MB max)' };
+  }
+  const safe = name.replace(/[^A-Za-z0-9._-]+/g, '_').slice(-60) || 'file';
+  const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
+  // The path is built here and quoted with double quotes, so the remote shell
+  // expands the home it knows and the bot reads a real path.
+  const remote = `"$HOME/.hermes/attachments/${stamp}-${safe}"`;
+  const connection = storedConnection();
+  const result = await runSsh(
+    connection.sshHost,
+    [
+      'mkdir -p "$HOME/.hermes/attachments"',
+      `cat > ${remote}`,
+      // The bot reads a real path, not the tilde the shell knows.
+      `printf %s ${remote}`,
+    ].join(' && '),
+    60000,
+    bytes,
+  );
+  if (!result.ok) {
+    return {
+      ok: false,
+      error:
+        result.stderr.trim() ||
+        result.error ||
+        `Could not copy ${name} to ${connection.sshHost}`,
+    };
+  }
+  return {
+    ok: true,
+    name,
+    path: result.stdout.trim() || remote,
+    bytes: bytes.length,
+  };
 });
 
 // Model inventory for the picker. Hermes answers with one row per provider;
