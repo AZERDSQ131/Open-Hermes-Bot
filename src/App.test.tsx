@@ -471,3 +471,99 @@ describe('a round in a group', () => {
     expect(await screen.findByText(/could not answer/)).toBeTruthy();
   });
 });
+
+describe('what happens while the bot writes', () => {
+  it('shows the words as they arrive', async () => {
+    let onDelta: ((payload: { requestId: string; text: string }) => void) | null =
+      null;
+    const bridge = makeBridge({
+      onChatDelta: vi.fn((callback) => {
+        onDelta = callback;
+        return () => undefined;
+      }),
+      sendChat: vi.fn(
+        async () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve({ ok: true, text: 'The whole answer' }), 50);
+          }),
+      ),
+    });
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Tell me');
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(onDelta).not.toBeNull());
+    await act(async () => {
+      onDelta?.({ requestId: 'any', text: 'The whole answer' });
+    });
+    expect((await screen.findAllByText('The whole answer')).length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it('falls back to a free model when the picked one is out of quota', async () => {
+    const bridge = makeBridge({
+      sendChat: vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, error: 'usage limit reached' })
+        .mockResolvedValueOnce({ ok: true, text: 'Answered anyway' }),
+      models: vi.fn(async () => ({
+        ok: true,
+        current: 'muse',
+        currentProvider: 'opencode-go',
+        models: [
+          {
+            model: 'muse',
+            provider: 'opencode-go',
+            providerName: 'OpenCode',
+            current: true,
+          },
+          {
+            model: 'grok-free',
+            provider: 'opencode-go',
+            providerName: 'OpenCode',
+            current: false,
+          },
+        ],
+      })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Tell me');
+    await userEvent.keyboard('{Enter}');
+    expect(await screen.findByText(/out of quota/)).toBeTruthy();
+  });
+});
+
+describe('the way around', () => {
+  it('opens and closes the list of the agents', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    await userEvent.click(screen.getByLabelText('Open agents'));
+    expect(await screen.findByLabelText('Close agents')).toBeTruthy();
+    await userEvent.click(screen.getByLabelText('Close agents'));
+  });
+
+  it('marks a conversation as unread', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    const row = screen.getByText('Bob').closest('button');
+    await userEvent.pointer({ keys: '[MouseRight]', target: row as Element });
+    await userEvent.click(await screen.findByText('Mark as unread'));
+    // The row now carries the unread mark.
+    expect(
+      document.querySelector('.thread-row.is-unread'),
+    ).toBeTruthy();
+  });
+
+  it('opens the editor of a bot', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    const row = screen.getByText('Bob').closest('button');
+    await userEvent.pointer({ keys: '[MouseRight]', target: row as Element });
+    await userEvent.click(await screen.findByText('Edit bot'));
+    expect(await screen.findByText('Save changes')).toBeTruthy();
+  });
+});
