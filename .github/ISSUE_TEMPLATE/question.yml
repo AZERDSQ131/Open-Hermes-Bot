@@ -1,8 +1,23 @@
-blank_issues_enabled: false
-contact_links:
-  - name: A question about the code
-    url: https://github.com/AZERDSQ131/Open-Hermes-Bot/discussions
-    about: Ask about how the app is put together; the discussions are the right place.
-  - name: A security problem
-    url: https://github.com/AZERDSQ131/Open-Hermes-Bot/security/advisories/new
-    about: Report a vulnerability privately, not in an issue.
+name: Question
+description: A question about the connection, the models or the settings
+labels: ["question"]
+body:
+  - type: dropdown
+    id: topic
+    attributes:
+      label: What is it about
+      options:
+        - The connection to Hermes
+        - The models, the picker or the quota
+        - The groups
+        - The dictation or the files
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
