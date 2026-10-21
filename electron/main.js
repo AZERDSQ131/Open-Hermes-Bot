@@ -1768,6 +1768,18 @@ function createWindow() {
 
   win.once('ready-to-show', () => win.show());
 
+  // The dictation needs the microphone, and only the dictation asks for it.
+  // Everything else the window could ask for is denied.
+  win.webContents.session.setPermissionRequestHandler(
+    (_webContents, permission, callback) => {
+      callback(permission === 'media' || permission === 'audioCapture');
+    },
+  );
+  win.webContents.session.setPermissionCheckHandler(
+    (_webContents, permission) =>
+      permission === 'media' || permission === 'audioCapture',
+  );
+
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
@@ -1819,7 +1831,6 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
-
 app.on('before-quit', stopTunnel);
 
 app.on('window-all-closed', () => {

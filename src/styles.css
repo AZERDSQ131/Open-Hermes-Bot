@@ -866,6 +866,15 @@ button:focus-visible {
   }
 }
 
+/* What the microphone says when it cannot be used. */
+.composer-note {
+  margin: 0 0 8px;
+  padding: 0 4px;
+  color: #ffb4ae;
+  font-size: 12.5px;
+  letter-spacing: -0.004em;
+}
+
 .mention {
   padding: 0 3px;
   border-radius: 5px;

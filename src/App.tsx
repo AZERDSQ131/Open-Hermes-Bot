@@ -36,6 +36,11 @@ import type {
 } from './hermes';
 import { defaultModelPick, profileKey } from './modelPrefs';
 import {
+  dictationErrorText,
+  speechRecognition,
+  type Dictation,
+} from './dictation';
+import {
   findSession,
   groupSeeds,
   groupSessionTitle,
@@ -1005,7 +1010,7 @@ export default function App() {
       ),
     );
     clearAttachments();
-    setListening(false);
+    stopDictation();
     setLogoOpen(false);
     setRenaming(false);
     setContextMenu(null);
@@ -1044,7 +1049,7 @@ export default function App() {
     setQuery('');
     setDraft('');
     clearAttachments();
-    setListening(false);
+    stopDictation();
     window.requestAnimationFrame(() => composerRef.current?.focus());
   }
 
@@ -1210,7 +1215,7 @@ export default function App() {
     if (activeId === id) {
       if (fallback) setActiveId(fallback.id);
       clearAttachments();
-      setListening(false);
+      stopDictation();
       setLogoOpen(false);
       setRenaming(false);
     }
@@ -1612,7 +1617,7 @@ export default function App() {
     );
     setDraft('');
     clearAttachments();
-    setListening(false);
+    stopDictation();
     if (composerRef.current) composerRef.current.style.height = '40px';
 
     const finish = () => {
@@ -2072,7 +2077,7 @@ export default function App() {
 
     setDraft('');
     clearAttachments();
-    setListening(false);
+    stopDictation();
     if (composerRef.current) {
       composerRef.current.style.height = '40px';
     }
@@ -2330,8 +2335,60 @@ export default function App() {
     event.target.value = '';
   }
 
+  // The dictation runs while the person talks; the words land in the composer.
+  const dictationRef = useRef<Dictation | null>(null);
+  const [dictationNote, setDictationNote] = useState('');
+
+  function startDictation() {
+    const Recognition = speechRecognition();
+    if (!Recognition) {
+      setDictationNote('This build of Electron cannot listen.');
+      return;
+    }
+    setDictationNote('');
+    const recognition = new Recognition();
+    recognition.lang = 'fr-FR';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    // The text already in the composer stays; the dictation is added to it.
+    const base = draft.trim();
+    recognition.onresult = (event) => {
+      let said = '';
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        said += event.results[index][0].transcript;
+      }
+      const spoken = said.trim();
+      if (!spoken) return;
+      setDraft(base ? `${base} ${spoken}` : spoken);
+    };
+    recognition.onerror = (event) => {
+      setDictationNote(dictationErrorText(event.error));
+      setListening(false);
+    };
+    recognition.onend = () => {
+      dictationRef.current = null;
+      setListening(false);
+    };
+    dictationRef.current = recognition;
+    try {
+      recognition.start();
+      setListening(true);
+    } catch {
+      dictationRef.current = null;
+      setDictationNote('The microphone could not be started.');
+      setListening(false);
+    }
+  }
+
+  function stopDictation() {
+    dictationRef.current?.stop();
+    dictationRef.current = null;
+    setListening(false);
+  }
+
   function toggleListening() {
-    setListening((current) => !current);
+    if (listening) stopDictation();
+    else startDictation();
     composerRef.current?.focus();
   }
 
@@ -2838,6 +2895,12 @@ export default function App() {
                     </div>
                   ))}
                 </div>
+              ) : null}
+
+              {dictationNote ? (
+                <p className="composer-note" role="status">
+                  {dictationNote}
+                </p>
               ) : null}
 
               <div className="composer-main">
