@@ -1,6 +1,6 @@
 {
-  "name": "grok-bot",
-  "productName": "Grok Bot",
+  "name": "hermes-bot",
+  "productName": "Hermes Bot",
   "version": "1.0.0",
   "description": "A dark, native-feeling macOS chat app for AI agents.",
   "main": "electron/main.js",
@@ -38,8 +38,8 @@
     "wait-on": "^9.5.1"
   },
   "build": {
-    "appId": "app.grokbot.desktop",
-    "productName": "Grok Bot",
+    "appId": "app.hermesbot.desktop",
+    "productName": "Hermes Bot",
     "copyright": "Copyright \u00a9 2026 Jules Yzerd",
     "directories": {
       "output": "release"
@@ -58,11 +58,11 @@
         "zip"
       ],
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Grok Bot listens only while you are dictating, and the words are transcribed by your own Hermes host \u2014 nothing is sent anywhere else."
+        "NSMicrophoneUsageDescription": "Hermes Bot listens only while you are dictating, and the words are transcribed by your own Hermes host \u2014 nothing is sent anywhere else."
       }
     },
     "dmg": {
-      "title": "Grok Bot",
+      "title": "Hermes Bot",
       "icon": "build/icon.icns",
       "contents": [
         {

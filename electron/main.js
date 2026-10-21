@@ -14,16 +14,8 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { spawn, spawnSync, execFileSync } = require('node:child_process');
 
-app.setName('Grok Bot');
+app.setName('Hermes Bot');
 
-// The official Grok desktop app already owns ~/Library/Application Support/Grok
-// Bot, and two Electron apps sharing a userData folder fight over Chromium's
-// singleton lock: the second one silently hands its window to the first. This
-// app keeps its own folder, next to the official one, and never collides.
-app.setPath(
-  'userData',
-  path.join(app.getPath('appData'), 'Grok Bot Desktop'),
-);
 
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 
@@ -79,12 +71,11 @@ function storedConnection() {
 }
 
 // The Hermes API key lives in the login Keychain, under this app's own
-// service. safeStorage would name the item after the app — and the official
-// Grok desktop app already owns "Grok Bot Safe Storage" — which turns every
-// read into a Keychain prompt and puts our key behind another app's item.
-// The `security` tool writes an item it can read back without a prompt, so
-// the key stays in the Keychain and belongs to nobody else.
-const KEYCHAIN_SERVICE = 'Grok Bot';
+// service. safeStorage would name the item after the app, which turns every
+// read into a Keychain prompt. The `security` tool writes an item it can read
+// back without a prompt, so the key stays in the Keychain and belongs to
+// nobody else.
+const KEYCHAIN_SERVICE = 'Hermes Bot';
 const KEYCHAIN_ACCOUNT = 'Hermes API key';
 
 function security(args) {
@@ -671,7 +662,7 @@ async function sessionIdByTitle(title, profile) {
 }
 
 ipcMain.handle('hermes:session', async (_event, payload) => {
-  const title = String(payload?.title ?? '').slice(0, 120) || 'Grok Bot';
+  const title = String(payload?.title ?? '').slice(0, 120) || 'Hermes Bot';
   const create = (value) =>
     apiCall('/api/sessions', {
       method: 'POST',
@@ -846,7 +837,7 @@ if shape and shape != str(bots.get("shape") or ""):
 if changed:
     ui["hermes-bots"] = bots
     data["ui_meta"] = ui
-    tmp = path.with_name(path.name + ".grokbot-tmp")
+    tmp = path.with_name(path.name + ".hermesbot-tmp")
     tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
     os.replace(tmp, path)
 
@@ -884,9 +875,9 @@ ipcMain.handle('hermes:bot:update', async (_event, payload) => {
   const result = await runSsh(
     connection.sshHost,
     [
-      `printf %s ${shellQuote(script)} | base64 -d > /tmp/grokbot-style-${label}.py`,
-      `HERMES_BOT_PROFILE=${target} python3 /tmp/grokbot-style-${label}.py ${shellQuote(title)} ${shellQuote(color)} ${shellQuote(shape)}`,
-      `rm -f /tmp/grokbot-style-${label}.py`,
+      `printf %s ${shellQuote(script)} | base64 -d > /tmp/hermesbot-style-${label}.py`,
+      `HERMES_BOT_PROFILE=${target} python3 /tmp/hermesbot-style-${label}.py ${shellQuote(title)} ${shellQuote(color)} ${shellQuote(shape)}`,
+      `rm -f /tmp/hermesbot-style-${label}.py`,
     ].join('\n'),
     30000,
   );
@@ -978,9 +969,9 @@ ipcMain.handle('hermes:bot:delete', async (_event, payload) => {
   const result = await runSsh(
     connection.sshHost,
     [
-      `printf %s ${shellQuote(script)} | base64 -d > /tmp/grokbot-delete-${name}.sh`,
-      `bash /tmp/grokbot-delete-${name}.sh ${shellQuote(name)}`,
-      `rm -f /tmp/grokbot-delete-${name}.sh`,
+      `printf %s ${shellQuote(script)} | base64 -d > /tmp/hermesbot-delete-${name}.sh`,
+      `bash /tmp/hermesbot-delete-${name}.sh ${shellQuote(name)}`,
+      `rm -f /tmp/hermesbot-delete-${name}.sh`,
     ].join('\n'),
     60000,
   );
@@ -1084,15 +1075,15 @@ ipcMain.handle('hermes:voice:transcribe', async (_event, payload) => {
   const result = await runSsh(
     connection.sshHost,
     [
-      `printf %s ${shellQuote(script)} | base64 -d > /tmp/grokbot-voice.py`,
+      `printf %s ${shellQuote(script)} | base64 -d > /tmp/hermesbot-voice.py`,
       'mkdir -p "$HOME/.hermes/attachments"',
       `cat > ${remote}`,
       // Hermes runs with its own python and its own dependencies: the ones the
       // gateway was started with are the ones that can transcribe.
       'PY=$(ls "$HOME"/.hermes/tools/python-*/bin/python3 2>/dev/null | head -1)',
       'PP=$(ls -d "$HOME"/.hermes/cache/uv/archive-v0/*/ 2>/dev/null | tr "\\n" ":")',
-      `cd "$HOME/.hermes/hermes-agent" && PYTHONPATH="$PP" "$PY" /tmp/grokbot-voice.py ${remote}`,
-      'rm -f /tmp/grokbot-voice.py',
+      `cd "$HOME/.hermes/hermes-agent" && PYTHONPATH="$PP" "$PY" /tmp/hermesbot-voice.py ${remote}`,
+      'rm -f /tmp/hermesbot-voice.py',
     ].join('\n'),
     180000,
     bytes,
@@ -1153,7 +1144,11 @@ if not isinstance(data, dict):
 ui = data.get("ui_meta") if isinstance(data.get("ui_meta"), dict) else {}
 
 if mode == "read":
-    prefs = ui.get("grok-bot") if isinstance(ui.get("grok-bot"), dict) else {}
+    # The app was called Grok Bot before: those preferences are read once and
+    # carried over, so the rename costs the person nothing.
+    prefs = ui.get("hermes-bot")
+    if not isinstance(prefs, dict) or not prefs:
+        prefs = ui.get("grok-bot") if isinstance(ui.get("grok-bot"), dict) else {}
     print(json.dumps({"ok": True, "prefs": prefs}, separators=(",", ":")))
 else:
     # The preferences come down the pipe, so they never pass through a command
@@ -1164,9 +1159,9 @@ else:
         prefs = {}
     if not isinstance(prefs, dict):
         prefs = {}
-    ui["grok-bot"] = prefs
+    ui["hermes-bot"] = prefs
     data["ui_meta"] = ui
-    tmp = path.with_name(path.name + ".grokbot-tmp")
+    tmp = path.with_name(path.name + ".hermesbot-tmp")
     tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
     os.replace(tmp, path)
     print(json.dumps({"ok": True}, separators=(",", ":")))
@@ -1175,9 +1170,9 @@ else:
 function prefsCommand(script, mode, payload) {
   const connection = storedConnection();
   const parts = [
-    `printf %s ${shellQuote(script)} | base64 -d > /tmp/grokbot-prefs.py`,
-    `HERMES_BOT_PROFILE="$HOME/.hermes/profile.yaml" python3 /tmp/grokbot-prefs.py ${mode}`,
-    'rm -f /tmp/grokbot-prefs.py',
+    `printf %s ${shellQuote(script)} | base64 -d > /tmp/hermesbot-prefs.py`,
+    `HERMES_BOT_PROFILE="$HOME/.hermes/profile.yaml" python3 /tmp/hermesbot-prefs.py ${mode}`,
+    'rm -f /tmp/hermesbot-prefs.py',
   ];
   return runSsh(connection.sshHost, parts.join('\n'), 20000, payload);
 }
@@ -1675,7 +1670,7 @@ if shape:
 ui["hermes-bots"] = bots
 data["ui_meta"] = ui
 
-tmp = path.with_name(path.name + ".grokbot-tmp")
+tmp = path.with_name(path.name + ".hermesbot-tmp")
 tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
 os.replace(tmp, path)
 `;
@@ -1745,7 +1740,7 @@ if color and color != now_color:
 if changed:
     ui["hermes-bots"] = bots
     data["ui_meta"] = ui
-    tmp = path.with_name(path.name + ".grokbot-tmp")
+    tmp = path.with_name(path.name + ".hermesbot-tmp")
     tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
     os.replace(tmp, path)
 
@@ -1781,7 +1776,7 @@ DESC="$3"
 COLOR="$4"
 SHAPE="$5"
 P="$ROOT/profiles/$NAME"
-STAGING="$ROOT/profiles/.$NAME.staging-grokbot"
+STAGING="$ROOT/profiles/.$NAME.staging-hermesbot"
 
 # Reusing a deleted bot's name is normal, but Hermes keeps a tombstone at
 # profiles/.deleted/<name> and skips every profile carrying one — the bot would
@@ -1943,7 +1938,7 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
   // dead-ending on "already exists". The build script answers EXISTS for that,
   // so both cases cost the same single round trip.
   const encoded = Buffer.from(CREATE_BOT_SCRIPT, 'utf8').toString('base64');
-  const remoteScript = `/tmp/grokbot-create-${name}.sh`;
+  const remoteScript = `/tmp/hermesbot-create-${name}.sh`;
   const command = [
     'set -u',
     `printf %s ${shellQuote(encoded)} | base64 -d > ${remoteScript}`,
@@ -1989,9 +1984,9 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
     const adopted = await runSsh(
       connection.sshHost,
       [
-        `printf %s ${shellQuote(adopter)} | base64 -d > /tmp/grokbot-adopt-${name}.py`,
-        `HERMES_BOT_PROFILE="$HOME/.hermes/profiles/${name}/profile.yaml" python3 /tmp/grokbot-adopt-${name}.py ${shellQuote(title)} ${shellQuote(color)}`,
-        `rm -f /tmp/grokbot-adopt-${name}.py`,
+        `printf %s ${shellQuote(adopter)} | base64 -d > /tmp/hermesbot-adopt-${name}.py`,
+        `HERMES_BOT_PROFILE="$HOME/.hermes/profiles/${name}/profile.yaml" python3 /tmp/hermesbot-adopt-${name}.py ${shellQuote(title)} ${shellQuote(color)}`,
+        `rm -f /tmp/hermesbot-adopt-${name}.py`,
       ].join('\n'),
     );
     let before = { title: '', color: '' };
@@ -2038,7 +2033,7 @@ function createWindow() {
     minHeight: 520,
     show: false,
     backgroundColor: '#1b1b1d',
-    title: 'Grok Bot',
+    title: 'Hermes Bot',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 18 },

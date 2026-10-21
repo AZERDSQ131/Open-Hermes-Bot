@@ -100,7 +100,7 @@ describe('a line cut into pieces', () => {
 describe('the instructions every member gets', () => {
   it('names the room and the roster', () => {
     const prompt = groupInstructions('Test', crew);
-    expect(prompt).toContain('Grok Bot group chat');
+    expect(prompt).toContain('Hermes Bot group chat');
     expect(prompt).toContain('@Chief of Staff, @Bob');
     expect(prompt).toContain(SILENT_MARKER);
   });

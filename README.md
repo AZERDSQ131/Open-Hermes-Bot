@@ -1,4 +1,4 @@
-# Grok Bot
+# Hermes Bot
 
 A macOS Electron clone of the multi-agent chat interface: dark sidebar, Bloub agent
 avatars, cream user bubbles and a floating composer.
@@ -31,14 +31,14 @@ we use for all of it in [docs/vocabulary.md](docs/vocabulary.md).
 
 ## Install
 
-Grab the `.dmg` from the [releases](https://github.com/AZERDSQ131/Open-Grok-Bot/releases),
-drag **Grok Bot** into *Applications*, and open it.
+Grab the `.dmg` from the [releases](https://github.com/AZERDSQ131/Open-Hermes-Bot/releases),
+drag **Hermes Bot** into *Applications*, and open it.
 
 The app is not signed with a Developer ID, so macOS greets it like it greets any
-program it has never seen: *“Grok Bot cannot be opened because the developer
+program it has never seen: *“Hermes Bot cannot be opened because the developer
 cannot be verified.”* Open it with a right click → **Open** → **Open**, once. From
 then on it opens like any other app. (Or from a terminal:
-`xattr -dr com.apple.quarantine "/Applications/Grok Bot.app"`.)
+`xattr -dr com.apple.quarantine "/Applications/Hermes Bot.app"`.)
 
 ### First run
 
@@ -87,8 +87,8 @@ npm run dist
 
 | Artefact | What it is |
 |---|---|
-| `Grok Bot-1.0.0-arm64.dmg` | the disk image to hand out |
-| `Grok Bot-1.0.0-arm64-mac.zip` | the same app, zipped (what the auto-update fetches) |
+| `Hermes Bot-1.0.0-arm64.dmg` | the disk image to hand out |
+| `Hermes Bot-1.0.0-arm64-mac.zip` | the same app, zipped (what the auto-update fetches) |
 | `*.blockmap`, `latest-mac.yml` | what `electron-updater` needs to find a new version |
 
 The build is signed with whatever identity is in the keychain, and notarization
@@ -99,7 +99,7 @@ people who accept the “Open” dance above.
 ## Publish it on GitHub
 
 A **GitHub Release** is a version of the app with a name, a note and the files
-attached to it. It is a page on the repository: `github.com/AZERDSQ131/Open-Grok-Bot/releases`,
+attached to it. It is a page on the repository: `github.com/AZERDSQ131/Open-Hermes-Bot/releases`,
 one entry per version, with the `.dmg` and the `.zip` attached. Whoever has the
 link opens the page, downloads the `.dmg`, drags the app into *Applications*.
 The releases are also what `electron-updater` watches, so an installed app can
@@ -117,9 +117,9 @@ To publish one by hand instead:
 
 ```bash
 gh release create v1.0.0 \
-  "release/Grok Bot-1.0.0-arm64.dmg" \
-  "release/Grok Bot-1.0.0-arm64-mac.zip" \
-  --title "Grok Bot 1.0.0" \
+  "release/Hermes Bot-1.0.0-arm64.dmg" \
+  "release/Hermes Bot-1.0.0-arm64-mac.zip" \
+  --title "Hermes Bot 1.0.0" \
   --notes "First release."
 ```
 

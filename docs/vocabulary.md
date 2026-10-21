@@ -19,7 +19,7 @@ what the answer would be; this app drew it.
 The window onto a harness. It reads a conversation, writes a turn, draws it,
 and leaves the decisions to the harness.
 
-**This app is the interface.** "Grok Bot is an interface for Hermes" is the
+**This app is the interface.** "Hermes Bot is an interface for Hermes" is the
 whole sentence, and it is the sentence to keep: it says what the app is
 responsible for, and it says what it is not.
 

@@ -215,7 +215,7 @@ describe('the settings', () => {
     withBridge();
     const onClose = vi.fn();
     renderSettings(connected, vi.fn(), onClose);
-    await userEvent.click(screen.getByLabelText('Back to Grok Bot'));
+    await userEvent.click(screen.getByLabelText('Back to Hermes Bot'));
     expect(onClose).toHaveBeenCalled();
   });
 

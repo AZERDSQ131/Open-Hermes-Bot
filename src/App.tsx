@@ -1019,7 +1019,7 @@ export default function App() {
           title: input.name,
           color: input.customColor,
           shape: input.shape,
-          description: `Bot created from Grok Bot`,
+          description: `Bot created from Hermes Bot`,
         }),
         70000,
       );

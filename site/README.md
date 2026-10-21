@@ -1,6 +1,6 @@
 # The project site
 
-A static site for Grok Bot. No build step, no framework: `index.html`,
+A static site for Hermes Bot. No build step, no framework: `index.html`,
 `assets/site.css` and `assets/site.js` are the whole thing, so it can be
 published as it is.
 
