@@ -64,7 +64,7 @@ import {
   silentReaction,
   stripSilentMarkers,
 } from './group';
-import { avatarColor, PRIMARY_AVATAR_COLOR } from './profileColor';
+import { avatarColor } from './profileColor';
 import { SettingsView } from './components/SettingsView';
 import { LogoEditor } from './components/LogoEditor';
 import {
@@ -78,6 +78,7 @@ import {
   type GroupMember,
   type Message,
   type Reaction,
+  type SingleAvatar,
   type Thread,
 } from './data';
 
@@ -258,20 +259,27 @@ function attachGroupReaction(
 // that talks to the root API paths and cannot be deleted.
 const CHIEF_ID = 'system:chief-of-staff';
 
-function chiefOfStaffThread(): Thread {
+function chiefOfStaffThread(primary?: HermesProfile): Thread {
   return {
     id: CHIEF_ID,
-    name: 'Chief of Staff',
-    avatar: {
-      color: PRIMARY_AVATAR_COLOR,
-      shape: 'cercle',
-      variant: 'neutral',
-    },
+    name: primary?.title?.trim() || 'Chief of Staff',
+    avatar: chiefFace(primary),
     preview: 'Default bot',
     time: '',
     chatTime: '',
     messages: [],
     system: true,
+  };
+}
+
+/** The face the primary bot wears, the one the server keeps for it. */
+function chiefFace(primary?: HermesProfile): SingleAvatar {
+  return {
+    // The primary profile has no name of its own, so it wears the violet
+    // unless the server says otherwise.
+    color: avatarColor(primary?.color, 'default'),
+    shape: botShape(primary?.shape),
+    variant: 'neutral',
   };
 }
 
@@ -307,6 +315,7 @@ function mergeBots(
   current: Thread[],
   profiles: HermesProfile[],
   pending: Set<string>,
+  primary?: HermesProfile,
 ): Thread[] {
   const listed = new Set(profiles.map((profile) => profile.name));
   const existing = new Map(
@@ -326,13 +335,17 @@ function mergeBots(
       pending.has(thread.profile),
   );
   // The default bot is not a listed profile: it is carried across refreshes by
-  // hand and stays at the head of the list.
-  const chief =
-    current.find((thread) => thread.system) ?? chiefOfStaffThread();
+  // hand and stays at the head of the list. Its face is the one the server
+  // keeps for it, like every other bot.
+  const chief = current.find((thread) => thread.system);
+  const face = chiefFace(primary);
+  const chiefNext = chief
+    ? { ...chief, avatar: face }
+    : chiefOfStaffThread(primary);
   const local = current.filter(
     (thread) => !thread.profile && !thread.system,
   );
-  return [chief, ...bots, ...waiting, ...local];
+  return [chiefNext, ...bots, ...waiting, ...local];
 }
 
 // The conversations the server holds, folded into the sidebar. A bot's
@@ -580,7 +593,12 @@ export default function App() {
           }
           setBotsError('');
           setThreads((current) =>
-            mergeBots(current, result.profiles ?? [], pendingBots.current),
+            mergeBots(
+              current,
+              result.profiles ?? [],
+              pendingBots.current,
+              result.primary,
+            ),
           );
           // The conversations those bots are holding: the sidebar is rebuilt
           // from the server's own list of them.
@@ -1373,8 +1391,10 @@ export default function App() {
       current.map((thread) => {
         if (thread.id !== activeId) return thread;
         if (avatar.kind !== 'group' || !thread.members) {
-          // The face a bot wears is kept with the bot, on the server.
-          if (thread.profile) {
+          // The face a bot wears is kept with the bot, on the server. The
+          // primary bot has no profile of its own, but it has a face, and the
+          // server keeps it too.
+          if (thread.profile || thread.system) {
             void persistStyle({ ...thread, avatar });
           }
           return { ...thread, avatar };
@@ -1440,11 +1460,15 @@ export default function App() {
   async function persistStyle(thread: Thread) {
     const bridge = window.hermes;
     if (!bridge?.updateBot) return;
-    if (!thread.profile || thread.avatar.kind === 'group') return;
+    if (thread.avatar.kind === 'group') return;
+    // The primary profile is the bot the app always has: it has no name of
+    // its own, but it has a face, and the server keeps it.
+    const name = thread.profile ?? (thread.system ? 'default' : '');
+    if (!name) return;
     await bridge
       .updateBot({
-        name: thread.profile,
-        title: thread.name,
+        name,
+        title: thread.system ? '' : thread.name,
         color: thread.avatar.color,
         shape: thread.avatar.shape,
       })

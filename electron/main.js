@@ -784,6 +784,9 @@ ipcMain.handle('hermes:session:rename', async (_event, payload) => {
 // The identity of a bot — its name, its colour, the shape it wears — is kept
 // in the profile's own metadata, the same block Hermes paints the bot with.
 // Writing it there is what makes the bot the same bot after a restart.
+//
+// The primary profile is not a named one: it lives at the root of the Hermes
+// home, and it is the bot the app always has. The name "default" reaches it.
 const UPDATE_BOT_META_PYTHON = `import json
 import os
 import pathlib
@@ -835,7 +838,9 @@ print(json.dumps({
 
 ipcMain.handle('hermes:bot:update', async (_event, payload) => {
   const name = String(payload?.name ?? '').trim().toLowerCase();
-  if (!PROFILE_NAME_RE.test(name)) {
+  // The primary profile is the one the app always has; it is not a named one.
+  const isPrimary = name === 'default' || name === '';
+  if (!isPrimary && !PROFILE_NAME_RE.test(name)) {
     return { ok: false, error: 'That is not a bot name Hermes knows.' };
   }
   const title = String(payload?.title ?? '').trim().slice(0, 80);
@@ -851,12 +856,16 @@ ipcMain.handle('hermes:bot:update', async (_event, payload) => {
   const connection = storedConnection();
   if (!tunnel) await ensureConnected();
   const script = Buffer.from(UPDATE_BOT_META_PYTHON, 'utf8').toString('base64');
+  const target = isPrimary
+    ? '"$HOME/.hermes/profile.yaml"'
+    : `"$HOME/.hermes/profiles/${name}/profile.yaml"`;
+  const label = isPrimary ? 'default' : name;
   const result = await runSsh(
     connection.sshHost,
     [
-      `printf %s ${shellQuote(script)} | base64 -d > /tmp/grokbot-style-${name}.py`,
-      `HERMES_BOT_PROFILE="$HOME/.hermes/profiles/${name}/profile.yaml" python3 /tmp/grokbot-style-${name}.py ${shellQuote(title)} ${shellQuote(color)} ${shellQuote(shape)}`,
-      `rm -f /tmp/grokbot-style-${name}.py`,
+      `printf %s ${shellQuote(script)} | base64 -d > /tmp/grokbot-style-${label}.py`,
+      `HERMES_BOT_PROFILE=${target} python3 /tmp/grokbot-style-${label}.py ${shellQuote(title)} ${shellQuote(color)} ${shellQuote(shape)}`,
+      `rm -f /tmp/grokbot-style-${label}.py`,
     ].join('\n'),
     30000,
   );
@@ -877,7 +886,7 @@ ipcMain.handle('hermes:bot:update', async (_event, payload) => {
   } catch {
     meta = { title, color, shape };
   }
-  return { ok: true, name, ...meta };
+  return { ok: true, name: isPrimary ? 'default' : name, ...meta };
 });
 
 // Deleting a conversation deletes the session that holds it: the transcript
@@ -1118,7 +1127,21 @@ try:
         except Exception:
             pass
         profiles.append({"name": name, "title": title, "color": color, "shape": shape})
-    print(json.dumps({"ok": True, "profiles": profiles}))
+    # The primary profile is the bot the app always has. It is not a named
+    # one: its metadata sits at the root of the Hermes home.
+    primary = {"title": "", "color": "", "shape": ""}
+    try:
+        import yaml
+        data = yaml.safe_load((home / "profile.yaml").read_text()) or {}
+        bots = (data.get("ui_meta") or {}).get("hermes-bots") or {}
+        primary = {
+            "title": str(bots.get("title") or ""),
+            "color": str(bots.get("color") or ""),
+            "shape": str(bots.get("shape") or ""),
+        }
+    except Exception:
+        pass
+    print(json.dumps({"ok": True, "profiles": profiles, "primary": primary}))
 except Exception as exc:
     print(json.dumps({"ok": False, "error": str(exc)}))
 `;
@@ -1170,6 +1193,15 @@ function cleanProfiles(values) {
   );
 }
 
+function cleanPrimary(value) {
+  const raw = value ?? {};
+  return {
+    title: String(raw.title ?? '').trim(),
+    color: String(raw.color ?? '').trim(),
+    shape: String(raw.shape ?? '').trim(),
+  };
+}
+
 ipcMain.handle('hermes:profiles', async () => {
   const host = storedConnection().sshHost;
   const live = await runSsh(
@@ -1183,6 +1215,7 @@ ipcMain.handle('hermes:profiles', async () => {
       ok: true,
       source: 'gateway',
       profiles: cleanProfiles(answer.profiles),
+      primary: cleanPrimary(answer.primary),
     };
   }
 
@@ -1202,6 +1235,7 @@ ipcMain.handle('hermes:profiles', async () => {
     source: 'disk',
     warning: answer?.error || 'The gateway is not answering, so this list comes from disk.',
     profiles: cleanProfiles(String(disk.stdout ?? '').split('\n')),
+    primary: cleanPrimary(answer?.primary),
   };
 });
 

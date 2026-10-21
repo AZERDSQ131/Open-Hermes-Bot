@@ -97,6 +97,8 @@ export type HermesProfileList = {
   ok: boolean;
   /** Bots, i.e. the profiles the gateway is serving. */
   profiles?: HermesProfile[];
+  /** The primary profile: the bot the app always has. */
+  primary?: HermesProfile;
   /** `gateway` is the live answer; `disk` is the offline fallback. */
   source?: 'gateway' | 'disk';
   /** Why the list came from disk instead of the gateway. */
