@@ -19,10 +19,14 @@ lights and a hidden inset title bar.
 npm run build   # typecheck + production renderer build
 npm start       # build, then launch the production app
 npm test        # the protocol and the transcript reader
+npm run test:coverage   # the same, with the coverage
 ```
 
 Every push runs the typecheck, the tests and the build on GitHub Actions
 (`.github/workflows/ci.yml`): the app is macOS, so the check runs on macOS.
+The coverage is a gate too: the rules of a conversation — the protocol, the
+transcript reader, the preferences, the recorder, the turns — are fully
+covered, and the build fails if a line of them stops being exercised.
 
 ## Structure
 
