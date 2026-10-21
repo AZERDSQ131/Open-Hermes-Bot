@@ -705,3 +705,67 @@ describe('a message that replaces another one', () => {
     );
   });
 });
+
+describe('a mention in a group', () => {
+  const groupSessions = [
+    {
+      id: 'sess-chief',
+      title: 'Group · Crew · Chief of Staff',
+      messageCount: 0,
+      lastActive: 20,
+      archived: false,
+    },
+    {
+      id: 'sess-bob',
+      title: 'Group · Crew · Bob',
+      messageCount: 0,
+      lastActive: 21,
+      archived: false,
+    },
+  ];
+
+  it('stops the bot that was mentioned, and hands it the floor', async () => {
+    let releaseBob: (() => void) | null = null;
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+      sendChat: vi.fn(async (payload: { profile?: string }) => {
+        if (payload.profile === 'bob') {
+          // The bot that is mentioned is still writing.
+          await new Promise<void>((resolve) => {
+            releaseBob = resolve;
+          });
+          return { ok: true, text: 'Bob had the floor' };
+        }
+        return { ok: true, text: '@Bob has the floor' };
+      }),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Crew'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Who has the floor?');
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(screen.getAllByText('@Bob has the floor').length).toBeGreaterThan(0),
+    );
+    await act(async () => {
+      releaseBob?.();
+    });
+  });
+
+  it('notes the silence of a member that was named', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+      sendChat: vi.fn(async () => ({ ok: true, text: '[[silent]]' })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Crew'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, '@Bob your turn');
+    await userEvent.keyboard('{Enter}');
+    expect(
+      (await screen.findAllByText(/stayed silent/)).length,
+    ).toBeGreaterThan(0);
+  });
+});
