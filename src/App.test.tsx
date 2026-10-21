@@ -769,3 +769,102 @@ describe('a mention in a group', () => {
     ).toBeGreaterThan(0);
   });
 });
+
+describe('a group that writes while it answers', () => {
+  const groupSessions = [
+    {
+      id: 'sess-chief',
+      title: 'Group · Crew · Chief of Staff',
+      messageCount: 0,
+      lastActive: 20,
+      archived: false,
+    },
+    {
+      id: 'sess-bob',
+      title: 'Group · Crew · Bob',
+      messageCount: 0,
+      lastActive: 21,
+      archived: false,
+    },
+  ];
+
+  it('shows the words of every member as they arrive', async () => {
+    let onDelta: ((payload: { requestId: string; text: string }) => void) | null =
+      null;
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+      onChatDelta: vi.fn((callback) => {
+        onDelta = callback;
+        return () => undefined;
+      }),
+      sendChat: vi.fn(
+        async () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve({ ok: true, text: 'A line from the crew' }), 300);
+          }),
+      ),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Crew'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Hello');
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(onDelta).not.toBeNull());
+    const requestId = (
+      bridge.sendChat.mock.calls[0]?.[0] as { requestId: string } | undefined
+    )?.requestId;
+    await act(async () => {
+      onDelta?.({ requestId: requestId ?? 'any', text: 'Half a line' });
+    });
+    expect(
+      (await screen.findAllByText(/Half a line/)).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('says a member could not answer when the call throws', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+      sendChat: vi.fn(async () => {
+        throw new Error('the socket died');
+      }),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Crew'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Hello');
+    await userEvent.keyboard('{Enter}');
+    expect((await screen.findAllByText(/could not answer/)).length).toBeGreaterThan(0);
+  });
+
+  it('falls back to a free model when a member is out of quota', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+      sendChat: vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, error: 'usage limit reached' })
+        .mockResolvedValueOnce({ ok: true, text: 'Answered anyway' }),
+      models: vi.fn(async () => ({
+        ok: true,
+        current: 'muse',
+        currentProvider: 'opencode-go',
+        models: [
+          {
+            model: 'grok-free',
+            provider: 'opencode-go',
+            providerName: 'OpenCode',
+            current: false,
+          },
+        ],
+      })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Crew'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Hello');
+    await userEvent.keyboard('{Enter}');
+    expect((await screen.findAllByText(/out of quota/)).length).toBeGreaterThan(0);
+  });
+});
