@@ -25,6 +25,10 @@ key, in the login Keychain.
 What the app owns is the room: the identity of the bots, the group protocol,
 and the way a turn reads.
 
+The split is written down in [docs/architecture.md](docs/architecture.md), how
+the app reaches Hermes in [docs/transport.md](docs/transport.md), and the words
+we use for all of it in [docs/vocabulary.md](docs/vocabulary.md).
+
 ## Install
 
 Grab the `.dmg` from the [releases](https://github.com/AZERDSQ131/Open-Grok-Bot/releases),
