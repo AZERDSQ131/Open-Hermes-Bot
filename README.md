@@ -3,9 +3,37 @@
 A macOS Electron clone of the multi-agent chat interface: dark sidebar, Bloub agent
 avatars, cream user bubbles and a floating composer.
 
+It talks to a **Hermes host** — the agent runtime on your own machines — over SSH.
+The bots, the groups and the conversations live there, not on this machine.
+
 MIT licensed — see [LICENSE](LICENSE).
 
-## Run it
+## Install
+
+Grab the `.dmg` from the [releases](https://github.com/AZERDSQ131/Open-Grok-Bot/releases),
+drag **Grok Bot** into *Applications*, and open it.
+
+The app is not signed with a Developer ID, so macOS greets it like it greets any
+program it has never seen: *“Grok Bot cannot be opened because the developer
+cannot be verified.”* Open it with a right click → **Open** → **Open**, once. From
+then on it opens like any other app. (Or from a terminal:
+`xattr -dr com.apple.quarantine "/Applications/Grok Bot.app"`.)
+
+### First run
+
+The app needs two things, both in **Settings**:
+
+- **the SSH host** of the machine running Hermes — the name your `~/.ssh/config`
+  already uses, e.g. `jetson`;
+- **the API key** of that host. Press *Import from \<host\>* and the app reads
+  `API_SERVER_KEY` from the host's `~/.hermes/.env` over the SSH it already
+  uses. The key stays in the login Keychain, under the app's own entry.
+
+Then press **Connect**. The app opens a tunnel to the host, asks it which bots
+exist, and shows them. Nothing else is needed: no account, no cloud, no key
+typed by hand.
+
+## Run it from the sources
 
 ```bash
 npm install
@@ -28,6 +56,46 @@ The coverage is a gate too: the rules of a conversation — the protocol, the
 transcript reader, the preferences, the recorder, the turns — are fully
 covered, and the build fails if a line of them stops being exercised.
 
+## Build a release
+
+```bash
+npm run dist
+```
+
+`electron-builder` writes a `release/` folder with:
+
+| Artefact | What it is |
+|---|---|
+| `Grok Bot-1.0.0-arm64.dmg` | the disk image to hand out |
+| `Grok Bot-1.0.0-arm64-mac.zip` | the same app, zipped (what the auto-update fetches) |
+| `*.blockmap`, `latest-mac.yml` | what `electron-updater` needs to find a new version |
+
+The build is signed with whatever identity is in the keychain, and notarization
+is skipped when there is no Developer ID to notarize with. A build made without
+a Developer ID works on the machine that made it, and on the machines of the
+people who accept the “Open” dance above.
+
+## Publish it on GitHub
+
+A **GitHub Release** is a version of the app with a name, a note and the files
+attached to it. It is a page on the repository: `github.com/AZERDSQ131/Open-Grok-Bot/releases`,
+one entry per version, with the `.dmg` and the `.zip` attached. Whoever has the
+link opens the page, downloads the `.dmg`, drags the app into *Applications*.
+The releases are also what `electron-updater` watches, so an installed app can
+find the next version by itself.
+
+To publish one by hand:
+
+```bash
+gh release create v1.0.0 \
+  "release/Grok Bot-1.0.0-arm64.dmg" \
+  "release/Grok Bot-1.0.0-arm64-mac.zip" \
+  --title "Grok Bot 1.0.0" \
+  --notes "First release."
+```
+
+A tag on `main` is what marks the version: `git tag v1.0.0 && git push --tags`.
+
 ## Structure
 
 ```
@@ -37,6 +105,7 @@ src/components/         Bloub avatars, create dialog, logo editor, icons
 src/conversations.ts    Reading a conversation back out of the Hermes sessions
 src/data.ts             Threads, group members, messages and reactions
 src/group.ts            Group protocol: silence, tapbacks, @mentions, turns
+src/turns.ts            The rules of a turn: tapbacks, quota, a server installing
 src/styles.css          Design system and layout
 build/                  App icon (.icns + .png) and icon source
 ```
@@ -70,15 +139,8 @@ Chromium carries for it is refused by the service, which looks exactly like a
 broken connection. The words land in the composer, where the person can read them
 before sending.
 
-## Before the first release
-
-The app is not packaged yet: `npm start` runs it from the sources. The release
-build needs `electron-builder` (a `.app` and a `.dmg`, signed and notarized), a
-GitHub Actions workflow that builds them on a tag and publishes them as a GitHub
-Release, and one key in the app's `Info.plist` that macOS asks for when the
-microphone is used: `NSMicrophoneUsageDescription`. The dictation itself needs a
-transcription backend on the Hermes host — `faster-whisper` for a local and free
-one, or a cloud provider key.
+The dictation needs a transcription backend on the Hermes host: `faster-whisper`
+for a local and free one, or a cloud provider key.
 
 ## Where a conversation lives
 
@@ -107,8 +169,8 @@ shows up in the group and in its private thread.
 
 - **Silence is a move, and it always leaves a tapback.** Members reply with
   `[[silent]]` when a line is not for them or when someone else already covered
-  it. The app enforces the acknowledgement: a silent member gets a bubble-sized
-  emoji reaction chosen in code, so “no reply” never means “vanished”. When you
+  it. The app enforces the acknowledgement: a silent member gets an emoji
+  reaction chosen in code, so “no reply” never means “vanished”. When you
   (or another bot) addressed them by name, a small “*Name* stayed silent” note
   says the turn was seen.
 - **Tapbacks** work as in a private thread (`[[react:🔥]]`). In a group the
