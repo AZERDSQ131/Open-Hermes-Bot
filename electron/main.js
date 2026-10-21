@@ -37,6 +37,10 @@ const DEFAULT_CONNECTION = {
 let connectionStatus = { state: 'disconnected' };
 let tunnel = null;
 let tunnelError = '';
+// The person asked to stay offline. The app reconnects on its own for every
+// request that needs Hermes, so a disconnect has to be a promise the app
+// keeps until the person asks for the connection again.
+let manualDisconnect = false;
 
 function settingsPath() {
   return path.join(app.getPath('userData'), 'hermes-connection.json');
@@ -458,6 +462,8 @@ async function connectNow() {
   if (!apiKey) {
     return setStatus({ state: 'error', message: 'No API key configured' });
   }
+  // Asking to connect is asking for the connection back.
+  manualDisconnect = false;
 
   setStatus({ state: 'connecting' });
   reapOrphanTunnel();
@@ -506,6 +512,7 @@ ipcMain.handle('hermes:test', async (_event, payload) => {
 });
 
 ipcMain.handle('hermes:disconnect', () => {
+  manualDisconnect = true;
   stopTunnel();
   return setStatus({ state: 'disconnected' });
 });
@@ -529,6 +536,8 @@ let lastConnectAttempt = 0;
 
 async function ensureConnected() {
   if (tunnel) return true;
+  // Someone who asked to stay offline stays offline.
+  if (manualDisconnect) return false;
   if (Date.now() - lastConnectAttempt < 5000) return false;
   lastConnectAttempt = Date.now();
   await connectNow().catch(() => undefined);
