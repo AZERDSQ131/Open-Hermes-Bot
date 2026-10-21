@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/14</span>
+                <span class='fraction'>14/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/14</span>
+                <span class='fraction'>14/14</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -92,7 +92,7 @@
 <a name='L27'></a><a href='#L27'>27</a>
 <a name='L28'></a><a href='#L28'>28</a>
 <a name='L29'></a><a href='#L29'>29</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -103,24 +103,24 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { GroupMember } from '../data';
-<span class="cstat-no" title="statement not covered" >import { splitMentions } from '../group';</span>
+import { splitMentions } from '../group';
 &nbsp;
 type MentionTextProps = {
   text: string;
@@ -131,22 +131,22 @@ type MentionTextProps = {
  * A line in a group, with the bots it names picked out. The text is unchanged
  * — only wrapped — so what the model wrote is exactly what stays in the bubble.
  */
-<span class="cstat-no" title="statement not covered" >export function MentionText({ text, members }: MentionTextProps) {</span>
-<span class="cstat-no" title="statement not covered" >  if (!members?.length) return &lt;&gt;{text}&lt;/&gt;;</span>
-<span class="cstat-no" title="statement not covered" >  return (</span>
-<span class="cstat-no" title="statement not covered" >    &lt;&gt;</span>
-<span class="cstat-no" title="statement not covered" >      {splitMentions(text, members).map((segment, index) =&gt;</span>
-<span class="cstat-no" title="statement not covered" >        segment.mention ? (</span>
-<span class="cstat-no" title="statement not covered" >          &lt;span className="mention" key={index}&gt;</span>
-<span class="cstat-no" title="statement not covered" >            {segment.text}</span>
-<span class="cstat-no" title="statement not covered" >          &lt;/span&gt;</span>
+export function MentionText({ text, members }: MentionTextProps) {
+  if (!members?.length) return &lt;&gt;{text}&lt;/&gt;;
+  return (
+    &lt;&gt;
+      {splitMentions(text, members).map((segment, index) =&gt;
+        segment.mention ? (
+          &lt;span className="mention" key={index}&gt;
+            {segment.text}
+          &lt;/span&gt;
         ) : (
-<span class="cstat-no" title="statement not covered" >          segment.text</span>
+          segment.text
         ),
-<span class="cstat-no" title="statement not covered" >      )}</span>
-<span class="cstat-no" title="statement not covered" >    &lt;/&gt;</span>
+      )}
+    &lt;/&gt;
   );
-<span class="cstat-no" title="statement not covered" >}</span>
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -154,7 +154,7 @@ type MentionTextProps = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-21T12:19:39.876Z
+                at 2026-10-21T12:24:01.438Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
