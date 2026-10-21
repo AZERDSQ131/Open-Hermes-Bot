@@ -3,12 +3,14 @@ import type { HermesSettings, HermesStatus } from '../hermes';
 import { ChevronLeftIcon } from './Icons';
 import { ModelsSettings } from './ModelsSettings';
 
-type Section = 'connection' | 'models';
+type Section = 'connection' | 'models' | 'setup';
 
 type SettingsViewProps = {
   status: HermesStatus;
   onClose: () => void;
   onStatusChange: (status: HermesStatus) => void;
+  /** Opens the guided setup again, from the beginning. */
+  onRunSetup: () => void;
 };
 
 type BusyAction =
@@ -35,6 +37,7 @@ export function SettingsView({
   status,
   onClose,
   onStatusChange,
+  onRunSetup,
 }: SettingsViewProps) {
   const bridge = window.hermes;
   // No host is a name: the machine running Hermes is the person's to say.
@@ -270,6 +273,16 @@ export function SettingsView({
             onClick={() => setSection('models')}
           >
             Models
+          </button>
+          <button
+            type="button"
+            className={`settings-nav-item ${
+              section === 'setup' ? 'is-active' : ''
+            }`}
+            aria-current={section === 'setup' ? 'page' : undefined}
+            onClick={() => setSection('setup')}
+          >
+            Setup
           </button>
         </nav>
       </aside>
@@ -567,6 +580,43 @@ export function SettingsView({
                   </button>
                 </div>
               </div>
+            </div>
+          ) : section === 'setup' ? (
+            <div className="settings-page">
+              <header className="settings-page-head">
+                <div>
+                  <h2>Setup</h2>
+                  <p>Walk through the door again, step by step.</p>
+                </div>
+              </header>
+
+              <section className="settings-card">
+                <header className="settings-card-head">
+                  <div>
+                    <h3>The guided setup</h3>
+                    <p>
+                      The host, the key, the handshake, the crew — one question
+                      at a time.
+                    </p>
+                  </div>
+                </header>
+
+                <div className="settings-card-body">
+                  <p className="settings-hint">
+                    Nothing is changed until you say so: the setup writes down
+                    the host and the key, and the rest it only reads.
+                  </p>
+                  <div className="settings-page-buttons">
+                    <button
+                      type="button"
+                      className="settings-action is-primary"
+                      onClick={onRunSetup}
+                    >
+                      Run the setup again
+                    </button>
+                  </div>
+                </div>
+              </section>
             </div>
           ) : (
             <ModelsSettings connected={status.state === 'connected'} />

@@ -34,6 +34,7 @@ function renderSettings(
   status: HermesStatus = connected,
   onStatusChange = vi.fn(),
   onClose = vi.fn(),
+  onRunSetup = vi.fn(),
 ) {
   return render(
     <ModelPrefsProvider>
@@ -41,6 +42,7 @@ function renderSettings(
         status={status}
         onClose={onClose}
         onStatusChange={onStatusChange}
+        onRunSetup={onRunSetup}
       />
     </ModelPrefsProvider>,
   );
