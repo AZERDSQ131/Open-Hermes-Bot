@@ -811,9 +811,7 @@ describe('a group that writes while it answers', () => {
     await userEvent.type(composer, 'Hello');
     await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(onDelta).not.toBeNull());
-    const requestId = (
-      bridge.sendChat.mock.calls[0]?.[0] as { requestId: string } | undefined
-    )?.requestId;
+    const requestId = bridge.sendChat.mock.calls[0]?.[0]?.requestId;
     await act(async () => {
       onDelta?.({ requestId: requestId ?? 'any', text: 'Half a line' });
     });
