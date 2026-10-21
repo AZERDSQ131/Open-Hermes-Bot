@@ -63,7 +63,11 @@ function makeBridge(overrides: Record<string, unknown> = {}) {
       title: 'Nova',
       color: '#e8483f',
     })),
-    updateBot: vi.fn(async () => ({ ok: true })),
+    updateBot: vi.fn(
+      async (_payload: { name: string; title?: string; shape?: string }) => ({
+        ok: true,
+      }),
+    ),
     deleteBot: vi.fn(async () => ({ ok: true })),
     deleteSession: vi.fn(async () => ({ ok: true })),
     renameSession: vi.fn(async () => ({ ok: true })),
