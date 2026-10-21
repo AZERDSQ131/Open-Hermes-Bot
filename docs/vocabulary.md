@@ -23,6 +23,16 @@ and leaves the decisions to the harness.
 whole sentence, and it is the sentence to keep: it says what the app is
 responsible for, and it says what it is not.
 
+## Setup
+
+The door the person walks through the first time the app opens. It asks three
+things, one at a time: where Hermes lives, the key that opens the door, and
+who answers on the other side.
+
+**The setup is the app talking, not the harness.** It reads the bots from the
+host the way the sidebar does, and it writes down one fact of its own: that it
+has been walked through.
+
 ## Bot
 
 A Hermes profile with a face. A bot has a name, a colour and a shape, and
