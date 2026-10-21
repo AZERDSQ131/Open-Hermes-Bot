@@ -347,7 +347,11 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     setBusy('none');
   }
 
-  async function handleCreateBot(): Promise<boolean> {
+  async function handleCreateBot(input: {
+    shape: BloubShape;
+    /** The colour the person chose; absent when they chose none. */
+    color?: string;
+  }): Promise<boolean> {
     if (!bridge?.createBot) return false;
     const title = botName.trim();
     if (!title) return false;
@@ -358,8 +362,8 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       .createBot({
         name: toProfileId(title),
         title,
-        color: botTouched ? botColor : undefined,
-        shape: botFace,
+        color: input.color,
+        shape: input.shape,
         description: 'Bot created from the Hermes Bot setup',
       })
       .catch((reason: Error) => ({
@@ -425,6 +429,9 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
 
   const isLast = stepIndex === STEPS.length - 1;
   const testing = step === 'setup' && !connected;
+  // The pages that pick a shape or a colour advance on the click itself:
+  // there is nothing left for a button to say.
+  const picksItsOwnWay = step === 'face' || step === 'colour';
   const tunnelCommand = `ssh -N -L 127.0.0.1:${
     localPort || '18742'
   }:127.0.0.1:${apiPort || '8642'} ${host || '<host>'}`;
@@ -466,6 +473,16 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
           ? 'Make the bot'
           : 'Continue';
 
+  async function makeBot(input: {
+    shape: BloubShape;
+    color?: string;
+  }): Promise<boolean> {
+    const made = await handleCreateBot(input);
+    if (!made) return false;
+    goTo(stepIndex + 1);
+    return true;
+  }
+
   async function handlePrimary() {
     if (isLast) {
       await handleFinish();
@@ -475,11 +492,18 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       await runHandshake();
       return;
     }
+    if (step === 'face') {
+      goTo(stepIndex + 1);
+      return;
+    }
     if (step === 'colour' && !madeBot) {
       // The bot is made on the way out: the person sees it appear on the
       // last page, not a form that says it was made.
-      const made = await handleCreateBot();
-      if (!made) return;
+      await makeBot({
+        shape: botFace,
+        color: botTouched ? botColor : undefined,
+      });
+      return;
     }
     goTo(stepIndex + 1);
   }
@@ -499,7 +523,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
         event.preventDefault();
         if (busy !== 'none') return;
         if (testing && !canTest) return;
-        if (!testing && !canContinue) return;
+        if (!testing && !canContinue && !picksItsOwnWay) return;
         void handlePrimary();
       }}
     >
@@ -738,7 +762,12 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
               <ShapeGrid
                 value={botFace}
                 color={botColor}
-                onChange={setBotFace}
+                onChange={(shape) => {
+                  // A click is the way forward: the person chose, the page
+                  // gets out of the way.
+                  setBotFace(shape);
+                  goTo(stepIndex + 1);
+                }}
               />
             </div>
           ) : null}
@@ -750,6 +779,9 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                 onChange={(next) => {
                   setBotTouched(true);
                   setBotColor(next);
+                  // The colour is the last thing to choose, so the bot is
+                  // made right here: one click, and the door opens.
+                  void makeBot({ shape: botFace, color: next });
                 }}
               />
             </div>
@@ -820,14 +852,16 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
         </nav>
 
         <div className="onboarding-foot-right">
-          <button
-            type="button"
-            className="onboarding-button is-primary"
-            disabled={busy !== 'none' || (testing ? !canTest : !canContinue)}
-            onClick={() => void handlePrimary()}
-          >
-            {busy === 'handshake' ? 'Connecting…' : primaryLabel}
-          </button>
+          {picksItsOwnWay ? null : (
+            <button
+              type="button"
+              className="onboarding-button is-primary"
+              disabled={busy !== 'none' || (testing ? !canTest : !canContinue)}
+              onClick={() => void handlePrimary()}
+            >
+              {busy === 'handshake' ? 'Connecting…' : primaryLabel}
+            </button>
+          )}
         </div>
       </footer>
     </div>
