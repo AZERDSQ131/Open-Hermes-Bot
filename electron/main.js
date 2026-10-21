@@ -13,11 +13,29 @@ const {
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawn, spawnSync, execFileSync } = require('node:child_process');
+const { autoUpdater } = require('electron-updater');
 
 app.setName('Hermes Bot');
 
-
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
+
+// The app finds its own next version on the releases page, the way every
+// other app does. The update waits for the person to close the app: a
+// conversation is not something to interrupt.
+let updateReady = false;
+
+function lookForUpdates() {
+  if (!app.isPackaged) return;
+  try {
+    autoUpdater.autoDownload = true;
+    autoUpdater.on('update-downloaded', () => {
+      updateReady = true;
+    });
+    autoUpdater.checkForUpdatesAndNotify();
+  } catch {
+    // No release feed yet, or no network: the app runs the version it has.
+  }
+}
 
 // The live tunnel forwards a configurable local port; a connection test uses
 // a neighbouring port on a throwaway tunnel that is never persisted.
@@ -2105,12 +2123,25 @@ app.whenReady().then(() => {
   if (storedConnection().autoConnect && storedApiKey()) {
     connectNow().catch(() => undefined);
   }
+  lookForUpdates();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 app.on('before-quit', stopTunnel);
+
+// The new version waits for the app to close: quitting is the moment the
+// update takes over.
+app.on('before-quit', () => {
+  if (!updateReady) return;
+  updateReady = false;
+  try {
+    autoUpdater.quitAndInstall();
+  } catch {
+    // The update stays on the disk for the next launch.
+  }
+});
 
 app.on('window-all-closed', () => {
   stopTunnel();

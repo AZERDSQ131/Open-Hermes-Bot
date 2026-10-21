@@ -17,6 +17,7 @@
     "dist:publish": "npm run build && electron-builder --mac --publish always"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
@@ -40,7 +41,7 @@
   "build": {
     "appId": "app.hermesbot.desktop",
     "productName": "Hermes Bot",
-    "copyright": "Copyright \u00a9 2026 Jules Yzerd",
+    "copyright": "Copyright © 2026 Jules Yzerd",
     "directories": {
       "output": "release"
     },
@@ -58,7 +59,7 @@
         "zip"
       ],
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Hermes Bot listens only while you are dictating, and the words are transcribed by your own Hermes host \u2014 nothing is sent anywhere else."
+        "NSMicrophoneUsageDescription": "Hermes Bot listens only while you are dictating, and the words are transcribed by your own Hermes host — nothing is sent anywhere else."
       }
     },
     "dmg": {
