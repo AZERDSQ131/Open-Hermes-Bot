@@ -447,6 +447,9 @@ export default function App() {
   const pendingBots = useRef(new Set<string>());
   // The conversations already read back, so none is loaded twice.
   const transcriptState = useRef(new Map<string, 'loading' | 'loaded'>());
+  // A read that failed is tried again.
+  const transcriptRetryRef = useRef<number | null>(null);
+  const [transcriptRetry, setTranscriptRetry] = useState(0);
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
   // The conversations every profile is holding. The calls go out together, over
@@ -576,10 +579,17 @@ export default function App() {
           transcripts.set('', result.messages);
         }
       }
-      // A read that failed is not a read: the conversation is tried again
-      // when the connection settles, not left empty.
+      // A read that failed is not a read: the conversation is tried again in a
+      // moment, and again when the connection settles.
       if (failed && !transcripts.size) {
         transcriptState.current.delete(thread.id);
+        if (transcriptRetryRef.current !== null) {
+          window.clearTimeout(transcriptRetryRef.current);
+        }
+        transcriptRetryRef.current = window.setTimeout(
+          () => setTranscriptRetry((count) => count + 1),
+          2000,
+        );
         return;
       }
       const messages = members.length
@@ -605,7 +615,7 @@ export default function App() {
         }),
       );
     })();
-  }, [activeId, activeThread, hermesStatus.state]);
+  }, [activeId, activeThread, hermesStatus.state, transcriptRetry]);
   // The protocol marker is plumbing, not copy: a streaming bubble never shows it.
   const streamingText = activeThread?.streaming
     ? stripSilentMarkers(stripReactionMarkers(activeThread.streaming))

@@ -996,3 +996,65 @@ describe('the model of a conversation', () => {
     await waitFor(() => expect(bridge.savePrefs).toHaveBeenCalled());
   });
 });
+
+describe('the small things', () => {
+  it('shows the size of a file the way it is', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    const input = document.querySelector(
+      'input[type=file]',
+    ) as HTMLInputElement;
+    await userEvent.upload(
+      input,
+      new File(['x'.repeat(2000)], 'small.txt', { type: 'text/plain' }),
+    );
+    expect(await screen.findByText('2 KB')).toBeTruthy();
+  });
+
+  it('shows the size of a big file', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    const input = document.querySelector(
+      'input[type=file]',
+    ) as HTMLInputElement;
+    await userEvent.upload(
+      input,
+      new File(['x'.repeat(3 * 1024 * 1024)], 'big.txt', { type: 'text/plain' }),
+    );
+    expect(await screen.findByText('3.0 MB')).toBeTruthy();
+  });
+
+  it('finds a conversation by what was said in it', async () => {
+    const bridge = makeBridge({
+      messages: vi.fn(async () => ({
+        ok: true,
+        messages: [
+          { role: 'user', content: 'A question about bananas', timestamp: 1 },
+          { role: 'assistant', content: 'An answer', timestamp: 2 },
+        ],
+      })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    await waitFor(() => expect(bridge.messages).toHaveBeenCalled());
+    await userEvent.type(screen.getByLabelText('Search agents'), 'bananas');
+    expect((await screen.findAllByText('Bob')).length).toBeGreaterThan(0);
+  });
+
+  it('tries again when a conversation cannot be read', async () => {
+    let attempt = 0;
+    const bridge = makeBridge({
+      messages: vi.fn(async () => {
+        attempt += 1;
+        if (attempt === 1) return { ok: false, error: 'the tunnel is down' };
+        return {
+          ok: true,
+          messages: [{ role: 'user', content: 'Hello', timestamp: 1 }],
+        };
+      }),
+    });
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    await waitFor(() => expect(attempt).toBeGreaterThan(1), { timeout: 3000 });
+  });
+});
