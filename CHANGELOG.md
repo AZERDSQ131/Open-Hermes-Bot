@@ -1,0 +1,35 @@
+# Changelog
+
+The versions of Hermes Bot, and what each one changed. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the versions
+follow [semantic versioning](https://semver.org/).
+
+## [Unreleased]
+
+Nothing yet.
+
+## [1.0.0] — 2026-10-21
+
+The first release.
+
+### Added
+
+- **A window onto Hermes.** The app talks to a Hermes host over SSH, and
+  draws the conversations it finds there. The bots, the groups and the
+  conversations live on the host; the app keeps none of them.
+- **Conversations that survive.** A conversation is read back from the server
+  when it is opened, so closing the app, wiping it or reinstalling it costs
+  nothing. The transcript, the identity of the bots and the models the person
+  picked all live on the host.
+- **Groups of bots.** Every member of a group is asked at the same time, and
+  their answers stream side by side. A member that has nothing to say says so
+  with a tapback instead of vanishing. A bot that names another hands it the
+  floor, and stops it if it is still writing.
+- **Files and voice.** A file you attach is copied to the server, where the
+  bot can read it. The microphone dictates: Hermes transcribes the recording
+  on your own host, and the words land in the composer.
+- **A model picker.** The models the bot's providers offer, the ones to hide,
+  the ones to pin, and the one each bot falls back to. When a model is out of
+  quota, the turn retries on a free one and says so.
+- **A release on GitHub.** A signed build of the app for macOS, published on
+  the releases page, and an app that finds its own next version there.
