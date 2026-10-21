@@ -1,5 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  act,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Onboarding } from './onboarding';
 
@@ -43,8 +49,10 @@ function makeBridge(overrides: Record<string, unknown> = {}) {
 function renderSetup() {
   const onFinish = vi.fn();
   const onDismiss = vi.fn();
-  render(<Onboarding onFinish={onFinish} onDismiss={onDismiss} />);
-  return { onFinish, onDismiss };
+  const view = render(
+    <Onboarding onFinish={onFinish} onDismiss={onDismiss} />,
+  );
+  return { onFinish, onDismiss, container: view.container };
 }
 
 /** Walks the person to the handshake, host and key given. */
@@ -59,6 +67,10 @@ async function walkTo(
   await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
   await waitFor(() => expect(bridge.test).toHaveBeenCalled());
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('the setup', () => {
   it('says what the app is before it asks anything', () => {
@@ -368,6 +380,33 @@ describe('the setup', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByText('1 bot')).toBeTruthy();
+  });
+
+  it('changes the colour and the shape of the actor every two seconds', async () => {
+    makeBridge();
+    vi.useFakeTimers();
+    const { container } = renderSetup();
+    const light = () =>
+      (
+        container.querySelector('.onboarding') as HTMLElement
+      ).style.getPropertyValue('--actor-color');
+    const body = () =>
+      container.querySelector('.stage-bloub mask path')?.getAttribute('d');
+
+    // The actor draws its first frame.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120);
+    });
+    const before = light();
+    const shapeBefore = body();
+    expect(before).toBeTruthy();
+    expect(shapeBefore).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2100);
+    });
+    expect(light()).not.toBe(before);
+    expect(body()).not.toBe(shapeBefore);
   });
 
   it('finishes even when the app could not write the flag down', async () => {

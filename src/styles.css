@@ -3282,45 +3282,39 @@ button:focus-visible {
   pointer-events: none;
 }
 
+/* A lamp is a circle of colour, blurred until it is light. The big one
+   wears the colour of the actor: the window changes with it. */
 .onboarding-glow {
   position: absolute;
   width: 760px;
   height: 760px;
   border-radius: 50%;
-  filter: blur(110px);
+  filter: blur(120px);
   will-change: transform;
 }
 
 .onboarding-glow.is-violet {
   top: -28%;
   left: 8%;
-  background: radial-gradient(
-    circle,
-    rgba(139, 92, 246, 0.42),
-    rgba(139, 92, 246, 0) 68%
-  );
+  background: var(--actor-color, #8b5cf6);
+  opacity: 0.3;
+  transition: background-color 900ms ease;
   animation: onboarding-drift-a 34s ease-in-out infinite;
 }
 
 .onboarding-glow.is-teal {
   right: -14%;
   bottom: -34%;
-  background: radial-gradient(
-    circle,
-    rgba(47, 191, 160, 0.26),
-    rgba(47, 191, 160, 0) 68%
-  );
+  background: #2fbfa0;
+  opacity: 0.14;
   animation: onboarding-drift-b 44s ease-in-out infinite;
 }
 
 .onboarding-glow.is-rose {
   top: 24%;
   right: 16%;
-  background: radial-gradient(
-    circle,
-    rgba(225, 82, 176, 0.2),
-    rgba(225, 82, 176, 0) 66%
-  );
+  background: #e152b0;
+  opacity: 0.11;
   animation: onboarding-drift-c 52s ease-in-out infinite;
 }
 
@@ -3476,14 +3470,13 @@ button:focus-visible {
 
 .onboarding-halo {
   position: absolute;
-  width: 218px;
-  height: 218px;
+  width: 210px;
+  height: 210px;
   border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(139, 92, 246, 0.3),
-    rgba(139, 92, 246, 0) 68%
-  );
+  background: var(--actor-color, #8b5cf6);
+  filter: blur(48px);
+  opacity: 0.4;
+  transition: background-color 900ms ease;
   animation: onboarding-breathe 6s ease-in-out infinite;
 }
 
@@ -3496,6 +3489,12 @@ button:focus-visible {
 .stage-bloub .bloub-svg {
   width: 100%;
   height: 100%;
+}
+
+/* The colour of the actor changes with it, and the body takes a moment to
+   change with the colour: the two never move at the same pace. */
+.stage-bloub rect {
+  transition: fill 900ms ease;
 }
 
 @keyframes onboarding-rise {

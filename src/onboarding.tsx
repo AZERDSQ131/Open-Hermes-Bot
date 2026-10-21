@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { HermesProfile, HermesStatus } from './hermes';
 import { AgentAvatar } from './components/AgentAvatar';
-import { botShape } from './components/Bloub';
+import { botShape, BLOUB_COLOR_OPTIONS } from './components/Bloub';
 import { ColorGrid, ShapeGrid } from './components/LogoControls';
 import { StageBloub } from './components/StageBloub';
-import type { BloubShape } from './components/bloubFrames';
+import { BLOUB_SHAPES, type BloubShape } from './components/bloubFrames';
 import { toProfileId } from './components/CreateAgentDialog';
 import { avatarColor, profileColor } from './profileColor';
 import type { StateId } from './vendor/bloub/states';
@@ -22,6 +22,18 @@ import type { StateId } from './vendor/bloub/states';
  */
 
 type StepId = 'welcome' | 'host' | 'key' | 'connect' | 'crew' | 'ready';
+
+/** The colours the actor wears. Every one of them is a colour Hermes has. */
+const ACTOR_COLORS = BLOUB_COLOR_OPTIONS.map((color) => color.hex);
+
+/** How long the actor keeps the same face before it changes its mind. */
+const ACTOR_CHANGE_MS = 2000;
+
+/** Something else from the pool — the actor never stays what it was. */
+function another<T>(current: T, pool: readonly T[]): T {
+  const others = pool.filter((item) => item !== current);
+  return others[Math.floor(Math.random() * others.length)] ?? current;
+}
 
 const STEPS: StepId[] = [
   'welcome',
@@ -164,6 +176,10 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   const [botFace, setBotFace] = useState<BloubShape>('cercle');
   const [botColor, setBotColor] = useState(DEFAULT_COLOR);
   const [botTouched, setBotTouched] = useState(false);
+  // The actor changes its mind every couple of seconds: another colour,
+  // another shape. The window takes the colour of the actor with it.
+  const [actorColor, setActorColor] = useState('#8b5cf6');
+  const [actorShape, setActorShape] = useState<BloubShape>('nuage');
 
   const step = STEPS[stepIndex];
   const scene = SCENES[step];
@@ -192,6 +208,17 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     if (botTouched) return;
     setBotColor(profileColor(toProfileId(botName)) ?? DEFAULT_COLOR);
   }, [botName, botTouched]);
+
+  // The actor does not stay what it was: on the first page it changes every
+  // two seconds, and the light of the window changes with it.
+  useEffect(() => {
+    if (step !== 'welcome') return;
+    const timer = window.setInterval(() => {
+      setActorColor((current) => another(current, ACTOR_COLORS));
+      setActorShape((current) => another(current, BLOUB_SHAPES));
+    }, ACTOR_CHANGE_MS);
+    return () => window.clearInterval(timer);
+  }, [step]);
 
   const goTo = useCallback(
     (index: number) => {
@@ -412,11 +439,12 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   // The actor reacts to what happens: it thinks while the tunnel opens, and
   // it celebrates when the host answers.
   const actor = useMemo(() => {
+    if (step === 'welcome') return { ...scene, shape: actorShape };
     if (step !== 'connect') return scene;
     if (failed) return { ...scene, state: 'alert' as StateId, expression: 'neutre' };
     if (connected) return { ...scene, state: 'wide' as StateId, expression: 'heureux' };
     return scene;
-  }, [connected, failed, scene, step]);
+  }, [actorShape, connected, failed, scene, step]);
 
   return (
     <div
@@ -424,6 +452,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="onboarding-title"
+      style={{ '--actor-color': actorColor } as React.CSSProperties}
       onKeyDown={(event) => {
         if (event.key !== 'Enter') return;
         if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -462,7 +491,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
           <div className="onboarding-actor">
             <span className="onboarding-halo" aria-hidden="true" />
             <StageBloub
-              color="#8b5cf6"
+              color={actorColor}
               shape={actor.shape}
               state={actor.state}
               expression={actor.expression}
