@@ -935,3 +935,64 @@ describe('when things go wrong', () => {
     expect(await screen.findByText('the name is taken')).toBeTruthy();
   });
 });
+
+describe('the keyboard of the group', () => {
+  const groupSessions = [
+    {
+      id: 'sess-chief',
+      title: 'Group · Crew · Chief of Staff',
+      messageCount: 0,
+      lastActive: 20,
+      archived: false,
+    },
+    {
+      id: 'sess-bob',
+      title: 'Group · Crew · Bob',
+      messageCount: 0,
+      lastActive: 21,
+      archived: false,
+    },
+  ];
+
+  it('moves through the roster with the arrows, and takes the name with the tab', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Crew'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, '@');
+    await screen.findByText('@Bob');
+    await userEvent.keyboard('{ArrowDown}');
+    await userEvent.keyboard('{Tab}');
+    expect((composer as HTMLTextAreaElement).value).toContain('@');
+  });
+
+  it('closes the roster with the escape', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Crew'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, '@');
+    await screen.findByText('@Bob');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByText('@Bob')).toBeNull();
+  });
+});
+
+describe('the model of a conversation', () => {
+  it('is remembered when it is picked', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    await userEvent.click(document.querySelector('.model-chip') as Element);
+    await waitFor(() => expect(bridge.models).toHaveBeenCalled());
+    const option = (await screen.findAllByText('muse')).pop();
+    await userEvent.click(option as Element);
+    await waitFor(() => expect(bridge.savePrefs).toHaveBeenCalled());
+  });
+});
