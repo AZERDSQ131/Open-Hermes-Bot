@@ -34,7 +34,13 @@ import type {
   HermesSession,
   HermesStatus,
 } from './hermes';
-import { defaultModelPick, profileKey } from './modelPrefs';
+import {
+  defaultModelPick,
+  pickFor,
+  profileKey,
+  useModelPrefs,
+  withPick,
+} from './modelPrefs';
 import { blobToBase64, startRecording, type Recording } from './recording';
 import {
   findSession,
@@ -88,36 +94,6 @@ function isQuotaFailure(message?: string): boolean {
 // person chose for that bot, instead of the profile's configured model — which
 // may be the one that just refused to answer.
 type PreferredModel = { model: string; provider: string; label: string };
-
-function preferredModelKey(profile?: string) {
-  return `grokbot.model.${profile || 'default'}`;
-}
-
-// The app used to be called Sidekick: the picks made under that name are read
-// once and carried over, so a rename never costs the person their choices.
-const LEGACY_MODEL_KEY = 'sidekick.model.';
-
-function readPreferredModel(profile?: string): PreferredModel | null {
-  const key = preferredModelKey(profile);
-  const legacy = `${LEGACY_MODEL_KEY}${profile || 'default'}`;
-  try {
-    const raw =
-      window.localStorage.getItem(key) ?? window.localStorage.getItem(legacy);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PreferredModel;
-    return parsed?.model ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function rememberPreferredModel(profile: string | undefined, pick: PreferredModel) {
-  try {
-    window.localStorage.setItem(preferredModelKey(profile), JSON.stringify(pick));
-  } catch {
-    // A full or blocked storage must not break sending.
-  }
-}
 
 // The model a profile is configured with, looked up once per app run. The send
 // path needs it when no default or pick exists, so the turn cannot keep running
@@ -468,6 +444,8 @@ function formatFileSize(bytes: number) {
 
 
 export default function App() {
+  // The model preferences live on the server, with the primary profile.
+  const { prefs, update: updatePrefs } = useModelPrefs();
   const [threads, setThreads] = useState<Thread[]>(() => [chiefOfStaffThread()]);
   const [activeId, setActiveId] = useState('');
   // A reply lands after the person may have moved on: unread is decided against
@@ -713,8 +691,8 @@ export default function App() {
   const activeFallbackLabel =
     !activeThread || activeThread.model
       ? undefined
-      : (defaultModelPick(activeThread.profile) ??
-          readPreferredModel(activeThread.profile))?.model;
+      : (defaultModelPick(activeThread.profile, prefs) ??
+          pickFor(prefs, activeThread.profile))?.model;
 
   // Typing "@" in a group opens the roster: the person addresses a bot the
   // same way the bots address each other.
@@ -1800,8 +1778,8 @@ export default function App() {
               };
             }
 
-            const configured = defaultModelPick(member.profile);
-            let pick = configured ?? readPreferredModel(member.profile);
+            const configured = defaultModelPick(member.profile, prefs);
+            let pick = configured ?? pickFor(prefs, member.profile);
             if (!pick) pick = await configuredModelFor(member.profile);
             if (!isCurrent()) return { floor, canceled: true };
             const stoppedEarly = stopped();
@@ -1854,7 +1832,12 @@ export default function App() {
                   // Same rule as a private thread: only a model that was not
                   // picked on purpose becomes the bot's remembered fallback.
                   if (!configured) {
-                    rememberPreferredModel(member.profile, rescue);
+                    updatePrefs(
+                      withPick(prefs, member.profile, {
+                        model: rescue.model,
+                        provider: rescue.provider,
+                      }),
+                    );
                   }
                   note = `${failed} is out of quota — ${member.name} answered with ${rescue.model} instead.`;
                 }
@@ -2194,8 +2177,8 @@ export default function App() {
       // model once a default has been cleared.
       let fallback = thread.model
         ? null
-        : (defaultModelPick(thread.profile) ??
-            readPreferredModel(thread.profile));
+        : (defaultModelPick(thread.profile, prefs) ??
+            pickFor(prefs, thread.profile));
       if (!thread.model && !fallback) {
         fallback = await configuredModelFor(thread.profile);
       }
@@ -2246,7 +2229,14 @@ export default function App() {
           result = await ask(rescue);
           if (!isCurrent()) return;
           if (result.ok) {
-            if (!thread.model) rememberPreferredModel(thread.profile, rescue);
+            if (!thread.model) {
+              updatePrefs(
+                withPick(prefs, thread.profile, {
+                  model: rescue.model,
+                  provider: rescue.provider,
+                }),
+              );
+            }
             setThreads((current) =>
               current.map((item) =>
                 item.id === threadId
@@ -3062,11 +3052,12 @@ export default function App() {
                   connected={hermesStatus.state === 'connected'}
                   onChange={(pick) => {
                     if (pick.model) {
-                      rememberPreferredModel(activeThread.profile, {
-                        model: pick.model,
-                        provider: pick.provider ?? '',
-                        label: pick.label ?? pick.model,
-                      });
+                      updatePrefs(
+                        withPick(prefs, activeThread.profile, {
+                          model: pick.model,
+                          provider: pick.provider ?? '',
+                        }),
+                      );
                     }
                     setThreads((current) =>
                       current.map((thread) =>

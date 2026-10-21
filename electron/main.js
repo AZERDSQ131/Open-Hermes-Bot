@@ -1123,6 +1123,95 @@ ipcMain.handle('hermes:voice:transcribe', async (_event, payload) => {
   return { ok: true, transcript };
 });
 
+// The app's own preferences — the models the picker offers, the ones that are
+// pinned, the model each bot falls back to — live with the bot that is always
+// there: the primary profile. Nothing about them is written on this machine.
+const PREFS_PYTHON = `import json
+import os
+import pathlib
+import sys
+
+import yaml
+
+path = pathlib.Path(os.environ.get("HERMES_BOT_PROFILE", ""))
+mode = sys.argv[1] if len(sys.argv) > 1 else "read"
+
+data = {}
+if path.exists():
+    try:
+        data = yaml.safe_load(path.read_text()) or {}
+    except Exception:
+        data = {}
+if not isinstance(data, dict):
+    data = {}
+
+ui = data.get("ui_meta") if isinstance(data.get("ui_meta"), dict) else {}
+
+if mode == "read":
+    prefs = ui.get("grok-bot") if isinstance(ui.get("grok-bot"), dict) else {}
+    print(json.dumps({"ok": True, "prefs": prefs}, separators=(",", ":")))
+else:
+    # The preferences come down the pipe, so they never pass through a command
+    # line.
+    try:
+        prefs = json.loads(sys.stdin.read() or "{}")
+    except Exception:
+        prefs = {}
+    if not isinstance(prefs, dict):
+        prefs = {}
+    ui["grok-bot"] = prefs
+    data["ui_meta"] = ui
+    tmp = path.with_name(path.name + ".grokbot-tmp")
+    tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
+    os.replace(tmp, path)
+    print(json.dumps({"ok": True}, separators=(",", ":")))
+`;
+
+function prefsCommand(script, mode, payload) {
+  const connection = storedConnection();
+  const parts = [
+    `printf %s ${shellQuote(script)} | base64 -d > /tmp/grokbot-prefs.py`,
+    `HERMES_BOT_PROFILE="$HOME/.hermes/profile.yaml" python3 /tmp/grokbot-prefs.py ${mode}`,
+    'rm -f /tmp/grokbot-prefs.py',
+  ];
+  return runSsh(connection.sshHost, parts.join('\n'), 20000, payload);
+}
+
+ipcMain.handle('hermes:prefs', async () => {
+  const script = Buffer.from(PREFS_PYTHON, 'utf8').toString('base64');
+  const result = await prefsCommand(script, 'read');
+  if (!result.ok) {
+    return {
+      ok: false,
+      error:
+        result.stderr.trim() ||
+        result.error ||
+        'The preferences could not be read from the server',
+    };
+  }
+  const answer = lastJsonObject(result.stdout);
+  return { ok: true, prefs: answer?.prefs ?? {} };
+});
+
+ipcMain.handle('hermes:prefs:save', async (_event, payload) => {
+  const script = Buffer.from(PREFS_PYTHON, 'utf8').toString('base64');
+  const result = await prefsCommand(
+    script,
+    'write',
+    Buffer.from(JSON.stringify(payload?.prefs ?? {}), 'utf8'),
+  );
+  if (!result.ok) {
+    return {
+      ok: false,
+      error:
+        result.stderr.trim() ||
+        result.error ||
+        'The preferences could not be saved on the server',
+    };
+  }
+  return { ok: true };
+});
+
 // Model inventory for the picker. Hermes answers with one row per provider;
 // only the authenticated ones can actually run a turn, so those are the ones
 // worth offering, plus whatever is currently configured.

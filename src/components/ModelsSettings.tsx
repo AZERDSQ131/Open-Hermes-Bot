@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import type { HermesModel, HermesProfile } from '../hermes';
 import {
   defaultModelFor,
+  withAllVisible,
   isFavorite,
   isHidden,
   modelId,
-  setDefaultModel,
-  setModelVisible,
-  toggleModelFavorite,
   useModelPrefs,
+  withDefault,
+  withFavorite,
+  withVisibility,
 } from '../modelPrefs';
 import { avatarColor } from '../profileColor';
 import { SearchIcon, StarIcon } from './Icons';
@@ -28,7 +29,7 @@ type Bot = {
 
 export function ModelsSettings({ connected }: ModelsSettingsProps) {
   const bridge = window.hermes;
-  const prefs = useModelPrefs();
+  const { prefs, update } = useModelPrefs();
   const [models, setModels] = useState<HermesModel[] | null>(null);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState('');
@@ -227,11 +228,14 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
                     const picked = offeredModels.find(
                       (entry) => modelId(entry) === event.target.value,
                     );
-                    setDefaultModel(
-                      bot.profile,
-                      picked
-                        ? { model: picked.model, provider: picked.provider }
-                        : null,
+                    update(
+                      withDefault(
+                        prefs,
+                        bot.profile,
+                        picked
+                          ? { model: picked.model, provider: picked.provider }
+                          : null,
+                      ),
                     );
                   }}
                 >
@@ -286,7 +290,7 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
             className="models-show-all"
             disabled={prefs.hidden.length === 0}
             onClick={() => {
-              for (const id of prefs.hidden) setModelVisible(id, true);
+              update(withAllVisible(prefs));
             }}
           >
             Show all
@@ -333,7 +337,7 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
                         title={
                           favorite ? 'Remove from favorites' : 'Add to favorites'
                         }
-                        onClick={() => toggleModelFavorite(id)}
+                        onClick={() => update(withFavorite(prefs, id))}
                       >
                         <StarIcon filled={favorite} size={14} />
                       </button>
@@ -352,7 +356,9 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
                             : 'Hidden from the model picker'
                         }
                         className={`settings-switch ${checked ? 'is-on' : ''}`}
-                        onClick={() => setModelVisible(id, !checked)}
+                        onClick={() =>
+                          update(withVisibility(prefs, id, !checked))
+                        }
                       >
                         <span className="settings-switch-knob" />
                       </button>

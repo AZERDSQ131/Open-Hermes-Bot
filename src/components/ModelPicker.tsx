@@ -53,7 +53,7 @@ export function ModelPicker({
   const [loading, setLoading] = useState(false);
   const [needle, setNeedle] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
-  const prefs = useModelPrefs();
+  const { prefs } = useModelPrefs();
 
   useEffect(() => {
     if (!open) return;

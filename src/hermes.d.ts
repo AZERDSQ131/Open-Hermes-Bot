@@ -163,6 +163,11 @@ export type HermesBridge = {
     data: string;
     mimeType?: string;
   }) => Promise<{ ok: boolean; transcript?: string; error?: string }>;
+  /** The app's preferences, kept on the server with the primary profile. */
+  prefs: () => Promise<{ ok: boolean; prefs?: Record<string, unknown>; error?: string }>;
+  savePrefs: (payload: {
+    prefs: Record<string, unknown>;
+  }) => Promise<{ ok: boolean; error?: string }>;
   models: (payload: { profile?: string }) => Promise<HermesModelList>;
   profiles: () => Promise<HermesProfileList>;
   sendChat: (payload: {

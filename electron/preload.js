@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('hermes', {
     ipcRenderer.invoke('hermes:attachment:upload', payload),
   transcribeVoice: (payload) =>
     ipcRenderer.invoke('hermes:voice:transcribe', payload),
+  prefs: () => ipcRenderer.invoke('hermes:prefs'),
+  savePrefs: (payload) => ipcRenderer.invoke('hermes:prefs:save', payload),
   createSession: (payload) => ipcRenderer.invoke('hermes:session', payload),
   sessions: (payload) => ipcRenderer.invoke('hermes:sessions', payload),
   messages: (payload) => ipcRenderer.invoke('hermes:messages', payload),
