@@ -608,6 +608,54 @@ ipcMain.handle('hermes:update:check', () => updater.check());
 // The new version takes over: the app closes and comes back as itself.
 ipcMain.handle('hermes:update:install', () => ({ ok: updater.install() }));
 
+// Where the releases live, the way the package says it. When the package
+// says nothing, the person reads why instead of a list.
+const RECIPE = require('./package.json');
+const PAGE = (Array.isArray(RECIPE.publish) ? RECIPE.publish : []).find(
+  (one) => one && one.provider === 'github',
+);
+const RELEASES_URL =
+  PAGE && PAGE.owner && PAGE.repo
+    ? `https://api.github.com/repos/${PAGE.owner}/${PAGE.repo}/releases?per_page=12`
+    : '';
+
+// What GitHub has put on the page of the project: the history the look for
+// an update reads its latest line from. The shell asks, because the screen
+// touches no network of its own. A page that says nothing, or says no, is
+// not an error the person carries: the app still works.
+ipcMain.handle('hermes:update:history', async () => {
+  if (!RELEASES_URL) {
+    return {
+      ok: false,
+      rows: [],
+      message: 'Where the releases live is not something the package says.',
+    };
+  }
+  try {
+    const answer = await fetch(RELEASES_URL, {
+      headers: { 'User-Agent': 'Hermes-Bot', Accept: 'application/vnd.github+json' },
+    });
+    if (!answer.ok) {
+      throw new Error(`GitHub answered ${answer.status} to the ask for the history.`);
+    }
+    return { ok: true, rows: await answer.json() };
+  } catch (error) {
+    return { ok: false, rows: [], message: error?.message ?? String(error) };
+  }
+});
+
+// A row of the history opens where its release lives. The shell is the one
+// allowed to hand an address to the Mac, and only to a page of this
+// project's own releases.
+ipcMain.handle('hermes:update:open-release', (_event, url) => {
+  if (typeof url !== 'string' || !url.startsWith('https://github.com/')) {
+    return Promise.resolve({ ok: false });
+  }
+  return shell
+    .openExternal(url)
+    .then(() => ({ ok: true }), () => ({ ok: false }));
+});
+
 // ------------------------------------------------------------------ chat
 
 // Everything below rides the live SSH tunnel: 127.0.0.1:<localPort> on this
