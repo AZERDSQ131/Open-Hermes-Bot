@@ -80,6 +80,8 @@ function makeBridge(overrides: Record<string, unknown> = {}) {
     prefs: vi.fn(async () => ({ ok: true, prefs: {} })),
     savePrefs: vi.fn(async () => ({ ok: true })),
     getSettings: vi.fn(async () => ({
+      mode: 'ssh',
+      configured: true,
       sshHost: 'my-host',
       apiPort: 8642,
       localPort: 18742,
@@ -1166,6 +1168,8 @@ describe('the setup', () => {
   it('opens on a machine that has never been told where Hermes lives', async () => {
     const bridge = makeBridge({
       getSettings: vi.fn(async () => ({
+        mode: 'local',
+        configured: false,
         sshHost: '',
         apiPort: 8642,
         localPort: 18742,
@@ -1183,7 +1187,27 @@ describe('the setup', () => {
   it('stays closed on a machine that already knows its host', async () => {
     const bridge = makeBridge({
       getSettings: vi.fn(async () => ({
+        mode: 'ssh',
+        configured: true,
         sshHost: 'my-host',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: true,
+        onboardingCompleted: false,
+      })),
+    });
+    await renderApp(bridge);
+    expect(screen.getByText('Bob')).toBeTruthy();
+    expect(screen.queryByText(/A window onto your agents/)).toBeNull();
+  });
+
+  it('stays closed on a machine that knows Hermes runs here', async () => {
+    const bridge = makeBridge({
+      getSettings: vi.fn(async () => ({
+        mode: 'local',
+        configured: true,
+        sshHost: '',
         apiPort: 8642,
         localPort: 18742,
         autoConnect: true,
@@ -1199,6 +1223,8 @@ describe('the setup', () => {
   it('stays closed once the setup has been walked through', async () => {
     const bridge = makeBridge({
       getSettings: vi.fn(async () => ({
+        mode: 'local',
+        configured: false,
         sshHost: '',
         apiPort: 8642,
         localPort: 18742,
@@ -1228,6 +1254,8 @@ describe('the setup', () => {
   it('gives the window back when the person walks away', async () => {
     const bridge = makeBridge({
       getSettings: vi.fn(async () => ({
+        mode: 'local',
+        configured: false,
         sshHost: '',
         apiPort: 8642,
         localPort: 18742,
@@ -1249,6 +1277,8 @@ describe('the setup', () => {
   it('gives the window back when the setup is finished', async () => {
     const bridge = makeBridge({
       getSettings: vi.fn(async () => ({
+        mode: 'ssh',
+        configured: false,
         sshHost: '',
         apiPort: 8642,
         localPort: 18742,
@@ -1261,6 +1291,8 @@ describe('the setup', () => {
     await userEvent.click(
       await screen.findByRole('button', { name: 'Begin' }),
     );
+    // The setup starts on this Mac; the conversation below is over SSH.
+    await userEvent.click(screen.getByRole('radio', { name: /Another machine/ }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     await userEvent.type(screen.getByLabelText('API key'), 'sk-secret');
     await userEvent.click(
