@@ -269,11 +269,11 @@ button:focus-visible {
 
 .dock-mark {
   display: grid;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   place-items: center;
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: 7px;
   background: #33333a;
 }
 
