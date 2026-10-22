@@ -179,6 +179,18 @@ describe('the connectors of the host', () => {
     expect(rows.find((row) => row.slug === 'notion')?.state).toBe('connected');
   });
 
+  it('match accounts without regard to case', () => {
+    const rows = readConnectors({
+      ...LIST,
+      catalog: [{ slug: 'Notion', name: 'Notion' }],
+      toolkit: [{ connector: 'notion', enabled: true }],
+      accounts: [{ connector: 'NOTION', status: 'active', label: 'x', active: true }],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.state).toBe('connected');
+    expect(rows[0]?.account).toBe('x');
+  });
+
   it('say nothing is known about a service the host did not mention', () => {
     const rows = readConnectors({
       ...LIST,
