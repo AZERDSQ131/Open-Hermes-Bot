@@ -132,6 +132,11 @@ export type HermesProfile = {
   color?: string;
   /** The face this bot wears, when the profile carries one. */
   shape?: string;
+  /**
+   * False for a profile on disk the gateway does not serve yet (warming bot).
+   * Absent or true means the gateway serves it.
+   */
+  served?: boolean;
 };
 
 export type HermesProfileList = {
