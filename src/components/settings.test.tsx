@@ -706,6 +706,52 @@ describe('the settings', () => {
     expect(screen.queryByText('None connected')).toBeNull();
   });
 
+  it(
+    'show the code and a browser shortcut while waiting',
+    async () => {
+      const closed = {
+        ok: true,
+        available: false,
+        catalog: [],
+        toolkit: [],
+        accounts: [],
+        messages: ['The catalogue of the services is closed: boom'],
+      };
+      const open = {
+        ok: true,
+        available: true,
+        catalog: [{ slug: 'notion', name: 'Notion' }],
+        toolkit: [{ connector: 'notion', enabled: true, connected: true }],
+        accounts: [],
+        messages: [],
+      };
+      withBridge({
+        connectors: vi.fn().mockResolvedValueOnce(closed).mockResolvedValue(open),
+        nousLoginStart: vi.fn(async () => ({
+          ok: true,
+          url: 'https://portal.example/approve',
+          user_code: 'WXYZ-1234',
+          device_code: 'device-9',
+          expires_in: 600,
+          interval: 2,
+        })),
+        nousLoginPoll: vi
+          .fn()
+          .mockResolvedValueOnce({ ok: false, pending: true })
+          .mockResolvedValue({ ok: true, pending: false }),
+        openLink: vi.fn(async () => ({ ok: true })),
+      });
+      renderSettings();
+      await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+      expect(await screen.findByText('WXYZ-1234')).toBeTruthy();
+      expect(
+        await screen.findByRole('button', { name: 'Open the browser again' }),
+      ).toBeTruthy();
+      expect(await screen.findByText('Notion', {}, { timeout: 10000 })).toBeTruthy();
+    },
+    15000,
+  );
+
   it('read the host in the middle while the connectors load', async () => {
     withBridge({
       connectors: vi.fn(() => new Promise(() => undefined)),
