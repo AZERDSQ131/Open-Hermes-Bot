@@ -120,6 +120,18 @@ function stateOf(
     // accounts list is empty: without it a connected service reads as merely
     // available and the page says "None connected" while the host is up.
     if (toolkit.connected === true) return 'connected';
+    const status = String(toolkit.status ?? '')
+      .trim()
+      .toLowerCase();
+    if (
+      status === 'active' ||
+      status === 'connected' ||
+      status === 'enabled' ||
+      status === 'ok' ||
+      status === 'ready'
+    ) {
+      return 'connected';
+    }
     if (toolkit.enabled === false) return 'off';
     return 'available';
   }
