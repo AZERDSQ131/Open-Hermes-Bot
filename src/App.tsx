@@ -241,30 +241,60 @@ export function isPendingExpired(
 // back after a restart must be the same bot.
 
 // Real bots only: anything the gateway no longer serves leaves the sidebar, and
-// threads without a profile (groups) stay where they are.
-function mergeBots(
+// threads without a profile (groups) stay where they are. Warming bots stay
+// visible until the list catches up, marked pending so the UI can say so.
+export function mergeBots(
   current: Thread[],
   profiles: HermesProfile[],
-  pending: Set<string>,
+  pending: Map<string, number> | Set<string>,
   primary?: HermesProfile,
+  now = Date.now(),
 ): Thread[] {
+  const pendingAt = (name: string): number | undefined =>
+    pending instanceof Map ? pending.get(name) : pending.has(name) ? now : undefined;
   const listed = new Set(profiles.map((profile) => profile.name));
+  const byName = new Map(profiles.map((profile) => [profile.name, profile]));
   const existing = new Map(
     current
       .filter((thread) => thread.profile)
       .map((thread) => [thread.profile as string, thread]),
   );
-  const bots = profiles.map(
-    (profile) => existing.get(profile.name) ?? threadForBot(profile),
-  );
+  const bots = profiles.map((profile) => {
+    const known = existing.get(profile.name);
+    const served = profile.served !== false;
+    const started = pendingAt(profile.name);
+    if (known) {
+      // A served bot stops warming; an unserved one keeps warming.
+      if (served && known.pending) {
+        const { pending: _drop, pendingSince: _dropSince, serveFailed: _dropFailed, ...rest } = known;
+        return { ...rest, preview: rest.preview === 'Starting…' ? '' : rest.preview };
+      }
+      if (!served && !known.pending) {
+        return { ...known, pending: true as const, pendingSince: started ?? now };
+      }
+      return known;
+    }
+    return threadForBot(profile, started ?? now);
+  });
   // A bot just created can be ready to answer before the gateway lists it; it
   // stays visible until the list catches up instead of vanishing on a refresh.
   const waiting = current.filter(
     (thread) =>
       thread.profile &&
       !listed.has(thread.profile) &&
-      pending.has(thread.profile),
-  );
+      pendingAt(thread.profile) !== undefined &&
+      !isPendingExpired({ ...thread, pendingSince: pendingAt(thread.profile!) ?? thread.pendingSince ?? now }, now),
+  ).map((thread) => {
+    const knownProfile = thread.profile ? byName.get(thread.profile) : undefined;
+    if (knownProfile) return thread;
+    if (thread.pending) return thread;
+    return {
+      ...thread,
+      pending: true as const,
+      pendingSince: pendingAt(thread.profile!) ?? thread.pendingSince ?? now,
+      preview: thread.preview || 'Starting…',
+    };
+  });
   // The default bot is not a listed profile: it is carried across refreshes by
   // hand and stays at the head of the list. Its face is the one the server
   // keeps for it, like every other bot.
