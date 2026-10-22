@@ -2176,7 +2176,9 @@ app.whenReady().then(() => {
   if (storedConnection().autoConnect && storedApiKey()) {
     connectNow().catch(() => undefined);
   }
-  updater.checkInBackground();
+  // The update test presses the button itself: it asks the launch to leave
+  // the looking for the update to that hand alone.
+  if (!process.argv.includes('--no-update-on-launch')) updater.checkInBackground();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
