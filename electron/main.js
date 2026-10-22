@@ -1072,6 +1072,32 @@ def connector_connect():
     answer({"ok": True, "url": str(snapshot.get("connect_url") or "")})
 
 
+def nous_login_start():
+    """Mint a Nous device code: one click in the app, no terminal.
+
+    Returns the verification URL and the user code. The browser opens on
+    the URL; the poll below waits for the approval.
+    """
+    from hermes_cli.auth import PROVIDER_REGISTRY
+    from hermes_cli.auth_device_flow import _request_device_code
+    from hermes_cli.auth_nous import _nous_http_client
+
+    pconfig = PROVIDER_REGISTRY["nous"]
+    portal = str(pconfig.portal_base_url or "").rstrip("/")
+    with _nous_http_client(15.0, True) as client:
+        data = _request_device_code(
+            client=client, portal_base_url=portal,
+            client_id=pconfig.client_id, scope=pconfig.scope)
+    return {
+        "ok": True,
+        "url": str(data.get("verification_uri_complete") or ""),
+        "user_code": str(data.get("user_code") or ""),
+        "device_code": str(data.get("device_code") or ""),
+        "expires_in": int(data.get("expires_in") or 600),
+        "interval": int(data.get("interval") or 5),
+    }
+
+
 # -------------------------------------------------------------------- answer
 
 try:
@@ -1087,6 +1113,8 @@ try:
         answer(dict(connectors_of(), ok=True))
     elif WHAT == "connector-connect":
         connector_connect()
+    elif WHAT == "nous-login-start":
+        answer(nous_login_start())
     else:
         answer({"ok": False, "error": "Nothing is asked for that the host knows."})
 except SystemExit:
