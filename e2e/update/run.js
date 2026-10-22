@@ -381,6 +381,12 @@ main().catch((error) => {
     if (said.length) {
       console.error('— the app’s log:');
       for (const line of said) console.error(`  ${line}`);
+    } else {
+      // A silent log has a witness too: what the app could not say goes into
+      // a dialog on the screen instead.
+      console.error(
+        '— the app said nothing: if a dialog is open on the screen, it holds what went wrong.',
+      );
     }
   } catch (
     // The app said nothing at all.

@@ -609,8 +609,10 @@ ipcMain.handle('hermes:update:check', () => updater.check());
 ipcMain.handle('hermes:update:install', () => ({ ok: updater.install() }));
 
 // Where the releases live, the way the package says it. When the package
-// says nothing, the person reads why instead of a list.
-const RECIPE = require('./package.json');
+// says nothing, the person reads why instead of a list. The record is read
+// from the root of the app — the file's own directory is not it, inside or
+// outside a bundle.
+const RECIPE = require(path.join(app.getAppPath(), 'package.json'));
 const PAGE = (Array.isArray(RECIPE.publish) ? RECIPE.publish : []).find(
   (one) => one && one.provider === 'github',
 );
