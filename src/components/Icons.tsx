@@ -59,22 +59,6 @@ export function FileIcon({ size = 24, className }: IconProps) {
   );
 }
 
-export function GearIcon({ size = 18, className }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      strokeWidth="1.7"
-      className={className}
-      {...base}
-    >
-      <circle cx="12" cy="12" r="3.1" />
-      <path d="M12 2.7v2.4M12 18.9v2.4M2.7 12h2.4M18.9 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7" />
-    </svg>
-  );
-}
-
 export function MenuIcon({ size = 19, className }: IconProps) {
   return (
     <svg

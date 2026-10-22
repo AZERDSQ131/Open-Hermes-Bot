@@ -219,6 +219,11 @@ export type HermesUpdateEvent = {
   released?: string;
   percent?: number;
   message?: string;
+  /**
+   * The look was the app's own: the new version waits for the app to close
+   * instead of taking it over.
+   */
+  quiet?: boolean;
 };
 
 /** How a check ended: ready, current, unsupported, or an error. */
@@ -406,6 +411,8 @@ export type HermesBridge = {
   updateInfo: () => Promise<HermesUpdateInfo>;
   /** Looks for an update, and downloads it if there is one. */
   checkForUpdates: () => Promise<HermesUpdateResult>;
+  /** Where the look stands right now, for the mark that opens on it. */
+  updateState: () => Promise<HermesUpdateEvent>;
   /** Lets the new version take over: the app comes back as itself. */
   installUpdate: () => Promise<{ ok: boolean }>;
   /** What GitHub has put on the page of the project, row by row. */

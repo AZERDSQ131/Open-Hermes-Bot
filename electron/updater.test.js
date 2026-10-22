@@ -258,15 +258,44 @@ describe('a check the person asked for', () => {
 });
 
 describe('the check on launch', () => {
-  it('looks without saying anything', async () => {
+  it('looks by itself, and says so quietly', async () => {
     const { updater, autoUpdater, events } = harness();
     updater.checkInBackground();
     expect(autoUpdater.checkForUpdates).toHaveBeenCalledTimes(1);
+    expect(events[0]).toMatchObject({ state: 'checking', quiet: true });
     autoUpdater.emit('update-available', { version: '1.1.0' });
     autoUpdater.emit('download-progress', { percent: 50 });
     autoUpdater.emit('update-downloaded', { version: '1.1.0' });
     await tick();
-    expect(events).toEqual([]);
+    // The look says what it is doing, but it does not take the app over: the
+    // new version waits for the app to close.
+    expect(events).toContainEqual(
+      expect.objectContaining({ state: 'ready', version: '1.1.0', quiet: true }),
+    );
+    expect(events.every((event) => event.quiet)).toBe(true);
+  });
+
+  it('says where the look stands, for a screen that opens on it', async () => {
+    const { updater, autoUpdater } = harness();
+    expect(updater.status()).toMatchObject({ state: 'idle', quiet: true });
+    updater.checkInBackground();
+    expect(updater.status()).toMatchObject({ state: 'checking' });
+    autoUpdater.emit('update-available', { version: '1.1.0' });
+    expect(updater.status()).toMatchObject({
+      state: 'available',
+      version: '1.1.0',
+    });
+  });
+
+  it('is not quiet when the person asked for the look', async () => {
+    const { updater, autoUpdater, events } = harness();
+    updater.check();
+    expect(events[0]).toMatchObject({ state: 'checking', quiet: false });
+    autoUpdater.emit('update-available', { version: '1.1.0' });
+    expect(events).toContainEqual(
+      expect.objectContaining({ state: 'available', quiet: false }),
+    );
+    expect(updater.status()).toMatchObject({ state: 'available', quiet: false });
   });
 
   it('does not look when a check is already running', () => {

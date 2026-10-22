@@ -124,4 +124,36 @@ describe('the small place beside the settings', () => {
     expect(entry.className).toContain('is-none');
     expect(entry).toHaveProperty('disabled', false);
   });
+
+  it('reads the look the app started on its own', async () => {
+    withBridge({
+      updateState: vi.fn(async () => ({ state: 'checking', quiet: true })),
+    });
+    render(<UpdateButton />);
+    const entry = await screen.findByRole('button', {
+      name: 'Looking for an update…',
+    });
+    expect(entry.className).toContain('is-busy');
+    expect(window.hermes?.updateState).toHaveBeenCalled();
+  });
+
+  it('does not take the app over for a look the app started itself', async () => {
+    withBridge({
+      updateState: vi.fn(async () => ({
+        state: 'ready',
+        version: '1.1.0',
+        quiet: true,
+      })),
+    });
+    render(<UpdateButton />);
+    const entry = await screen.findByRole('button', {
+      name: 'The update is ready: the app restarts by itself',
+    });
+    expect(entry.className).toContain('is-here');
+    // The new version waits for the app to close: a conversation is not
+    // something to interrupt.
+    await waitFor(() => {
+      expect(window.hermes?.installUpdate).not.toHaveBeenCalled();
+    });
+  });
 });
