@@ -100,6 +100,14 @@ import {
 
 const MAX_PINNED = 3;
 
+// A warming bot is shown at once, even while the gateway does not serve it
+// yet. Past this delay without being served, it is removed: the host never
+// picked it up and keeping a dead row would lie about it.
+export const PENDING_BOT_TIMEOUT_MS = 120_000;
+
+// How often expired warming bots are swept, even without a server refresh.
+const PENDING_SWEEP_MS = 5_000;
+
 // A model picked once stays picked: new conversations start on the last one the
 // person chose for that bot, instead of the profile's configured model — which
 // may be the one that just refused to answer.
