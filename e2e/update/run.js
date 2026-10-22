@@ -160,7 +160,7 @@ async function main() {
   const reuse =
     process.argv.includes('--no-build') &&
     fs.existsSync(path.join(APPS, APP_NAME, 'Contents', 'Info.plist')) &&
-    fs.existsSync(path.join(OUT, 'v2', 'Hermes Bot-1.0.1-arm64-mac.zip'));
+    fs.existsSync(path.join(OUT, 'v2', 'Hermes Bot-1.1.0-arm64-mac.zip'));
 
   if (reuse) {
     log('the two versions are already here: they are kept (--no-build)');
@@ -345,7 +345,7 @@ async function main() {
 
     // The app closes, takes the version, and comes back as it.
     await until('the app to become the new version', async () => {
-      return versionOf(installed) === '1.0.1';
+      return versionOf(installed) === '1.1.0';
     }, 180000);
 
     log(`installed version now: ${versionOf(installed)}`);
@@ -358,7 +358,7 @@ async function main() {
     for (const line of said) log(`  ${line}`);
 
     log('');
-    log('THE UPDATE WORKS: the app became 1.0.1.');
+    log('THE UPDATE WORKS: the app became 1.1.0.');
   } finally {
     await feed.close();
     try {
