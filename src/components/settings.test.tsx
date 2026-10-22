@@ -664,7 +664,7 @@ describe('the settings', () => {
     expect(await screen.findByText('research')).toBeTruthy();
   });
 
-  it('say why the services are closed on the host', async () => {
+  it('ask for a sign-in instead of a closed host', async () => {
     withBridge({
       connectors: vi.fn(async () => ({
         ok: true,
@@ -677,11 +677,16 @@ describe('the settings', () => {
     });
     renderSettings();
     await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
-    // The words of the host, and the way out.
+    // One clean card, no long dump: the host words hide behind the fold.
+    expect(
+      await screen.findByRole('heading', { name: 'Sign in to open the services' }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('heading', { name: 'Closed on this host' }),
+    ).toBeNull();
     expect(
       await screen.findByText(/portal authorization required/),
     ).toBeTruthy();
-    expect(screen.getByText(/hermes auth add nous/)).toBeTruthy();
   });
 
   it('read the host in the middle while the connectors load', async () => {
@@ -719,7 +724,7 @@ describe('the settings', () => {
     await waitFor(() => expect(connectors).toHaveBeenCalledTimes(2));
   });
 
-  it('warn when only some connector lists stayed closed', async () => {
+  it('fold the host details when some lists stayed closed', async () => {
     withBridge({
       connectors: vi.fn(async () => ({
         ok: true,
@@ -734,8 +739,11 @@ describe('the settings', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
     expect(await screen.findByText('Notion')).toBeTruthy();
     expect(
-      screen.getByRole('heading', { name: 'Some lists stayed closed' }),
+      screen.getByText('Some details from the host'),
     ).toBeTruthy();
+    expect(
+      screen.queryByRole('heading', { name: 'Some lists stayed closed' }),
+    ).toBeNull();
   });
 
   it('offer a one-click Nous sign-in when the services are closed', async () => {
@@ -756,7 +764,7 @@ describe('the settings', () => {
     ).toBeTruthy();
   });
 
-  it('say when the Nous sign-in cannot start', async () => {
+  it('start the Nous sign-in by itself and show the failure', async () => {
     withBridge({
       connectors: vi.fn(async () => ({
         ok: true,
@@ -772,14 +780,15 @@ describe('the settings', () => {
     });
     renderSettings();
     await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Sign in with Nous' }),
-    );
+    // No click needed: the page mints the code on its own, fails, offers again.
     expect(await screen.findByText('nope')).toBeTruthy();
+    expect(
+      await screen.findByRole('button', { name: 'Start again' }),
+    ).toBeTruthy();
   });
 
   it(
-    'open the browser and re-read after Nous approval',
+    'sign in by itself, open the browser and re-read after approval',
     async () => {
       const closed = {
         ok: true,
@@ -817,10 +826,8 @@ describe('the settings', () => {
       });
       renderSettings();
       await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
-      await userEvent.click(
-        await screen.findByRole('button', { name: 'Sign in with Nous' }),
-      );
-      expect(await screen.findByText('ABCD-EFGH')).toBeTruthy();
+      // No click: the page starts the sign-in, opens the browser, then the
+      // services arrive on their own.
       expect(openLink).toHaveBeenCalledWith('https://portal.example/approve');
       expect(await screen.findByText('Notion', {}, { timeout: 8000 })).toBeTruthy();
     },

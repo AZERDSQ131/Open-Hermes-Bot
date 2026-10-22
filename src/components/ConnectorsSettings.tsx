@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { HermesConnectorList } from '../hermes';
 import { readConnectors, type Connector } from '../connectors';
 import { ConnectorMark } from './ConnectorMark';
@@ -64,6 +64,19 @@ export function ConnectorsSettings() {
   // Why the host could not answer, in its own words.
   const closed = answer?.messages ?? [];
   const failed = Boolean(answer) && !answer?.ok;
+  const signedOut =
+    Boolean(answer) &&
+    !failed &&
+    !loading &&
+    rows.length === 0 &&
+    closed.length > 0;
+  const empty =
+    Boolean(answer) &&
+    Boolean(answer?.available) &&
+    !failed &&
+    !loading &&
+    rows.length === 0 &&
+    closed.length === 0;
 
   /** The host starts the connection and answers with the link to open. */
   async function connect(row: Connector) {
@@ -166,9 +179,25 @@ export function ConnectorsSettings() {
 
   const statusWord = loading
     ? 'Reading the host…'
-    : connected.length
-      ? `${connected.length} connected`
-      : 'None connected';
+    : failed
+      ? 'Host down'
+      : signedOut
+        ? 'Sign-in needed'
+        : connected.length
+          ? `${connected.length} connected`
+          : 'None connected';
+
+  // The sign-in starts by itself: landing here means the host is up but Nous
+  // is logged out, so there is nothing to read before signing in.
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!signedOut) return;
+    if (!bridge?.nousLoginStart) return;
+    if (loginBusy || loginCode || autoStarted.current) return;
+    autoStarted.current = true;
+    void signInWithNous();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedOut]);
 
   return (
     <div className="settings-page">
@@ -182,20 +211,11 @@ export function ConnectorsSettings() {
         </div>
         <div className="settings-page-side">
           <span className="settings-card-meta">{statusWord}</span>
-          {!loading ? (
-            <button
-              type="button"
-              className="settings-page-action"
-              onClick={retry}
-            >
-              Try again
-            </button>
-          ) : null}
         </div>
       </header>
 
-      {error ? <p className="models-error">{error}</p> : null}
-      {notice ? <p className="settings-hint">{notice}</p> : null}
+      {error && !signedOut ? <p className="models-error">{error}</p> : null}
+      {notice && !signedOut ? <p className="settings-hint">{notice}</p> : null}
 
       {loading && !answer ? (
         <div className="connectors-loading" role="status">
@@ -219,78 +239,85 @@ export function ConnectorsSettings() {
             <p className="settings-hint">
               Check that Hermes is still running on the host, then try again.
             </p>
-            <button
-              type="button"
-              className="settings-action is-small"
-              onClick={retry}
-            >
-              Try again
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {!failed && closed.length && rows.length === 0 && !loading ? (
-        <section className="settings-card">
-          <header className="settings-card-head">
-            <div>
-              <h3>Closed on this host</h3>
-              <p>
-                The services of Hermes live with the account, not on the
-                machine. The host has to be signed in to Nous for them to open.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="settings-page-action"
-              onClick={retry}
-            >
-              Try again
-            </button>
-          </header>
-          <div className="settings-card-body">
-            {closed.map((message) => (
-              <p className="settings-hint" key={message}>
-                {message}
-              </p>
-            ))}
-            <p className="settings-hint">
-              Sign in once and the services open by themselves — the marks of
-              the connected ones come back to the dock. Prefer the terminal?
-              run <code>hermes auth add nous</code> on the host.
-            </p>
-            {loginCode ? (
-              <p className="settings-hint">
-                Code <code>{loginCode}</code> — approve it in the browser, then
-                come back. The page keeps waiting.
-              </p>
-            ) : null}
-            <button
-              type="button"
-              className="settings-action is-small"
-              disabled={loginBusy}
-              onClick={() => void signInWithNous()}
-            >
-              {loginBusy
-                ? loginUrl
-                  ? 'Waiting for approval…'
-                  : 'Opening…'
-                : 'Sign in with Nous'}
-            </button>
-            {loginUrl && loginBusy ? (
+            <div className="connectors-actions">
               <button
                 type="button"
                 className="settings-action is-small"
-                onClick={() => void bridge?.openLink?.(loginUrl)}
+                onClick={retry}
               >
-                Open the browser again
+                Try again
               </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {signedOut ? (
+        <section className="settings-card">
+          <header className="settings-card-head">
+            <div>
+              <h3>Sign in to open the services</h3>
+              <p>
+                One approval in the browser, then the list appears here. Nothing
+                to type anywhere.
+              </p>
+            </div>
+          </header>
+          <div className="settings-card-body">
+            {error ? <p className="models-error">{error}</p> : null}
+            {loginCode ? (
+              <>
+                <p className="connectors-code" aria-live="polite">
+                  {loginCode}
+                </p>
+                <p className="settings-hint">
+                  Approve it in the browser, then come back. This page keeps
+                  waiting.
+                </p>
+              </>
+            ) : null}
+            <div className="connectors-actions">
+              <button
+                type="button"
+                className="settings-action is-small"
+                disabled={loginBusy}
+                onClick={() => void signInWithNous()}
+              >
+                {loginBusy
+                  ? loginUrl
+                    ? 'Waiting for approval…'
+                    : 'Opening…'
+                  : error
+                    ? 'Start again'
+                    : loginUrl
+                      ? 'Sign in with Nous'
+                      : 'Sign in with Nous'}
+              </button>
+              {loginUrl && loginBusy ? (
+                <button
+                  type="button"
+                  className="settings-text-button"
+                  onClick={() => void bridge?.openLink?.(loginUrl)}
+                >
+                  Open the browser again
+                </button>
+              ) : null}
+            </div>
+            {closed.length ? (
+              <details className="settings-details">
+                <summary>Why am I seeing this?</summary>
+                {closed.map((message) => (
+                  <p className="settings-hint" key={message}>
+                    {message}
+                  </p>
+                ))}
+              </details>
             ) : null}
           </div>
         </section>
       ) : null}
 
-      {answer && answer.available && rows.length === 0 && !failed && !loading ? (
+      {empty ? (
         <section className="settings-card">
           <header className="settings-card-head">
             <div>
@@ -298,26 +325,16 @@ export function ConnectorsSettings() {
               <p>The host did not offer a single service.</p>
             </div>
           </header>
-        </section>
-      ) : null}
-
-      {rows.length > 0 && closed.length > 0 && !failed ? (
-        <section className="settings-card">
-          <header className="settings-card-head">
-            <div>
-              <h3>Some lists stayed closed</h3>
-              <p>
-                The page shows what the host did open. The rest says why in the
-                host's own words.
-              </p>
-            </div>
-          </header>
           <div className="settings-card-body">
-            {closed.map((message) => (
-              <p className="settings-hint" key={message}>
-                {message}
-              </p>
-            ))}
+            <div className="connectors-actions">
+              <button
+                type="button"
+                className="settings-text-button"
+                onClick={retry}
+              >
+                Refresh
+              </button>
+            </div>
           </div>
         </section>
       ) : null}
@@ -329,6 +346,13 @@ export function ConnectorsSettings() {
               <h3>The services</h3>
               <p>{rows.length} on offer.</p>
             </div>
+            <button
+              type="button"
+              className="settings-text-button"
+              onClick={retry}
+            >
+              Refresh
+            </button>
           </header>
           <div className="capability-list">
             {rows.map((row) => (
@@ -358,6 +382,18 @@ export function ConnectorsSettings() {
               </div>
             ))}
           </div>
+          {closed.length > 0 && !failed ? (
+            <div className="settings-card-body">
+              <details className="settings-details">
+                <summary>Some details from the host</summary>
+                {closed.map((message) => (
+                  <p className="settings-hint" key={message}>
+                    {message}
+                  </p>
+                ))}
+              </details>
+            </div>
+          ) : null}
         </section>
       ) : null}
     </div>
