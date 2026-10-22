@@ -108,4 +108,11 @@ describe('the dock of the connectors', () => {
     expect(dock.querySelectorAll('.dock-mark svg')).toHaveLength(3);
     expect(dock.querySelector('.dock-mark.is-letter')).toBeNull();
   });
+
+  it('reads Apps before the overlapping marks', () => {
+    render(<ConnectorDock rows={[]} onOpen={vi.fn()} />);
+    const dock = screen.getByRole('button', { name: 'Connectors' });
+    expect(dock.querySelector('.dock-label')?.textContent).toBe('Apps');
+    expect(dock.querySelector('.dock-marks')).toBeTruthy();
+  });
 });
