@@ -46,6 +46,11 @@ describe('what the app knows about itself', () => {
     const { updater } = harness({ app: { packaged: false } });
     expect(updater.info().supported).toBe(false);
   });
+
+  it('downloads only when it is told to', () => {
+    const { autoUpdater } = harness();
+    expect(autoUpdater.autoDownload).toBe(false);
+  });
 });
 
 describe('a check the person asked for', () => {

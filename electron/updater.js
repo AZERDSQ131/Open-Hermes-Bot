@@ -29,6 +29,10 @@ const UNSUPPORTED_MESSAGE =
  * @param {(event: object) => void} options.onEvent tells the shell what happened
  */
 function createUpdater({ app, autoUpdater, onEvent }) {
+  // The download is ours to ask for: the app decides when it happens, and
+  // why. electron-updater would otherwise start it on its own.
+  autoUpdater.autoDownload = false;
+
   /** The version that was found on the releases page. */
   let found = '';
   /** The new version is on the disk: it can take over the app. */
