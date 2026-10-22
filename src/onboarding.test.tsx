@@ -647,7 +647,7 @@ describe('the setup', () => {
     expect(screen.queryByText(/could not be created/)).toBeNull();
   });
 
-  it('waits for the gateway when the bot is not served yet', async () => {
+  it('lets the person finish while the gateway connects the bot', async () => {
     const bridge = makeBridge({
       createBot: vi.fn(async () => ({
         ok: true,
@@ -659,15 +659,17 @@ describe('the setup', () => {
     });
     renderSetup();
     await walkToReady(bridge);
-    // The bot is made: the setup does not make the person wait for the
-    // gateway to serve it, and says what is going on instead.
+    // The bot is made on the host and shown at once as warming: the setup
+    // does not block on the gateway, and says what is going on instead.
     expect(
-      await screen.findByRole('heading', { name: 'Connecting to your machine…' }),
+      await screen.findByText(/Connecting your bot/),
     ).toBeTruthy();
     expect(
       screen.getByText('Hermes is starting this bot — it will answer in a moment.'),
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Connecting…' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Start talking anyway' }),
+    ).toBeEnabled();
   });
 
   it('says when the gateway is serving the bot', async () => {
@@ -688,15 +690,12 @@ describe('the setup', () => {
     renderSetup();
     await walkToReady(bridge);
     expect(
-      screen.getByRole('heading', { name: 'Connecting to your machine…' }),
+      await screen.findByText(/Connecting your bot/),
     ).toBeTruthy();
     await act(async () => {
       ready?.({ name: 'nova', served: true });
     });
-    // The door is open: the last page is the last page again.
-    expect(
-      await screen.findByRole('heading', { name: "You're all set." }),
-    ).toBeTruthy();
+    // The door is open: the warming notice leaves, the bot stays.
     expect(screen.getByText('Hermes is serving it now.')).toBeTruthy();
   });
 
