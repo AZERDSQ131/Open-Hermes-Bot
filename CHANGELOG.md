@@ -40,6 +40,13 @@ follow [semantic versioning](https://semver.org/).
 
 ### Changed
 
+- **The connection is two panels, and each is a click.** The setup and the
+  settings ask first where Hermes runs — this Mac, or another machine — as
+  two panels side by side. A Hermes on this Mac is scanned and connected
+  with nothing to fill in; on another machine, the hosts the SSH config
+  already names are listed, and one click reads the key from that machine,
+  writes the connection down and opens the tunnel. When there is no key to
+  read, the app asks for it where the key goes.
 - **The connection is one page.** Where Hermes lives, the key, and the
   handshake that says whether the two of them are talking: all three on the
   same page, tested by the button at the bottom.
