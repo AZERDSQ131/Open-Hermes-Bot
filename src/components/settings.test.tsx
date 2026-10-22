@@ -738,6 +738,24 @@ describe('the settings', () => {
     ).toBeTruthy();
   });
 
+  it('offer a one-click Nous sign-in when the services are closed', async () => {
+    withBridge({
+      connectors: vi.fn(async () => ({
+        ok: true,
+        available: false,
+        catalog: [],
+        toolkit: [],
+        accounts: [],
+        messages: ['The catalogue of the services is closed: boom'],
+      })),
+    });
+    renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+    expect(
+      await screen.findByRole('button', { name: 'Sign in with Nous' }),
+    ).toBeTruthy();
+  });
+
   it('turn a skill off on the host, where the skill lives', async () => {
     const toggleSkill = vi.fn(async () => ({ ok: true }));
     withBridge({
