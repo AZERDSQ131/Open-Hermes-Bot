@@ -973,12 +973,47 @@ export default function App() {
 
   // A bot that was made is served by the gateway a moment later: the sidebar
   // is rebuilt then, so the bot stops being the one that is only expected.
+  // A bot the gateway cannot serve is flagged, so the UI can say it is
+  // failing instead of pretending it is still starting.
   useEffect(() => {
     const bridge = window.hermes;
     if (!bridge?.onBotReady) return;
-    return bridge.onBotReady(() => {
+    return bridge.onBotReady(({ name, served }) => {
+      if (served) pendingBots.current.delete(name);
+      else {
+        setThreads((current) =>
+          current.map((thread) =>
+            thread.profile === name ? { ...thread, serveFailed: true } : thread,
+          ),
+        );
+      }
       setRefreshToken((current) => current + 1);
     });
+  }, []);
+
+  // Expired warming bots are removed even when the server says nothing new:
+  // a bot Hermes never picked up must not stay in the sidebar forever.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (pendingBots.current.size === 0) return;
+      const now = Date.now();
+      const expired: string[] = [];
+      for (const [name, since] of pendingBots.current) {
+        if (now - since > PENDING_BOT_TIMEOUT_MS) expired.push(name);
+      }
+      if (!expired.length) return;
+      const gone = new Set(expired);
+      for (const name of expired) pendingBots.current.delete(name);
+      for (const name of expired) {
+        void window.hermes?.deleteBot?.({ name }).catch(() => undefined);
+      }
+      setThreads((current) =>
+        current.filter(
+          (thread) => !thread.profile || !gone.has(thread.profile),
+        ),
+      );
+    }, PENDING_SWEEP_MS);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
