@@ -21,6 +21,8 @@ export type UpdateEvent = {
   version?: string;
   /** How much of the download is on the disk, out of a hundred. */
   percent?: number;
+  /** When the version that was found was published, as Github said it. */
+  released?: string;
   /** Why it went wrong, when it did. */
   message?: string;
 };
@@ -31,13 +33,15 @@ export type UpdateStatus = {
   version: string;
   /** How much of the download is on the disk, out of a hundred. */
   percent: number;
+  /** When the version that was found was published, as Github said it. */
+  released: string;
   /** Why it went wrong, when it did. */
   message: string;
 };
 
 /** Nothing is known yet: the app has not been asked anything. */
 export function initialUpdateStatus(): UpdateStatus {
-  return { state: 'idle', version: '', percent: 0, message: '' };
+  return { state: 'idle', version: '', percent: 0, released: '', message: '' };
 }
 
 /**
@@ -54,6 +58,7 @@ export function applyUpdateEvent(
     state: event.state,
     version: event.version ?? status.version,
     percent: event.percent ?? status.percent,
+    released: event.released ?? status.released,
     message: event.message ?? '',
   };
 }
@@ -124,4 +129,98 @@ export function updateButtonDisabled(status: UpdateStatus): boolean {
 /** The new version is on the disk and the app is about to become it. */
 export function updateIsTakingOver(status: UpdateStatus): boolean {
   return status.state === 'ready';
+}
+
+/**
+ * What the small place beside the settings shows, for the next version.
+ *
+ * The words are the parts of the little mark: nothing, something is being
+ * looked for, a version was seen, the version is here, and the look went
+ * wrong.
+ */
+export type UpdateBadge =
+  | 'none'
+  | 'busy'
+  | 'coming'
+  | 'here'
+  | 'trouble';
+
+export function updateBadge(status: UpdateStatus): UpdateBadge {
+  switch (status.state) {
+    case 'checking':
+    case 'downloading':
+      return 'busy';
+    case 'available':
+      return 'coming';
+    case 'ready':
+      return 'here';
+    case 'error':
+      return 'trouble';
+    default:
+      return 'none';
+  }
+}
+
+/**
+ * How much of the download the mark can show as it goes, or nothing when
+ * there is no download to follow.
+ */
+export function updateProgress(status: UpdateStatus): number | null {
+  return status.state === 'downloading' ? status.percent : null;
+}
+
+/** One line of the history: what GitHub has published, said plainly. */
+export type ReleaseRow = {
+  /** The version, the way a release is named: `v1.2.0`. */
+  tag: string;
+  /** What the release calls itself. */
+  name: string;
+  /** When it was published, the way Github wrote it. */
+  date: string;
+  /** A rehearsal: a release people have to ask for by name. */
+  prerelease: boolean;
+  /** Where the release lives, on the page of the project. */
+  url: string;
+};
+
+/**
+ * Trims what Github sends into what the page reads: what is published, the
+ * newest first, ten at the most. Whatever Github did not say is left out,
+ * and nothing of it makes the page fall over.
+ */
+export function releaseRows(list: unknown): ReleaseRow[] {
+  if (!Array.isArray(list)) return [];
+  const rows: ReleaseRow[] = [];
+  for (const one of list) {
+    const note = (one ?? {}) as Record<string, unknown>;
+    if (note.draft === true) continue;
+    const tag = typeof note.tag_name === 'string' ? note.tag_name : '';
+    if (!tag) continue;
+    rows.push({
+      tag,
+      name: typeof note.name === 'string' && note.name ? note.name : tag,
+      date: typeof note.published_at === 'string' ? note.published_at : '',
+      prerelease: note.prerelease === true,
+      url: typeof note.html_url === 'string' ? note.html_url : '',
+    });
+    if (rows.length === 10) break;
+  }
+  return rows;
+}
+
+const MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+/**
+ * What a release date says, in the words people read. The parts come from
+ * the clock of the world, not of the machine, so the same release says the
+ * same thing on every Mac.
+ */
+export function releaseDateWords(date: string): string {
+  if (!date) return '';
+  const when = new Date(date);
+  if (Number.isNaN(when.getTime())) return '';
+  return `${MONTHS[when.getUTCMonth()]} ${when.getUTCDate()}`;
 }

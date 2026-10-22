@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   applyUpdateEvent,
   initialUpdateStatus,
+  releaseDateWords,
+  releaseRows,
+  updateBadge,
   updateButtonBusy,
   updateButtonDisabled,
   updateButtonLabel,
   updateDetail,
   updateIsTakingOver,
+  updateProgress,
 } from './updates';
 
 describe('the state of an update', () => {
@@ -231,5 +235,157 @@ describe('the moment the app becomes the new version', () => {
     expect(
       updateIsTakingOver({ ...initialUpdateStatus(), state: 'downloading' }),
     ).toBe(false);
+  });
+});
+
+describe('the date the release came out', () => {
+  it('travels with the version when Github said it', () => {
+    const status = applyUpdateEvent(initialUpdateStatus(), {
+      state: 'available',
+      version: '1.0.1',
+      released: '2025-10-20T12:00:00Z',
+    });
+    expect(status.released).toBe('2025-10-20T12:00:00Z');
+  });
+
+  it('stays what it was of old, when nothing says it', () => {
+    const before = applyUpdateEvent(initialUpdateStatus(), {
+      state: 'available',
+      version: '1.0.1',
+      released: '2025-10-20T12:00:00Z',
+    });
+    expect(applyUpdateEvent(before, { state: 'downloading' }).released).toBe(
+      '2025-10-20T12:00:00Z',
+    );
+  });
+
+  it('says the day in the words people read', () => {
+    expect(releaseDateWords('2025-10-22T12:00:00Z')).toBe('Oct 22');
+  });
+
+  it('says nothing when there is no date to say', () => {
+    expect(releaseDateWords('')).toBe('');
+  });
+
+  it('says nothing when the date is not a date', () => {
+    expect(releaseDateWords('the day after tomorrow')).toBe('');
+  });
+});
+
+describe('the little mark beside the settings', () => {
+  it('shows nothing while nothing is known', () => {
+    expect(updateBadge(initialUpdateStatus())).toBe('none');
+    expect(updateBadge({ ...initialUpdateStatus(), state: 'current' })).toBe(
+      'none',
+    );
+    expect(
+      updateBadge({ ...initialUpdateStatus(), state: 'unsupported' }),
+    ).toBe('none');
+  });
+
+  it('is busy while version are looked for or carried in', () => {
+    expect(updateBadge({ ...initialUpdateStatus(), state: 'checking' })).toBe(
+      'busy',
+    );
+    expect(updateBadge({ ...initialUpdateStatus(), state: 'downloading' })).toBe(
+      'busy',
+    );
+  });
+
+  it('tells it quietly when a version was seen', () => {
+    expect(updateBadge({ ...initialUpdateStatus(), state: 'available' })).toBe(
+      'coming',
+    );
+  });
+
+  it('tells it loud when the version is on the disk', () => {
+    expect(updateBadge({ ...initialUpdateStatus(), state: 'ready' })).toBe(
+      'here',
+    );
+  });
+
+  it('says something went amiss, without shouting', () => {
+    expect(updateBadge({ ...initialUpdateStatus(), state: 'error' })).toBe(
+      'trouble',
+    );
+  });
+
+  it('follows the download as it goes, and only then', () => {
+    expect(
+      updateProgress({
+        ...initialUpdateStatus(),
+        state: 'downloading',
+        percent: 42,
+      }),
+    ).toBe(42);
+    expect(updateProgress(initialUpdateStatus())).toBe(null);
+  });
+});
+
+describe('what Github published, row by row', () => {
+  const note = (extra: Record<string, unknown> = {}) => ({
+    tag_name: 'v1.0.1',
+    name: 'The one that takes care of itself',
+    published_at: '2025-10-20T12:00:00Z',
+    prerelease: false,
+    draft: false,
+    html_url: 'https://github.com/AZERDSQ131/Open-Hermes-Bot/releases/tag/v1.0.1',
+    ...extra,
+  });
+
+  it('reads the rows of the page, newest first as it came', () => {
+    const rows = releaseRows([note(), note({ tag_name: 'v1.0.0', draft: true })]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual({
+      tag: 'v1.0.1',
+      name: 'The one that takes care of itself',
+      date: '2025-10-20T12:00:00Z',
+      prerelease: false,
+      url: 'https://github.com/AZERDSQ131/Open-Hermes-Bot/releases/tag/v1.0.1',
+    });
+  });
+
+  it('takes nothing when the page says nothing', () => {
+    expect(releaseRows(null)).toEqual([]);
+    expect(releaseRows('not a list')).toEqual([]);
+    expect(releaseRows([])).toEqual([]);
+  });
+
+  it('walks past what is not on the page yet, or is not a release', () => {
+    const rows = releaseRows([
+      null,
+      note({ tag_name: '', name: 'no version to name' }),
+      note({ draft: true }),
+    ]);
+    expect(rows).toEqual([]);
+  });
+
+  it('says one when the word of its kind is there', () => {
+    expect(releaseRows([note({ prerelease: true })])[0].prerelease).toBe(true);
+  });
+
+  it('names it after its version when it has no name of its own', () => {
+    const rows = releaseRows([note({ name: null })]);
+    expect(rows[0].name).toBe('v1.0.1');
+  });
+
+  it('leaves empty what Github did not say', () => {
+    const rows = releaseRows([
+      note({ name: null, published_at: null, html_url: null }),
+    ]);
+    expect(rows[0].name).toBe('v1.0.1');
+    expect(rows[0].date).toBe('');
+    expect(rows[0].url).toBe('');
+    expect(rows[0].prerelease).toBe(false);
+  });
+
+  it('keeps ten rows at the most', () => {
+    const rows = releaseRows(
+      Array.from({ length: 23 }, (_, which) =>
+        note({ tag_name: `v2.0.${which}` }),
+      ),
+    );
+    expect(rows).toHaveLength(10);
+    expect(rows[0].tag).toBe('v2.0.0');
   });
 });
