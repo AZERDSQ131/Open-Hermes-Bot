@@ -223,3 +223,21 @@ export function ArrowUpIcon({ size = 18, className }: IconProps) {
     </svg>
   );
 }
+
+/** A version arriving: the arrow pointing down into what holds it. */
+export function UpdateIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      strokeWidth="1.8"
+      className={className}
+      {...base}
+    >
+      <path d="M12 4v10.5" />
+      <path d="m7.8 10.7 4.2 4.2 4.2-4.2" />
+      <path d="M5 19.5h14" />
+    </svg>
+  );
+}

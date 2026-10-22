@@ -169,6 +169,31 @@ export function updateProgress(status: UpdateStatus): number | null {
   return status.state === 'downloading' ? status.percent : null;
 }
 
+/**
+ * What the small place beside the settings says — for the ear that reads a
+ * button before it presses it, and for the hand that rests on one.
+ */
+export function updateMarkWords(status: UpdateStatus): string {
+  switch (status.state) {
+    case 'idle':
+      return 'Check for an update';
+    case 'checking':
+      return 'Looking for an update…';
+    case 'available':
+      return 'An update was found';
+    case 'downloading':
+      return `Downloading the update — ${status.percent}%`;
+    case 'ready':
+      return 'The update is ready: the app restarts by itself';
+    case 'current':
+      return 'The app is up to date';
+    case 'error':
+      return 'The look for an update failed';
+    case 'unsupported':
+      return 'The app as it runs from the sources cannot look for an update';
+  }
+}
+
 /** One line of the history: what GitHub has published, said plainly. */
 export type ReleaseRow = {
   /** The version, the way a release is named: `v1.2.0`. */

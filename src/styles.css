@@ -196,8 +196,17 @@ button:focus-visible {
 
 .sidebar-footer {
   flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+  align-items: center;
   padding: 6px 10px 12px;
   border-top: 1px solid var(--divider);
+}
+
+.sidebar-footer .settings-entry {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
 }
 
 .settings-entry {
@@ -225,6 +234,108 @@ button:focus-visible {
 .settings-entry-label {
   flex: 1 1 auto;
   text-align: left;
+}
+
+/* The place of the next version, in icon only: the mark says the rest. */
+
+.update-entry {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9px;
+  color: #a3a3aa;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.update-entry:hover:not(:disabled),
+.update-entry:focus-visible {
+  background: rgba(255, 255, 255, 0.045);
+  color: #e9e9ec;
+}
+
+.update-entry:disabled {
+  cursor: default;
+  color: #8a8a92;
+}
+
+/* The dot of the mark, quiet until something is worth saying it for. */
+
+.update-entry-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #f2efe5;
+  opacity: 0;
+  transform: scale(0.4);
+  pointer-events: none;
+}
+
+.is-coming .update-entry-dot {
+  opacity: 1;
+  transform: scale(1);
+  animation: update-dot-pulse 1500ms ease-in-out infinite;
+}
+
+.is-here .update-entry-dot {
+  opacity: 1;
+  transform: scale(1);
+  animation: update-dot-ping 1200ms ease-out infinite;
+}
+
+.is-trouble .update-entry-dot {
+  opacity: 0.8;
+  transform: scale(1);
+  background: #6f6f76;
+  animation: none;
+}
+
+@keyframes update-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.55;
+  }
+}
+
+@keyframes update-dot-ping {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(242, 239, 229, 0.45);
+  }
+  100% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 7px rgba(242, 239, 229, 0);
+  }
+}
+
+.update-entry-spin {
+  animation: update-entry-turn 900ms linear infinite;
+}
+
+@keyframes update-entry-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.update-entry-ring {
+  display: block;
+  color: #e9e9ec;
 }
 
 @keyframes settings-pulse {

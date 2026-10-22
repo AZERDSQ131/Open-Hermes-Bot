@@ -10,6 +10,7 @@ import {
   updateButtonLabel,
   updateDetail,
   updateIsTakingOver,
+  updateMarkWords,
   updateProgress,
 } from './updates';
 
@@ -319,6 +320,49 @@ describe('the little mark beside the settings', () => {
       }),
     ).toBe(42);
     expect(updateProgress(initialUpdateStatus())).toBe(null);
+  });
+});
+
+describe('the words the small place says', () => {
+  it('says nothing yet, and what it is doing now', () => {
+    expect(updateMarkWords(initialUpdateStatus())).toBe('Check for an update');
+    expect(updateMarkWords({ ...initialUpdateStatus(), state: 'checking' })).toBe(
+      'Looking for an update…',
+    );
+  });
+
+  it('says when a version was seen or is being carried in', () => {
+    expect(updateMarkWords({ ...initialUpdateStatus(), state: 'available' })).toBe(
+      'An update was found',
+    );
+    expect(
+      updateMarkWords({
+        ...initialUpdateStatus(),
+        state: 'downloading',
+        percent: 42,
+      }),
+    ).toBe('Downloading the update — 42%');
+  });
+
+  it('says when the new version is on the disk', () => {
+    expect(updateMarkWords({ ...initialUpdateStatus(), state: 'ready' })).toBe(
+      'The update is ready: the app restarts by itself',
+    );
+  });
+
+  it('says when there is nothing to ask for', () => {
+    expect(updateMarkWords({ ...initialUpdateStatus(), state: 'current' })).toBe(
+      'The app is up to date',
+    );
+    expect(
+      updateMarkWords({ ...initialUpdateStatus(), state: 'unsupported' }),
+    ).toBe('The app as it runs from the sources cannot look for an update');
+  });
+
+  it('says when the look went wrong', () => {
+    expect(updateMarkWords({ ...initialUpdateStatus(), state: 'error' })).toBe(
+      'The look for an update failed',
+    );
   });
 });
 
