@@ -1,14 +1,51 @@
 import type { Connector } from '../connectors';
 import { ConnectorMark } from './ConnectorMark';
-import { PlugIcon } from './Icons';
+
+/**
+ * The services the empty dock previews, with their real marks. No plug:
+ * the button shows what connecting opens — Notion, Drive, Calendar — and
+ * the page behind it says where the services are.
+ */
+const PREVIEW_ROWS: Connector[] = [
+  {
+    slug: 'notion',
+    name: 'Notion',
+    description: '',
+    category: '',
+    logo: '',
+    state: 'available',
+    enabled: true,
+    account: '',
+  },
+  {
+    slug: 'googledrive',
+    name: 'Google Drive',
+    description: '',
+    category: '',
+    logo: '',
+    state: 'available',
+    enabled: true,
+    account: '',
+  },
+  {
+    slug: 'googlecalendar',
+    name: 'Google Calendar',
+    description: '',
+    category: '',
+    logo: '',
+    state: 'available',
+    enabled: true,
+    account: '',
+  },
+];
 
 /**
  * The dock of the connectors, at the bottom of the sidebar.
  *
  * The marks are the services the host offers; pressing them opens the page
  * of the settings where the connectors are listed. When the host offers
- * none, the dock still shows a plug: an empty slot says nothing, and the
- * page behind it says where the services are.
+ * none, the dock previews the services with their real marks instead of a
+ * plug, and the page behind it says where the services are.
  */
 export function ConnectorDock({
   rows,
@@ -25,15 +62,9 @@ export function ConnectorDock({
       aria-label="Connectors"
       title="Connectors"
     >
-      {rows.length ? (
-        rows.map((row) => (
-          <ConnectorMark key={row.slug} row={row} className="dock-mark" />
-        ))
-      ) : (
-        <span className="dock-mark is-plug" aria-hidden="true">
-          <PlugIcon size={13} />
-        </span>
-      )}
+      {(rows.length ? rows : PREVIEW_ROWS).map((row) => (
+        <ConnectorMark key={row.slug} row={row} className="dock-mark" />
+      ))}
     </button>
   );
 }
