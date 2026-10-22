@@ -105,6 +105,65 @@ export function ConnectorsSettings() {
     setReloadToken((token) => token + 1);
   }
 
+  const [loginUrl, setLoginUrl] = useState('');
+  const [loginCode, setLoginCode] = useState('');
+  const [loginBusy, setLoginBusy] = useState(false);
+
+  /** Sign in with Nous without the terminal: the page opens, approval lands. */
+  async function signInWithNous() {
+    if (!bridge?.nousLoginStart || !bridge?.nousLoginPoll) {
+      setError('Sign-in needs the desktop app.');
+      return;
+    }
+    setLoginBusy(true);
+    setError('');
+    setNotice('');
+    let deviceCode = '';
+    let intervalMs = 5000;
+    try {
+      const start = await bridge.nousLoginStart();
+      if (!start.ok) {
+        setError(start.error ?? 'The sign-in could not start.');
+        return;
+      }
+      deviceCode = String(start.device_code ?? '');
+      intervalMs = Math.max(
+        2000,
+        Math.min(10000, Number(start.interval ?? 5) * 1000),
+      );
+      setLoginUrl(String(start.url ?? ''));
+      setLoginCode(String(start.user_code ?? ''));
+      if (start.url) await bridge.openLink?.(start.url);
+      setNotice('Approve the sign-in in the browser, then come back.');
+      const deadline = Date.now() + Number(start.expires_in ?? 600) * 1000;
+      for (;;) {
+        if (Date.now() > deadline) {
+          setError('The sign-in expired. Start again.');
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        const poll = await bridge.nousLoginPoll({ device_code: deviceCode });
+        if (poll.ok) {
+          setLoginUrl('');
+          setLoginCode('');
+          setNotice('Signed in. Reading the services…');
+          retry();
+          break;
+        }
+        if (!poll.pending) {
+          setError(poll.error ?? 'The sign-in failed.');
+          break;
+        }
+      }
+    } catch (reason) {
+      setError(
+        reason instanceof Error ? reason.message : 'The sign-in failed.',
+      );
+    } finally {
+      setLoginBusy(false);
+    }
+  }
+
   const statusWord = loading
     ? 'Reading the host…'
     : connected.length
@@ -196,10 +255,37 @@ export function ConnectorsSettings() {
               </p>
             ))}
             <p className="settings-hint">
-              On the host, run <code>hermes auth add nous</code> and sign in.
-              The services open by themselves after that, and the marks of the
-              connected ones come back to the dock.
+              Sign in once and the services open by themselves — the marks of
+              the connected ones come back to the dock. Prefer the terminal?
+              run <code>hermes auth add nous</code> on the host.
             </p>
+            {loginCode ? (
+              <p className="settings-hint">
+                Code <code>{loginCode}</code> — approve it in the browser, then
+                come back. The page keeps waiting.
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className="settings-action is-small"
+              disabled={loginBusy}
+              onClick={() => void signInWithNous()}
+            >
+              {loginBusy
+                ? loginUrl
+                  ? 'Waiting for approval…'
+                  : 'Opening…'
+                : 'Sign in with Nous'}
+            </button>
+            {loginUrl && loginBusy ? (
+              <button
+                type="button"
+                className="settings-action is-small"
+                onClick={() => void bridge?.openLink?.(loginUrl)}
+              >
+                Open the browser again
+              </button>
+            ) : null}
           </div>
         </section>
       ) : null}
