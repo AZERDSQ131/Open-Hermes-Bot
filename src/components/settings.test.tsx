@@ -859,6 +859,52 @@ describe('the settings', () => {
   });
 
   it(
+    'connect signs in first when the host has no account',
+    async () => {
+      const listing = {
+        ok: true,
+        available: true,
+        catalog: [{ slug: 'notion', name: 'Notion' }],
+        toolkit: [{ connector: 'notion', enabled: true }],
+        accounts: [],
+        messages: ['The catalogue of the services is closed: boom'],
+      };
+      const nousLoginStart = vi.fn(async () => ({
+        ok: true,
+        url: 'https://portal.example/approve',
+        user_code: 'QQQQ-1111',
+        device_code: 'device-2',
+        expires_in: 600,
+        interval: 2,
+      }));
+      const connectConnector = vi.fn(async () => ({
+        ok: true,
+        url: 'https://vendor.example/connect',
+      }));
+      const openLink = vi.fn(async () => ({ ok: true }));
+      withBridge({
+        connectors: vi.fn(async () => listing),
+        nousLoginStart,
+        nousLoginPoll: vi.fn(async () => ({ ok: true, pending: false })),
+        connectConnector,
+        openLink,
+      });
+      renderSettings();
+      await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+      await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
+      // The service button signs in first, then mints the service link.
+      expect(nousLoginStart).toHaveBeenCalled();
+      await waitFor(
+        () =>
+          expect(connectConnector).toHaveBeenCalledWith({ slug: 'notion' }),
+        { timeout: 8000 },
+      );
+      expect(openLink).toHaveBeenCalledWith('https://vendor.example/connect');
+    },
+    15000,
+  );
+
+  it(
     'sign in on click, open the browser and re-read after approval',
     async () => {
       const closed = {
