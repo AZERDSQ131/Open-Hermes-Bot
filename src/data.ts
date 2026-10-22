@@ -72,6 +72,15 @@ export type Thread = {
   /** Hermes profile backing this bot, when it is one. */
   profile?: string;
   /**
+   * Warming bot: created on the host but not served by the gateway yet.
+   * Shown immediately, with a loading screen until Hermes answers.
+   */
+  pending?: boolean;
+  /** When the warming started, for the auto-cleanup timeout. */
+  pendingSince?: number;
+  /** The gateway still does not serve it: shown as failed, removed soon. */
+  serveFailed?: boolean;
+  /**
    * The default bot (Chief of Staff), backed by the primary Hermes profile:
    * always present, always first, and never deletable.
    */
