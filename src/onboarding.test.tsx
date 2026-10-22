@@ -724,6 +724,31 @@ describe('the setup', () => {
     ).toBeEnabled();
   });
 
+  it('says when the gateway still does not serve the bot', async () => {
+    let ready: ((event: { name: string; served: boolean }) => void) | undefined;
+    const bridge = makeBridge({
+      createBot: vi.fn(async () => ({
+        ok: true,
+        name: 'nova',
+        title: 'Nova',
+        color: '#e8483f',
+        served: false,
+      })),
+      onBotReady: vi.fn((callback) => {
+        ready = callback;
+        return () => undefined;
+      }),
+    });
+    renderSetup();
+    await walkToReady(bridge);
+    await act(async () => {
+      ready?.({ name: 'nova', served: false });
+    });
+    expect(
+      await screen.findByText(/not serving it yet/),
+    ).toBeTruthy();
+  });
+
   it('turns the page the instant the colour is picked', async () => {
     let resolveBot!: (value: unknown) => void;
     const bridge = makeBridge({
