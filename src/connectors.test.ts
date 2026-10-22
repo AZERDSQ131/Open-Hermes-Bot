@@ -191,6 +191,19 @@ describe('the connectors of the host', () => {
     expect(rows[0]?.account).toBe('x');
   });
 
+  it('keep one row when the lists disagree on case', () => {
+    const rows = readConnectors({
+      ok: true,
+      available: true,
+      messages: [],
+      catalog: [{ slug: 'Google_Maps' }],
+      toolkit: [{ connector: 'google_maps', enabled: true, connected: true }],
+      accounts: [],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.state).toBe('connected');
+  });
+
   it('say nothing is known about a service the host did not mention', () => {
     const rows = readConnectors({
       ...LIST,
