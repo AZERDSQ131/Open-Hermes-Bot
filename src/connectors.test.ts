@@ -126,6 +126,28 @@ describe('the connectors of the host', () => {
     }
   });
 
+  it('read the toolkit status as waiting', () => {
+    for (const status of ['pending', 'waiting', 'authorizing']) {
+      const rows = readConnectors({
+        ...LIST,
+        toolkit: [{ connector: 'notion', enabled: true, status }],
+        accounts: [],
+      });
+      expect(rows.find((row) => row.slug === 'notion')?.state).toBe('unknown');
+    }
+  });
+
+  it('read the toolkit status as turned off', () => {
+    for (const status of ['inactive', 'disabled', 'off']) {
+      const rows = readConnectors({
+        ...LIST,
+        toolkit: [{ connector: 'notion', enabled: true, status }],
+        accounts: [],
+      });
+      expect(rows.find((row) => row.slug === 'notion')?.state).toBe('off');
+    }
+  });
+
   it('say when an account is there and broken', () => {
     const rows = readConnectors({
       ...LIST,
