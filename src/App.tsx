@@ -30,6 +30,7 @@ import {
   SearchIcon,
 } from './components/Icons';
 import type {
+  HermesConnectorList,
   HermesMessage,
   HermesProfile,
   HermesSession,
@@ -75,7 +76,9 @@ import {
 } from './group';
 import { avatarColor } from './profileColor';
 import { Onboarding } from './onboarding';
-import { SettingsView } from './components/SettingsView';
+import { SettingsView, type Section } from './components/SettingsView';
+import { ConnectorDock } from './components/ConnectorDock';
+import { dockConnectors, readConnectors } from './connectors';
 import { LogoEditor } from './components/LogoEditor';
 import {
   groupReactions,
@@ -410,6 +413,9 @@ export default function App() {
   } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // The page of the settings that is opened: the dock of the connectors
+  // opens its own, the rest of the app opens the connection.
+  const [settingsSection, setSettingsSection] = useState<Section>('connection');
   // The setup: shown once, on a machine that has never been told where
   // Hermes lives. `unknown` until the app's own record has answered.
   const [setup, setSetup] = useState<'unknown' | 'ready'>('unknown');
@@ -688,6 +694,36 @@ export default function App() {
     ? mentionIndex % mentionMatch.suggestions.length
     : 0;
 
+  /**
+   * The connectors of the host: the services a bot can reach besides
+   * Hermes. They are read in the background — the host may be another
+   * machine — and the dock shows them as they come.
+   */
+  const [connectors, setConnectors] = useState<HermesConnectorList | null>(
+    null,
+  );
+
+  useEffect(() => {
+    const bridge = window.hermes;
+    if (!bridge?.connectors) return;
+    let cancelled = false;
+    bridge
+      .connectors()
+      .then((answer: HermesConnectorList) => {
+        if (cancelled) return;
+        setConnectors(answer);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const dockRows = useMemo(
+    () => dockConnectors(connectors ? readConnectors(connectors) : []),
+    [connectors],
+  );
+
   const orderedThreads = useMemo(
     () =>
       [...threads].sort(
@@ -880,6 +916,7 @@ export default function App() {
         setContextMenu(null);
         setLogoOpen(false);
         setRenaming(false);
+        setSettingsSection('connection');
         setSettingsOpen(true);
       }
     };
@@ -1000,12 +1037,18 @@ export default function App() {
     composerRef.current?.blur();
   }
 
-  function openSettings() {
+  function openSettings(section: Section = 'connection') {
     setContextMenu(null);
     setLogoOpen(false);
     setRenaming(false);
     setSidebarOpen(false);
+    setSettingsSection(section);
     setSettingsOpen(true);
+  }
+
+  /** The dock of the connectors opens the page where they are listed. */
+  function openConnectors() {
+    openSettings('connectors');
   }
 
   function openCreateDialog() {
@@ -2587,7 +2630,7 @@ export default function App() {
             className={`settings-entry ${
               settingsOpen ? 'is-active' : ''
             }`}
-            onClick={openSettings}
+            onClick={() => openSettings()}
             aria-label="Settings"
             title="Settings  ⌘,"
           >
@@ -2595,6 +2638,7 @@ export default function App() {
             <span className="settings-entry-label">Settings</span>
           </button>
           <UpdateButton />
+          <ConnectorDock rows={dockRows} onOpen={openConnectors} />
         </div>
       </aside>
 
@@ -2685,7 +2729,7 @@ export default function App() {
             <button
               type="button"
               className="chat-notice-action"
-              onClick={openSettings}
+              onClick={() => openSettings()}
             >
               Open the connection settings
             </button>
@@ -3117,6 +3161,7 @@ export default function App() {
 
       {settingsOpen ? (
         <SettingsView
+          section={settingsSection}
           status={hermesStatus}
           onClose={() => setSettingsOpen(false)}
           onStatusChange={setHermesStatus}

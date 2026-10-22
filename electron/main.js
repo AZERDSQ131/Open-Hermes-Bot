@@ -846,6 +846,297 @@ ipcMain.handle('hermes:update:open-release', (_event, url) => {
     .then(() => ({ ok: true }), () => ({ ok: false }));
 });
 
+// ------------------------------------------------------------ capabilities
+
+// The connectors of the host, read on the machine that runs Hermes.
+//
+// They are not on the API: they live behind the managed gateway, and the
+// gateway needs the identity the host holds. So the script is run where
+// Hermes is, with the same Python it uses, and it answers with plain JSON.
+//
+// With no argument it lists: the catalogue (what a connector is called), the
+// toolkit (which ones the account may use) and the accounts (the ones that
+// are connected). With a slug, it starts the connection and answers with the
+// link the service wants the person to open.
+const CONNECTORS_PYTHON = `import json
+import os
+import pathlib
+import sys
+
+root = pathlib.Path(os.path.expanduser("~/.hermes"))
+sys.path.insert(0, str(root / "hermes-agent"))
+
+
+def answer(ok, **extra):
+    print(json.dumps({"ok": ok, **extra}, separators=(",", ":")))
+    raise SystemExit(0)
+
+
+def rows(items):
+    return list(items) if isinstance(items, (list, tuple)) else []
+
+
+try:
+    from tools.connectors import connectors_available
+    from tools.connectors.managed import managed_client
+    from tools.connectors.portal.client import PortalConnectorClient
+except Exception as exc:
+    answer(False, available=False, connectors=[], error="Hermes' connectors are not here: %s" % exc)
+
+slug = sys.argv[1] if len(sys.argv) > 1 else ""
+
+try:
+    available = bool(connectors_available())
+except Exception:
+    available = False
+
+if not available:
+    answer(
+        True,
+        available=False,
+        connectors=[],
+        message="The connectors are not available on this host.",
+    )
+
+# Connecting one: the host mints the link the service asks for.
+if slug:
+    try:
+        from tools.connectors.account import find_or_start_operation, wait_for_prepare
+        from tools.connectors.portal.errors import PortalConnectorUnavailable
+
+        start = find_or_start_operation([slug], action="connect", profile_home=None)
+        prepared = wait_for_prepare(start)
+        snapshot = start.operation.snapshot()
+        url = str(snapshot.get("connect_url") or "")
+        if not prepared:
+            answer(False, url="", error="The host could not start the connection.")
+        answer(True, url=url)
+    except Exception as exc:
+        answer(False, url="", error=str(exc))
+
+# Listing them: what is there, what may be used, and what is connected.
+catalog = []
+toolkit = []
+accounts = []
+try:
+    client = PortalConnectorClient()
+    client.require_authentication()
+    for entry in rows(client.catalog().connectors):
+        catalog.append({
+            "slug": str(entry.slug),
+            "name": str(entry.name or entry.slug),
+            "description": str(entry.description or ""),
+            "category": str(entry.category or ""),
+            "logo": str(entry.logo_url or ""),
+        })
+    for account in rows(client.list_accounts()):
+        accounts.append({
+            "connector": str(account.get("connector") or ""),
+            "status": str(account.get("status") or ""),
+            "label": str(account.get("label") or ""),
+            "active": bool(account.get("active")),
+        })
+except Exception as exc:
+    answer(
+        True,
+        available=True,
+        connectors=[],
+        message="The connectors could not be read from the account: %s" % exc,
+    )
+
+try:
+    for entry in rows(managed_client().list_connectors()):
+        toolkit.append({
+            "connector": str(entry.get("connector") or ""),
+            "enabled": bool(entry.get("enabled", True)),
+            "connected": bool(entry.get("connected", False)),
+            "status": str(entry.get("connectionStatus") or ""),
+        })
+except Exception:
+    # The toolkit is the account's own list: without it, the catalogue is
+    # still worth showing.
+    pass
+
+answer(True, available=True, catalog=catalog, toolkit=toolkit, accounts=accounts)
+`;
+
+// The skills the host holds, and whether they are on. The list is Hermes'
+// own: it knows what a skill is, where it came from and how often it was
+// used.
+ipcMain.handle('hermes:skills', async (_event, payload) => {
+  const result = await apiCall('/api/skills', {
+    profile: payload?.profile,
+    timeoutMs: 20000,
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      skills: [],
+      error: apiErrorText(result, 'The skills could not be read from the host'),
+    };
+  }
+  return { ok: true, skills: Array.isArray(result.body) ? result.body : [] };
+});
+
+// A skill is turned on or off on the host, where the skill lives.
+ipcMain.handle('hermes:skills:toggle', async (_event, payload) => {
+  const name = String(payload?.name ?? '').trim();
+  if (!name) return { ok: false, error: 'A skill needs a name' };
+  const result = await apiCall('/api/skills/toggle', {
+    method: 'PUT',
+    body: { name, enabled: Boolean(payload?.enabled) },
+    profile: payload?.profile,
+    timeoutMs: 20000,
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: apiErrorText(result, 'The skill could not be turned on or off'),
+    };
+  }
+  return { ok: true, name, enabled: Boolean(payload?.enabled) };
+});
+
+// The toolsets the host offers: what a bot can use besides Hermes itself.
+ipcMain.handle('hermes:toolsets', async (_event, payload) => {
+  const result = await apiCall('/api/tools/toolsets', {
+    profile: payload?.profile,
+    timeoutMs: 20000,
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      toolsets: [],
+      error: apiErrorText(result, 'The tools could not be read from the host'),
+    };
+  }
+  return { ok: true, toolsets: Array.isArray(result.body) ? result.body : [] };
+});
+
+// A toolset is turned on or off on the host, where the tools live.
+ipcMain.handle('hermes:toolsets:toggle', async (_event, payload) => {
+  const name = String(payload?.name ?? '').trim();
+  if (!name) return { ok: false, error: 'A tool needs a name' };
+  const result = await apiCall(`/api/tools/toolsets/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    body: { enabled: Boolean(payload?.enabled) },
+    profile: payload?.profile,
+    timeoutMs: 20000,
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: apiErrorText(result, 'The tool could not be turned on or off'),
+    };
+  }
+  return { ok: true, name, enabled: Boolean(payload?.enabled) };
+});
+
+// The connectors of the host: the services a bot can reach besides Hermes.
+// They are not on the API — they live behind the managed gateway — so they
+// are read on the machine that runs Hermes, the way the other things that
+// are not on the API are read.
+ipcMain.handle('hermes:connectors', async () => {
+  const script = Buffer.from(CONNECTORS_PYTHON, 'utf8').toString('base64');
+  const result = await runHostCommand(
+    storedConnection(),
+    [
+      `printf %s ${shellQuote(script)} | base64 -d > /tmp/hermesbot-connectors.py`,
+      'python3 /tmp/hermesbot-connectors.py',
+      'rm -f /tmp/hermesbot-connectors.py',
+    ].join('\n'),
+    45000,
+  );
+  if (!result.ok) {
+    return {
+      ok: false,
+      available: false,
+      catalog: [],
+      toolkit: [],
+      accounts: [],
+      error:
+        stderrOf(result) ||
+        result.error ||
+        'The connectors could not be read from the host',
+    };
+  }
+  const answer = lastJsonObject(result.stdout);
+  if (!answer) {
+    return {
+      ok: false,
+      available: false,
+      catalog: [],
+      toolkit: [],
+      accounts: [],
+      error: 'The host did not answer with a list of connectors.',
+    };
+  }
+  return {
+    ok: Boolean(answer.ok),
+    available: Boolean(answer.available),
+    // The three lists the host answered with, as they came: the catalogue,
+    // the toolkit of the account, and the accounts that are connected. The
+    // app reads them together.
+    catalog: Array.isArray(answer.catalog) ? answer.catalog : [],
+    toolkit: Array.isArray(answer.toolkit) ? answer.toolkit : [],
+    accounts: Array.isArray(answer.accounts) ? answer.accounts : [],
+    message: typeof answer.message === 'string' ? answer.message : '',
+    error: typeof answer.error === 'string' ? answer.error : '',
+  };
+});
+
+// Connecting a connector is a question the host answers: it mints the link
+// the service wants the person to open. The shell hands that link to the
+// Mac, and nothing else.
+ipcMain.handle('hermes:connectors:connect', async (_event, payload) => {
+  const slug = String(payload?.slug ?? '').trim();
+  if (!slug) return { ok: false, error: 'A connector needs a name' };
+  const script = Buffer.from(CONNECTORS_PYTHON, 'utf8').toString('base64');
+  const result = await runHostCommand(
+    storedConnection(),
+    [
+      `printf %s ${shellQuote(script)} | base64 -d > /tmp/hermesbot-connectors.py`,
+      `python3 /tmp/hermesbot-connectors.py ${shellQuote(slug)}`,
+      'rm -f /tmp/hermesbot-connectors.py',
+    ].join('\n'),
+    60000,
+  );
+  if (!result.ok) {
+    return {
+      ok: false,
+      error:
+        stderrOf(result) ||
+        result.error ||
+        'The connection could not be started on the host',
+    };
+  }
+  const answer = lastJsonObject(result.stdout);
+  if (!answer?.ok) {
+    return {
+      ok: false,
+      error:
+        (typeof answer?.error === 'string' && answer.error) ||
+        'The host could not start the connection.',
+    };
+  }
+  return {
+    ok: true,
+    slug,
+    url: typeof answer.url === 'string' ? answer.url : '',
+  };
+});
+
+// The link the service asked for opens in the browser: the shell is the one
+// allowed to hand an address to the Mac.
+ipcMain.handle('hermes:open', (_event, url) => {
+  if (typeof url !== 'string' || !/^https:\/\//.test(url)) {
+    return Promise.resolve({ ok: false });
+  }
+  return shell
+    .openExternal(url)
+    .then(() => ({ ok: true }), () => ({ ok: false }));
+});
+
 // ------------------------------------------------------------------ chat
 
 // Everything below talks to 127.0.0.1. When Hermes runs on this machine that
