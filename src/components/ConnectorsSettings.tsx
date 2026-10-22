@@ -24,12 +24,21 @@ export function ConnectorsSettings() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState('');
+  const [reloadToken, setReloadToken] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  // The list is read once, when the page opens: it is the host's, not ours.
+  // The list is read when the page opens, and again when asked: it is the
+  // host's, not ours. A failed read stays readable: the page says what the
+  // host said, and offers to ask again.
   useEffect(() => {
     const reader = bridge?.connectors;
-    if (!reader) return;
+    if (!reader) {
+      setLoading(false);
+      setError('The connectors are only available inside the desktop app.');
+      return;
+    }
     let cancelled = false;
+    setLoading(true);
     reader()
       .then((next: HermesConnectorList) => {
         if (cancelled) return;
@@ -38,17 +47,23 @@ export function ConnectorsSettings() {
       })
       .catch((reason: Error) => {
         if (cancelled) return;
-        setError(reason.message);
+        setError(
+          reason instanceof Error ? reason.message : 'The host did not answer.',
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [bridge]);
+  }, [bridge, reloadToken]);
 
   const rows = answer ? readConnectors(answer) : [];
   const connected = rows.filter((row) => row.state === 'connected');
   // Why the host could not answer, in its own words.
   const closed = answer?.messages ?? [];
+  const failed = Boolean(answer) && !answer?.ok;
 
   /** The host starts the connection and answers with the link to open. */
   async function connect(row: Connector) {
@@ -84,6 +99,18 @@ export function ConnectorsSettings() {
     }
   }
 
+  function retry() {
+    setNotice('');
+    setError('');
+    setReloadToken((token) => token + 1);
+  }
+
+  const statusWord = loading
+    ? 'Reading the host…'
+    : connected.length
+      ? `${connected.length} connected`
+      : 'None connected';
+
   return (
     <div className="settings-page">
       <header className="settings-page-head">
@@ -95,20 +122,63 @@ export function ConnectorsSettings() {
           </p>
         </div>
         <div className="settings-page-side">
-          <span className="settings-card-meta">
-            {answer
-              ? connected.length
-                ? `${connected.length} connected`
-                : 'None connected'
-              : 'Reading the host…'}
-          </span>
+          <span className="settings-card-meta">{statusWord}</span>
+          {!loading ? (
+            <button
+              type="button"
+              className="settings-page-action"
+              onClick={retry}
+            >
+              Try again
+            </button>
+          ) : null}
         </div>
       </header>
 
       {error ? <p className="models-error">{error}</p> : null}
       {notice ? <p className="settings-hint">{notice}</p> : null}
 
-      {closed.length ? (
+      {loading && !answer ? (
+        <div
+          style={{
+            display: 'flex',
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '40vh',
+          }}
+        >
+          <p className="settings-hint">Reading the host…</p>
+        </div>
+      ) : null}
+
+      {failed && !loading ? (
+        <section className="settings-card">
+          <header className="settings-card-head">
+            <div>
+              <h3>The host did not answer</h3>
+              <p>
+                The connection to Hermes is up, but the question about the
+                services never came back.
+              </p>
+            </div>
+          </header>
+          <div className="settings-card-body">
+            <p className="settings-hint">
+              Check that Hermes is still running on the host, then try again.
+            </p>
+            <button
+              type="button"
+              className="settings-action is-small"
+              onClick={retry}
+            >
+              Try again
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {!failed && closed.length && rows.length === 0 && !loading ? (
         <section className="settings-card">
           <header className="settings-card-head">
             <div>
@@ -118,6 +188,13 @@ export function ConnectorsSettings() {
                 machine. The host has to be signed in to Nous for them to open.
               </p>
             </div>
+            <button
+              type="button"
+              className="settings-page-action"
+              onClick={retry}
+            >
+              Try again
+            </button>
           </header>
           <div className="settings-card-body">
             {closed.map((message) => (
@@ -134,7 +211,7 @@ export function ConnectorsSettings() {
         </section>
       ) : null}
 
-      {answer && answer.available && rows.length === 0 ? (
+      {answer && answer.available && rows.length === 0 && !failed && !loading ? (
         <section className="settings-card">
           <header className="settings-card-head">
             <div>
@@ -142,6 +219,27 @@ export function ConnectorsSettings() {
               <p>The host did not offer a single service.</p>
             </div>
           </header>
+        </section>
+      ) : null}
+
+      {rows.length > 0 && closed.length > 0 && !failed ? (
+        <section className="settings-card">
+          <header className="settings-card-head">
+            <div>
+              <h3>Some lists stayed closed</h3>
+              <p>
+                The page shows what the host did open. The rest says why in the
+                host's own words.
+              </p>
+            </div>
+          </header>
+          <div className="settings-card-body">
+            {closed.map((message) => (
+              <p className="settings-hint" key={message}>
+                {message}
+              </p>
+            ))}
+          </div>
         </section>
       ) : null}
 
