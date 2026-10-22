@@ -729,25 +729,26 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
         ? botColor
         : actorColor;
 
-  // The last page waits for the gateway: the bot is made, and the machine it
-  // answers on has to open the door for it before the person can talk to it.
+  // The last page no longer blocks on the gateway: the bot is made on the
+  // host and shown at once in the sidebar as warming, so the person can start
+  // talking while Hermes picks it up in the background.
   const connecting = step === 'ready' && warming === 'pending';
 
-  const primaryLabel = connecting
-    ? 'Connecting…'
-    : isLast
-      ? 'Start talking'
-      : step === 'welcome'
-        ? 'Begin'
-        : testing
-          ? mode === 'local'
-            ? failed
-              ? 'Scan again'
-              : 'Scan this Mac'
-            : 'Test the connection'
-          : step === 'colour' && !madeBot
-            ? 'Make the bot'
-            : 'Continue';
+  const primaryLabel = isLast
+    ? connecting
+      ? 'Start talking anyway'
+      : 'Start talking'
+    : step === 'welcome'
+      ? 'Begin'
+      : testing
+        ? mode === 'local'
+          ? failed
+            ? 'Scan again'
+            : 'Scan this Mac'
+          : 'Test the connection'
+        : step === 'colour' && !madeBot
+          ? 'Make the bot'
+          : 'Continue';
 
   async function makeBot(input: {
     shape: BloubShape;
@@ -1195,18 +1196,20 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
           ) : null}
 
           {step === 'ready' ? (
-            connecting ? (
-              <div className="onboarding-waiting" role="status">
-                <span className="onboarding-waiting-dots" aria-hidden="true">
-                  <i />
-                  <i />
-                  <i />
-                </span>
-                <span className="onboarding-waiting-word">
-                  Connecting to your machine…
-                </span>
-              </div>
-            ) : (
+            <>
+              {connecting ? (
+                <div className="onboarding-waiting" role="status">
+                  <span className="onboarding-waiting-dots" aria-hidden="true">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                  <span className="onboarding-waiting-word">
+                    Connecting your bot… you can start talking, it will answer
+                    in a moment.
+                  </span>
+                </div>
+              ) : null}
               <ul className="onboarding-facts">
                 <li>
                   <span>Hermes runs</span>
@@ -1223,7 +1226,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                   </li>
                 ) : null}
               </ul>
-            )
+            </>
           ) : null}
 
           {error && step !== 'setup' ? (
@@ -1285,9 +1288,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
               type="button"
               className="onboarding-button is-primary"
               disabled={
-                busy !== 'none' ||
-                connecting ||
-                (testing ? !canTest : !canContinue)
+                busy !== 'none' || (testing ? !canTest : !canContinue)
               }
               onClick={() => void handlePrimary()}
             >
