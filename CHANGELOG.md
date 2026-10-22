@@ -11,10 +11,9 @@ follow [semantic versioning](https://semver.org/).
 - **The capabilities of the host.** **Settings → Connectors**, **→ Skills**
   and **→ Tools** are the three pages of what your bots can reach. The
   connectors are the services of Hermes itself — a notebook, a calendar, a
-  map — read on the host where they live, with their real marks, and
-  connected from there: the app asks the host, the host mints the link, and
-  the link opens in the browser. The skills and the tools are Hermes' own
-  lists, turned on and off on the host.
+  map — with their real marks, and connected from the host: the app asks the
+  host, the host mints the link, and the link opens in the browser. The
+  skills and the tools are the host's own lists, turned on and off there.
 
 ### Changed
 
