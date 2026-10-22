@@ -213,6 +213,17 @@ describe('the connectors of the host', () => {
     expect(rows.find((row) => row.slug === 'notion')?.state).toBe('connected');
   });
 
+  it('ignore surrounding spaces when matching slugs', () => {
+    const rows = readConnectors({
+      ...LIST,
+      catalog: [{ slug: 'notion' }],
+      toolkit: [{ connector: 'notion', enabled: true }],
+      accounts: [{ connector: '  NOTION  ', status: 'active', label: 'x' }],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.state).toBe('connected');
+  });
+
   it('say nothing is known about a service the host did not mention', () => {
     const rows = readConnectors({
       ...LIST,
