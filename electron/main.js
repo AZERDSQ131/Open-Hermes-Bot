@@ -1058,6 +1058,31 @@ def connectors_of():
     except Exception as exc:
         out["messages"].append("The toolkit of the services is closed: %s" % exc)
 
+    # Without Nous the three lists above stay empty, yet the host still knows
+    # every service it can reach: the local catalogue names them with no
+    # account at all. Those names keep the page useful before anyone signs
+    # in — the Portal details fill in on top once the host is signed in.
+    try:
+        from tools.connectors.targets import catalog_names
+
+        seen = {str(entry.get("slug") or "") for entry in out["catalog"]}
+        for slug in list(catalog_names() or []):
+            name = str(slug or "")
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            out["catalog"].append({
+                "slug": name, "name": "", "description": "",
+                "category": "", "logo": "",
+            })
+            if not any(str(entry.get("connector") or "") == name for entry in out["toolkit"]):
+                out["toolkit"].append({
+                    "connector": name, "enabled": True,
+                    "connected": False, "status": "",
+                })
+    except Exception:
+        pass
+
     return out
 
 
