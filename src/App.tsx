@@ -2207,6 +2207,9 @@ export default function App() {
     const text = draft.trim();
     const thread = activeThread;
     if (!text || !thread) return;
+    // A warming bot cannot answer yet: the loading screen says so, and the
+    // composer stays shut instead of swallowing the message.
+    if (thread.pending) return;
     // A file that is still on its way to the server would be lost by the
     // message: the person is told to wait a moment.
     if (attachments.some((attachment) => attachment.status === 'uploading')) {
