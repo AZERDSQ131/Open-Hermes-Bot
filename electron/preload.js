@@ -40,6 +40,11 @@ contextBridge.exposeInMainWorld('hermes', {
   /** The host starts a connection and answers with the link to open. */
   connectConnector: (payload) =>
     ipcRenderer.invoke('hermes:connectors:connect', payload),
+  /** Mint a Nous device code so the person signs in without the terminal. */
+  nousLoginStart: () => ipcRenderer.invoke('hermes:nous:login-start'),
+  /** One poll for the device code above: pending waits, approval signs in. */
+  nousLoginPoll: (payload) =>
+    ipcRenderer.invoke('hermes:nous:login-poll', payload),
   /** Opens a link in the browser. */
   openLink: (url) => ipcRenderer.invoke('hermes:open', url),
   sendChat: (payload) => ipcRenderer.invoke('hermes:chat:send', payload),
