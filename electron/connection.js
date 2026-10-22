@@ -86,6 +86,31 @@ function connectionLabel(mode, sshHost) {
   return String(sshHost ?? '').trim();
 }
 
+/**
+ * The hosts an SSH config already knows about.
+ *
+ * The person has named their machines once, in `~/.ssh/config`, and the
+ * setup reads that list rather than asking for the same names again.
+ * Patterns — `*` and `?` — stand for many machines, so they are not a
+ * machine; a name that starts with `!` only says what a pattern should
+ * leave out. Comments and blank lines say nothing.
+ */
+function sshConfigHosts(text) {
+  const hosts = new Set();
+  for (const raw of String(text ?? '').split(/\r?\n/)) {
+    // A comment runs to the end of the line, wherever it starts.
+    const line = raw.replace(/#.*/, '').trim();
+    const match = /^host\s+(.+)$/i.exec(line);
+    if (!match) continue;
+    for (const name of match[1].split(/\s+/)) {
+      if (name.includes('*') || name.includes('?')) continue;
+      if (name.startsWith('!')) continue;
+      hosts.add(name);
+    }
+  }
+  return [...hosts];
+}
+
 module.exports = {
   LOCAL,
   SSH,
@@ -96,4 +121,5 @@ module.exports = {
   apiBaseUrl,
   apiUrl,
   connectionLabel,
+  sshConfigHosts,
 };

@@ -14,6 +14,7 @@ const {
   apiBaseUrl,
   apiUrl,
   connectionLabel,
+  sshConfigHosts,
 } = require('./connection.js');
 
 describe('the two connections', () => {
@@ -132,5 +133,52 @@ describe('what the person is told about where Hermes is', () => {
   it('is nothing when the host was never said', () => {
     expect(connectionLabel(SSH, '')).toBe('');
     expect(connectionLabel(SSH, undefined)).toBe('');
+  });
+});
+
+describe('the hosts an SSH config knows', () => {
+  it('are the ones it names', () => {
+    expect(sshConfigHosts('Host jetson\nHostname 192.168.1.4\n')).toEqual([
+      'jetson',
+    ]);
+  });
+
+  it('are all the names one Host line carries', () => {
+    expect(sshConfigHosts('Host jetson lab\n')).toEqual(['jetson', 'lab']);
+  });
+
+  it('are named without regard to the case of the word Host', () => {
+    expect(sshConfigHosts('host jetson\nHOST lab\n')).toEqual([
+      'jetson',
+      'lab',
+    ]);
+  });
+
+  it('are not the patterns a config leaves out', () => {
+    expect(sshConfigHosts('Host lab !lab-* *\n')).toEqual(['lab']);
+    expect(sshConfigHosts('Host 10.* !10.0.*\n')).toEqual([]);
+  });
+
+  it('are said once each', () => {
+    expect(sshConfigHosts('Host jetson\nHost jetson\n')).toEqual(['jetson']);
+  });
+
+  it('are read out of lines the comments do not spoil', () => {
+    expect(
+      sshConfigHosts('# hermes\nHost jetson # the box\n Host still\ntunnel\n'),
+    ).toEqual(['jetson', 'still']);
+  });
+
+  it('come from the file the person wrote, carriage returns and all', () => {
+    expect(sshConfigHosts('Host jetson\r\nHost lab\r\n')).toEqual([
+      'jetson',
+      'lab',
+    ]);
+  });
+
+  it('are nothing when the config says nothing of hosts', () => {
+    expect(sshConfigHosts('')).toEqual([]);
+    expect(sshConfigHosts(undefined)).toEqual([]);
+    expect(sshConfigHosts('Hostname jetson\nMatch all\n')).toEqual([]);
   });
 });
