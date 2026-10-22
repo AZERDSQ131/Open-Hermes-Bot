@@ -466,7 +466,9 @@ const LOCAL_PATH = [
 
 // A command, wherever it runs. The bytes of a file the person attached go
 // down the pipe the command reads, never through a command line.
-function runProcess(command, args, timeoutMs, input, timeoutMessage) {
+function runProcess(command, args, timeoutMs, input, timeoutMessage, options) {
+  const maxStdout = options?.maxStdout ?? 8000;
+  const maxStderr = options?.maxStderr ?? 2000;
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'],
@@ -497,14 +499,14 @@ function runProcess(command, args, timeoutMs, input, timeoutMessage) {
       resolve({
         ok: code === 0,
         code,
-        stdout: stdout.slice(0, 8000),
-        stderr: stderr.slice(0, 2000),
+        stdout: stdout.slice(0, maxStdout),
+        stderr: stderr.slice(0, maxStderr),
       });
     });
   });
 }
 
-function runSsh(host, command, timeoutMs = 20000, input) {
+function runSsh(host, command, timeoutMs = 20000, input, options) {
   // No host is a name: there is nothing to reach.
   if (!String(host ?? '').trim()) {
     return Promise.resolve({
@@ -519,29 +521,31 @@ function runSsh(host, command, timeoutMs = 20000, input) {
     timeoutMs,
     input,
     'SSH command timed out',
+    options,
   );
 }
 
 // The same command, on this machine. The scripts are the same, the paths are
 // the same: a Hermes that runs here keeps its home in the same place.
-function runLocalCommand(command, timeoutMs = 20000, input) {
+function runLocalCommand(command, timeoutMs = 20000, input, options) {
   return runProcess(
     '/bin/bash',
     ['-c', command],
     timeoutMs,
     input,
     'Command timed out',
+    options,
   );
 }
 
 // A command on the machine that runs Hermes. On another machine it rides the
 // SSH connection; on this one it is run here. Everything above this line
 // asks for a command, not for a way to reach one.
-function runHostCommand(connection, command, timeoutMs = 20000, input) {
+function runHostCommand(connection, command, timeoutMs = 20000, input, options) {
   if (connection?.mode === 'local') {
-    return runLocalCommand(command, timeoutMs, input);
+    return runLocalCommand(command, timeoutMs, input, options);
   }
-  return runSsh(connection?.sshHost, command, timeoutMs, input);
+  return runSsh(connection?.sshHost, command, timeoutMs, input, options);
 }
 
 /**
