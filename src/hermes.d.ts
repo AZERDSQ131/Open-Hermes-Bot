@@ -6,18 +6,38 @@ export type HermesConnectionState =
 
 import type { UpdateState } from './updates';
 
+/**
+ * Where Hermes runs: on the machine the app runs on, or on another one,
+ * reached over SSH.
+ */
+export type HermesConnectionMode = 'local' | 'ssh';
+
 export type HermesStatus = {
   state: HermesConnectionState;
   version?: string;
   platform?: string;
   gateway?: string;
   sshHost?: string;
+  /** Where Hermes runs, as the app understands it. */
+  mode?: HermesConnectionMode;
+  /** What the person is told: "This Mac", or the name of their host. */
+  label?: string;
   message?: string;
 };
 
 export type HermesSettings = {
+  /** Where Hermes runs. */
+  mode: HermesConnectionMode;
+  /**
+   * The person has said where Hermes is: the setup does not have to ask
+   * again.
+   */
+  configured: boolean;
+  /** The host, when Hermes runs somewhere else. */
   sshHost: string;
+  /** The port Hermes answers on, wherever it runs. */
   apiPort: number;
+  /** The port the tunnel forwards to, when Hermes runs somewhere else. */
   localPort: number;
   autoConnect: boolean;
   hasKey: boolean;
@@ -225,7 +245,10 @@ export type HermesBridge = {
   onChatTool: (callback: (tool: HermesChatTool) => void) => () => void;
   getSettings: () => Promise<HermesSettings>;
   saveSettings: (payload: {
-    sshHost: string;
+    /** Where Hermes runs. */
+    mode?: HermesConnectionMode;
+    /** The host, when Hermes runs somewhere else. */
+    sshHost?: string;
     apiPort: number;
     localPort?: number;
     autoConnect?: boolean;
@@ -233,14 +256,19 @@ export type HermesBridge = {
     clearKey?: boolean;
   }) => Promise<{ ok: boolean; error?: string; settings?: HermesSettings }>;
   importKey: (payload: {
-    sshHost: string;
+    /** Where Hermes runs. */
+    mode?: HermesConnectionMode;
+    sshHost?: string;
   }) => Promise<{ ok: boolean; error?: string; keyLength?: number }>;
   /** Remembers that the person has been through the setup. */
   setOnboarding: (payload: {
     completed: boolean;
   }) => Promise<{ ok: boolean; settings?: HermesSettings }>;
   test: (payload: {
-    sshHost: string;
+    /** Where Hermes runs. */
+    mode?: HermesConnectionMode;
+    /** The host, when Hermes runs somewhere else. */
+    sshHost?: string;
     apiPort: number;
     apiKey?: string;
   }) => Promise<HermesStatus>;
