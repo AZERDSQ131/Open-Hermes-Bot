@@ -1259,12 +1259,20 @@ function capabilityCommand(scriptPath, env) {
 async function askHost(what, env = {}, timeoutMs = 45000) {
   const script = Buffer.from(CAPABILITIES_PYTHON, 'utf8').toString('base64');
   const path = '/tmp/hermesbot-capabilities.py';
+  // The cleanup must not mask the script: without the exit round-trip a
+  // Python crash looks like success with an empty answer.
   const command = [
     `printf %s ${shellQuote(script)} | base64 -d > ${path}`,
     capabilityCommand(path, { HERMES_BOT_WHAT: what, ...env }),
+    'code=$?',
     `rm -f ${path}`,
+    'exit $code',
   ].join('\n');
-  const result = await runHostCommand(storedConnection(), command, timeoutMs);
+  // Answers grew past the old 8k window the day the local catalogue joined
+  // them: a cut answer parses as nothing, and the page blamed the host.
+  const result = await runHostCommand(storedConnection(), command, timeoutMs, undefined, {
+    maxStdout: 512 * 1024,
+  });
   if (!result.ok) {
     return {
       ok: false,
@@ -1274,9 +1282,11 @@ async function askHost(what, env = {}, timeoutMs = 45000) {
   }
   const answer = lastJsonObject(result.stdout);
   if (!answer) {
+    const tail = stderrOf(result).split('\n').slice(-3).join('\n').trim();
     return {
       ok: false,
-      error: 'The host did not answer with anything the app understands.',
+      error:
+        tail || 'The host did not answer with anything the app understands.',
     };
   }
   return answer;
