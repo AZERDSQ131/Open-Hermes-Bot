@@ -8,11 +8,23 @@ follow [semantic versioning](https://semver.org/).
 
 ### Added
 
-- **A page of connectors.** **Settings → Connectors** is where the services
-  your bots can reach besides Hermes will be listed — a calendar, a place, a
-  document. The page is empty for now: it is there before its content.
+- **The capabilities of the host.** **Settings → Connectors**, **→ Skills**
+  and **→ Tools** are the three pages of what your bots can reach. The
+  connectors are the services of Hermes itself — a notebook, a calendar, a
+  map — read on the host where they live, with their real marks, and
+  connected from there: the app asks the host, the host mints the link, and
+  the link opens in the browser. The skills and the tools are Hermes' own
+  lists, turned on and off on the host.
 
 ### Changed
+
+- **The marks of the connectors.** They are drawn from the vendor's own
+  picture service, and the **shell** is the one that asks for them: the
+  window still makes no network call of its own, and the content security
+  policy needed no remote picture for it. The ask names the service it wants
+  and nothing else — no token, no key, no host name — and the bytes come
+  back as a picture the page may draw. When they do not come, the first
+  letter of the name stands in.
 
 - **The page of security.** `SECURITY.md` says now what the app holds — the
   key in the Keychain, the connection record, the installation id — what it
@@ -23,11 +35,11 @@ follow [semantic versioning](https://semver.org/).
   it is not notarized.
 
 - **The foot of the sidebar.** The settings and the update mark are one pill
-  now. The round face on the left is the update button, and the app looks for
-  its next version by itself: the face turns while it looks, a ring walks with
-  the download, a dot pulses when a version was seen, and pings when the new
-  version is on the disk. The name in the middle is the machine Hermes runs
-  on, and it opens the settings. The marks on the right are the connectors,
+  now. The round face on the left is the update button, and the app looks
+  for its next version by itself: the face is quiet while it looks, a ring
+  walks with the download, a dot pulses when a version was seen, and pings
+  when the new version is on the disk. The word in the middle is Settings,
+  and it opens them. The marks on the right are the connectors of the host,
   and they open their page.
 
 ### Fixed
