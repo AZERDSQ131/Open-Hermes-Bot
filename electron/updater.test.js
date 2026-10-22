@@ -132,6 +132,40 @@ describe('a check the person asked for', () => {
     expect((await check).message).toBe('something went wrong');
   });
 
+  it('says the version it found, when the feed says nothing', async () => {
+    const { updater, autoUpdater, events } = harness();
+    const check = updater.check();
+    autoUpdater.emit('update-available', {});
+    expect(events).toContainEqual(
+      expect.objectContaining({ state: 'available', version: '' }),
+    );
+    autoUpdater.emit('update-not-available');
+    await check;
+  });
+
+  it('keeps the version it found, when the download names none', async () => {
+    const { updater, autoUpdater, events } = harness();
+    const check = updater.check();
+    autoUpdater.emit('update-available', { version: '1.1.0' });
+    autoUpdater.emit('update-downloaded', {});
+    expect(events).toContainEqual(
+      expect.objectContaining({ state: 'ready', version: '1.1.0' }),
+    );
+    await check;
+  });
+
+  it('says nothing is coming when the download says nothing', async () => {
+    const { updater, autoUpdater, events } = harness();
+    const check = updater.check();
+    autoUpdater.emit('update-available', { version: '1.1.0' });
+    autoUpdater.emit('download-progress', {});
+    expect(events).toContainEqual(
+      expect.objectContaining({ state: 'downloading', percent: 0 }),
+    );
+    autoUpdater.emit('update-not-available');
+    await check;
+  });
+
   it('waits for the check that is already running', async () => {
     const { updater, autoUpdater } = harness();
     const first = updater.check();
@@ -239,6 +273,24 @@ describe('the new version taking over', () => {
       expect.objectContaining({
         state: 'error',
         message: 'the app cannot leave',
+      }),
+    );
+  });
+
+  it('says so when the app cannot leave, and says why not', async () => {
+    const { updater, autoUpdater, events } = harness();
+    const check = updater.check();
+    autoUpdater.emit('update-available', { version: '1.1.0' });
+    autoUpdater.emit('update-downloaded', { version: '1.1.0' });
+    await check;
+    autoUpdater.quitAndInstall = vi.fn(() => {
+      throw 'no reason at all';
+    });
+    expect(updater.install()).toBe(false);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        state: 'error',
+        message: 'no reason at all',
       }),
     );
   });

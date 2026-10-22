@@ -54,6 +54,21 @@ export default defineConfig({
           branches: 100,
           statements: 98,
         },
+        // What an update means, in words: the states and what they say.
+        'src/updates.ts': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
+        // The rules of the update: what is looked for, and what happens to
+        // it. The bridge cannot be checked by hand.
+        'electron/updater.js': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
         // The setup is a path, not a rule: every step of it is walked
         // through by a test, and the floor keeps it that way.
         'src/onboarding.tsx': {
@@ -71,7 +86,7 @@ export default defineConfig({
           statements: 100,
         },
       },
-      include: ['src/**/*.{ts,tsx}'],
+      include: ['src/**/*.{ts,tsx}', 'electron/updater.js'],
       exclude: [
         'src/vendor/**',
         'src/main.tsx',
@@ -80,6 +95,7 @@ export default defineConfig({
         // Types only: there is nothing to run.
         'src/**/*.d.ts',
         'src/data.ts',
+        'electron/**/*.test.js',
       ],
     },
   },
