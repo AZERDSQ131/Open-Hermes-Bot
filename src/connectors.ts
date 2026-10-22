@@ -169,13 +169,21 @@ export function readConnectors(list: HermesConnectorList): Connector[] {
   const toolkit = Array.isArray(list?.toolkit) ? list.toolkit : [];
   const accounts = Array.isArray(list?.accounts) ? list.accounts : [];
 
-  const slugs = new Set<string>();
-  for (const entry of catalog) slugs.add(String(entry?.slug ?? ''));
-  for (const entry of toolkit) slugs.add(String(entry?.connector ?? ''));
-  for (const entry of accounts) slugs.add(String(entry?.connector ?? ''));
+  // One service, one row: the three lists do not always agree on case, so
+  // the key is folded and the first spelling wins.
+  const byKey = new Map<string, string>();
+  const remember = (raw: unknown) => {
+    const slug = String(raw ?? '').trim();
+    if (!slug) return;
+    const key = keyOf(slug);
+    if (!byKey.has(key)) byKey.set(key, slug);
+  };
+  for (const entry of catalog) remember(entry?.slug);
+  for (const entry of toolkit) remember(entry?.connector);
+  for (const entry of accounts) remember(entry?.connector);
 
   const rows: Connector[] = [];
-  for (const slug of slugs) {
+  for (const slug of byKey.values()) {
     if (!slug) continue;
     const described: HermesConnectorCatalog | undefined = catalog.find(
       (entry) => String(entry?.slug ?? '') === slug,
