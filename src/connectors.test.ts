@@ -102,6 +102,19 @@ describe('the connectors of the host', () => {
     expect(rows.find((row) => row.slug === 'notion')?.state).toBe('connected');
   });
 
+  it('read the toolkit status as connected', () => {
+    for (const status of ['active', 'connected', 'enabled', 'ok', 'ready']) {
+      const rows = readConnectors({
+        ...LIST,
+        toolkit: [{ connector: 'notion', enabled: true, status }],
+        accounts: [],
+      });
+      expect(rows.find((row) => row.slug === 'notion')?.state).toBe(
+        'connected',
+      );
+    }
+  });
+
   it('say when an account is there and broken', () => {
     const rows = readConnectors({
       ...LIST,
