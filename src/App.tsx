@@ -577,7 +577,8 @@ export default function App() {
 
   // The sidebar is the real inventory: bots come from the gateway, never from
   // seed data. Refetched when the connection settles, so a reconnect picks up
-  // bots created or removed on the machine meanwhile.
+  // bots created or removed on the machine meanwhile. Warming bots stay
+  // visible; expired ones are swept away even here.
   useEffect(() => {
     const bridge = window.hermes;
     if (!bridge?.profiles) return;
@@ -587,24 +588,46 @@ export default function App() {
       .then((result) => {
         if (cancelled) return;
         if (result.ok && result.profiles) {
-          const listed = new Set(
-            (result.profiles ?? []).map((profile) => profile.name),
+          const now = Date.now();
+          const listed = new Map(
+            (result.profiles ?? []).map((profile) => [profile.name, profile]),
           );
-          for (const name of [...pendingBots.current]) {
-            if (listed.has(name)) pendingBots.current.delete(name);
+          for (const [name, profile] of listed) {
+            // Served bots stop warming. Unserved ones keep their start time so
+            // the timeout is measured from the creation, not the refresh.
+            if (profile.served !== false) pendingBots.current.delete(name);
+            else if (!pendingBots.current.has(name)) {
+              pendingBots.current.set(name, now);
+            }
+          }
+          // Expired warming bots leave the sidebar here too, not only on the
+          // sweep: the list just came back without them.
+          for (const [name, since] of [...pendingBots.current]) {
+            if (!listed.has(name) && now - since > PENDING_BOT_TIMEOUT_MS) {
+              pendingBots.current.delete(name);
+              void bridge.deleteBot?.({ name }).catch(() => undefined);
+            }
           }
           setBotsError('');
           setThreads((current) =>
             mergeBots(
-              current,
+              current.filter(
+                (thread) =>
+                  !thread.profile ||
+                  listed.has(thread.profile) ||
+                  pendingBots.current.has(thread.profile),
+              ),
               result.profiles ?? [],
               pendingBots.current,
               result.primary,
+              now,
             ),
           );
           // The conversations those bots are holding: the sidebar is rebuilt
           // from the server's own list of them.
-          void loadConversations(result.profiles ?? []);
+          void loadConversations(
+            (result.profiles ?? []).filter((profile) => profile.served !== false),
+          );
         } else {
           setBotsError(result.error ?? 'Could not reach Hermes');
         }
