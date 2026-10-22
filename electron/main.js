@@ -25,6 +25,7 @@ const {
   resolveMode,
   sshConfigHosts,
 } = require('./connection.js');
+const { createMarkReader } = require('./logos.js');
 
 app.setName('Hermes Bot');
 
@@ -1129,6 +1130,22 @@ ipcMain.handle('hermes:connectors:connect', async (_event, payload) => {
     url: typeof answer.url === 'string' ? answer.url : '',
   };
 });
+
+// The mark of a connector: the shell asks the vendor's service for it and
+// hands the screen the bytes.
+//
+// The window touches no network of its own — that is the rule the security
+// page states, and it holds because everything goes through here. The
+// picture therefore arrives the way a file does: as bytes the page may draw,
+// and not as an address the page would have to go and get.
+//
+// What may be asked for is a rule of its own, and it is covered by tests:
+// see electron/logos.js.
+const readMark = createMarkReader();
+
+ipcMain.handle('hermes:connectors:logo', (_event, payload) =>
+  readMark(payload?.url),
+);
 
 // The link the service asked for opens in the browser: the shell is the one
 // allowed to hand an address to the Mac.

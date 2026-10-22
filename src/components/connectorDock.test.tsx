@@ -27,18 +27,47 @@ const ROWS: Connector[] = [
   },
 ];
 
+/** The picture the shell hands over: the bytes, as a data url. */
+const MARK = 'data:image/png;base64,iVBORw0KGgo=';
+
+function withShell(answer: { ok: boolean; logo?: string } = { ok: true, logo: MARK }) {
+  const connectorLogo = vi.fn(async () => answer);
+  (window as unknown as { hermes: unknown }).hermes = { connectorLogo };
+  return connectorLogo;
+}
+
 describe('the dock of the connectors', () => {
-  it('shows the mark of every connector it is given', () => {
-    render(<ConnectorDock rows={ROWS} onOpen={vi.fn()} />);
+  it('shows a mark for every connector it is given', async () => {
+    withShell();
+    const { container } = render(<ConnectorDock rows={ROWS} onOpen={vi.fn()} />);
     const dock = screen.getByRole('button', { name: 'Connectors' });
     expect(dock.querySelectorAll('.dock-mark')).toHaveLength(2);
-    expect(dock.querySelector('img')?.getAttribute('src')).toContain('notion');
+    // The picture is the bytes the shell fetched, not an address the page
+    // would have had to go and get.
+    await vi.waitFor(() => {
+      expect(container.querySelector('.dock-mark img')?.getAttribute('src')).toBe(MARK);
+    });
   });
 
-  it('falls back on the first letter when a mark is missing', () => {
+  it('asks the shell for the mark, and not the page', async () => {
+    const connectorLogo = withShell();
+    render(<ConnectorDock rows={ROWS} onOpen={vi.fn()} />);
+    await vi.waitFor(() => {
+      expect(connectorLogo).toHaveBeenCalledWith({
+        url: 'https://logos.composio.dev/api/notion',
+      });
+    });
+  });
+
+  it('falls back on the first letter when a mark does not come', async () => {
+    withShell({ ok: false, logo: '' });
     render(<ConnectorDock rows={ROWS} onOpen={vi.fn()} />);
     const dock = screen.getByRole('button', { name: 'Connectors' });
-    expect(dock.querySelector('.dock-mark.is-letter')?.textContent).toBe('G');
+    // No mark came: both tiles stand in with the first letter of the name.
+    const letters = [...dock.querySelectorAll('.dock-mark.is-letter')].map(
+      (tile) => tile.textContent,
+    );
+    expect(letters).toEqual(['N', 'G']);
   });
 
   it('opens the page where the connectors are listed', async () => {
