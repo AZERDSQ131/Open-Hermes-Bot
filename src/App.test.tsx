@@ -169,6 +169,15 @@ describe('the app', () => {
     expect((await screen.findAllByText('Connection')).length).toBeGreaterThan(0);
   });
 
+  it('opens the connectors from the dock of the sidebar', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Connectors' }),
+    ).toBeTruthy();
+  });
+
   it('opens the dialog that creates a bot', async () => {
     const bridge = makeBridge();
     await renderApp(bridge);

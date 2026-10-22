@@ -24,6 +24,21 @@ contextBridge.exposeInMainWorld('hermes', {
   renameSession: (payload) => ipcRenderer.invoke('hermes:session:rename', payload),
   models: (payload) => ipcRenderer.invoke('hermes:models', payload),
   profiles: () => ipcRenderer.invoke('hermes:profiles'),
+  /** The skills the host holds. */
+  skills: (payload) => ipcRenderer.invoke('hermes:skills', payload),
+  /** A skill is turned on or off, on the host. */
+  toggleSkill: (payload) => ipcRenderer.invoke('hermes:skills:toggle', payload),
+  /** The tools the host offers. */
+  toolsets: (payload) => ipcRenderer.invoke('hermes:toolsets', payload),
+  /** A tool is turned on or off, on the host. */
+  toggleToolset: (payload) => ipcRenderer.invoke('hermes:toolsets:toggle', payload),
+  /** The connectors of the host: the services a bot can reach. */
+  connectors: () => ipcRenderer.invoke('hermes:connectors'),
+  /** The host starts a connection and answers with the link to open. */
+  connectConnector: (payload) =>
+    ipcRenderer.invoke('hermes:connectors:connect', payload),
+  /** Opens a link in the browser. */
+  openLink: (url) => ipcRenderer.invoke('hermes:open', url),
   sendChat: (payload) => ipcRenderer.invoke('hermes:chat:send', payload),
   cancelChat: (requestId) => ipcRenderer.invoke('hermes:chat:cancel', requestId),
   onChatDelta: (callback) => {

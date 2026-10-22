@@ -236,6 +236,142 @@ button:focus-visible {
   text-align: left;
 }
 
+/* The dock of the connectors: the marks of the services a bot can reach. */
+
+.footer-dock {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  align-items: center;
+  height: 38px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--field);
+  transition: background-color 120ms ease;
+}
+
+.footer-dock:hover,
+.footer-dock:focus-visible {
+  background: var(--field-focus);
+}
+
+.dock-mark {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #33333a;
+}
+
+.dock-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A mark that did not come: the first letter of the name stands in. */
+.dock-mark.is-letter {
+  background: #f2efe5;
+  color: #1b1b19;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* The capabilities of the host: the skills, the tools, the connectors. */
+
+.capability-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.capability-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--divider);
+}
+
+.capability-row:first-child {
+  border-top: 0;
+}
+
+.capability-mark {
+  display: grid;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 7px;
+  background: #33333a;
+}
+
+.capability-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.capability-mark.is-letter {
+  background: #f2efe5;
+  color: #1b1b19;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.capability-copy {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.capability-name {
+  overflow: hidden;
+  color: #e9e9ec;
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capability-description {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capability-state,
+.capability-tag {
+  flex: 0 0 auto;
+  color: var(--text-3);
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+}
+
+.capability-state.is-connected {
+  color: #7fd1ae;
+}
+
+.capability-state.is-broken {
+  color: #e8a06a;
+}
+
+.settings-action.is-small {
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+
 /* The place of the next version, in icon only: the mark says the rest. */
 
 .update-entry {
@@ -2111,6 +2247,10 @@ button:focus-visible {
   font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
+}
+
+.settings-nav-item + .settings-nav-group {
+  margin-top: 18px;
 }
 
 .settings-nav-item {

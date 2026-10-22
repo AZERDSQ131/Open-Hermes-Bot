@@ -5,10 +5,21 @@ import type {
   HermesStatus,
 } from '../hermes';
 import { ChevronLeftIcon } from './Icons';
+import { ConnectorsSettings } from './ConnectorsSettings';
 import { ModelsSettings } from './ModelsSettings';
+import { SkillsSettings } from './SkillsSettings';
+import { ToolsetsSettings } from './ToolsetsSettings';
 import { UpdatesSettings } from './UpdatesSettings';
 
-type Section = 'connection' | 'models' | 'updates' | 'setup';
+/** The pages of the settings. */
+export type Section =
+  | 'connection'
+  | 'models'
+  | 'updates'
+  | 'setup'
+  | 'connectors'
+  | 'skills'
+  | 'tools';
 
 type SettingsViewProps = {
   status: HermesStatus;
@@ -16,6 +27,8 @@ type SettingsViewProps = {
   onStatusChange: (status: HermesStatus) => void;
   /** Opens the guided setup again, from the beginning. */
   onRunSetup: () => void;
+  /** The page to open on. */
+  section?: Section;
 };
 
 type BusyAction =
@@ -61,6 +74,7 @@ export function SettingsView({
   onClose,
   onStatusChange,
   onRunSetup,
+  section: opened,
 }: SettingsViewProps) {
   const bridge = window.hermes;
   // Where Hermes runs: on this machine, or on another one over SSH.
@@ -76,7 +90,7 @@ export function SettingsView({
   const [apiKey, setApiKey] = useState('');
   const [hasKey, setHasKey] = useState(false);
   const [advanced, setAdvanced] = useState(false);
-  const [section, setSection] = useState<Section>('connection');
+  const [section, setSection] = useState<Section>(opened ?? 'connection');
   const [busy, setBusy] = useState<BusyAction>(null);
   const [tested, setTested] = useState<{
     fingerprint: string;
@@ -404,6 +418,37 @@ export function SettingsView({
             onClick={() => setSection('setup')}
           >
             Setup
+          </button>
+          <span className="settings-nav-group">Apps</span>
+          <button
+            type="button"
+            className={`settings-nav-item ${
+              section === 'connectors' ? 'is-active' : ''
+            }`}
+            aria-current={section === 'connectors' ? 'page' : undefined}
+            onClick={() => setSection('connectors')}
+          >
+            Connectors
+          </button>
+          <button
+            type="button"
+            className={`settings-nav-item ${
+              section === 'skills' ? 'is-active' : ''
+            }`}
+            aria-current={section === 'skills' ? 'page' : undefined}
+            onClick={() => setSection('skills')}
+          >
+            Skills
+          </button>
+          <button
+            type="button"
+            className={`settings-nav-item ${
+              section === 'tools' ? 'is-active' : ''
+            }`}
+            aria-current={section === 'tools' ? 'page' : undefined}
+            onClick={() => setSection('tools')}
+          >
+            Tools
           </button>
         </nav>
       </aside>
@@ -874,6 +919,12 @@ export function SettingsView({
             </div>
           ) : section === 'updates' ? (
             <UpdatesSettings />
+          ) : section === 'connectors' ? (
+            <ConnectorsSettings />
+          ) : section === 'skills' ? (
+            <SkillsSettings />
+          ) : section === 'tools' ? (
+            <ToolsetsSettings />
           ) : (
             <ModelsSettings connected={status.state === 'connected'} />
           )}

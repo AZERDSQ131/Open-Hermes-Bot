@@ -615,4 +615,87 @@ describe('the settings', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Models' }));
     expect(screen.getByText(/One default per bot/)).toBeTruthy();
   });
+
+  it('show the connectors when they are asked for', async () => {
+    withBridge({
+      connectors: vi.fn(async () => ({
+        ok: true,
+        available: true,
+        catalog: [
+          {
+            slug: 'notion',
+            name: 'Notion',
+            description: 'Your pages',
+            category: 'Documents',
+            logo: 'https://logos.composio.dev/api/notion',
+          },
+        ],
+        toolkit: [{ connector: 'notion', enabled: true }],
+        accounts: [
+          { connector: 'notion', status: 'active', label: 'jules@acme.com', active: true },
+        ],
+      })),
+    });
+    renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+    expect(
+      screen.getByRole('heading', { name: 'Connectors' }),
+    ).toBeTruthy();
+    // The connectors of the host, with the name the host gives them.
+    expect(await screen.findByText('Notion')).toBeTruthy();
+    expect(screen.getByText('Your pages')).toBeTruthy();
+    expect(screen.getByText('Connected')).toBeTruthy();
+  });
+
+  it('show the skills when they are asked for', async () => {
+    withBridge({
+      skills: vi.fn(async () => ({
+        ok: true,
+        skills: [
+          { name: 'research', description: 'Look things up', enabled: true, provenance: 'hub' },
+        ],
+      })),
+    });
+    renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'Skills' }));
+    expect(
+      screen.getByRole('heading', { name: 'Skills' }),
+    ).toBeTruthy();
+    expect(await screen.findByText('research')).toBeTruthy();
+  });
+
+  it('show the tools when they are asked for', async () => {
+    withBridge({
+      toolsets: vi.fn(async () => ({
+        ok: true,
+        toolsets: [
+          { name: 'browser', label: 'Browser', description: 'Open a page', enabled: false },
+        ],
+      })),
+    });
+    renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'Tools' }));
+    expect(
+      screen.getByRole('heading', { name: 'Tools' }),
+    ).toBeTruthy();
+    expect(await screen.findByText('Browser')).toBeTruthy();
+  });
+
+  it('open on the page they were sent to', () => {
+    withBridge();
+    render(
+      <ModelPrefsProvider>
+        <SettingsView
+          status={connected}
+          section="connectors"
+          onClose={vi.fn()}
+          onStatusChange={vi.fn()}
+          onRunSetup={vi.fn()}
+        />
+      </ModelPrefsProvider>,
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Connectors' }),
+    ).toBeTruthy();
+  });
 });

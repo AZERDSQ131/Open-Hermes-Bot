@@ -130,6 +130,68 @@ export type HermesProfileList = {
   error?: string;
 };
 
+/** A skill the host holds: what a bot can be taught to do. */
+export type HermesSkill = {
+  name: string;
+  description?: string;
+  /** Whether the skill is on. */
+  enabled?: boolean;
+  /** Where the skill came from: the hub, the bundle, or the person. */
+  provenance?: string;
+  /** How many times the skill was used. */
+  usage?: number;
+};
+
+/** A tool the host offers: what a bot can use besides Hermes itself. */
+export type HermesToolset = {
+  name: string;
+  label?: string;
+  description?: string;
+  /** Whether the tool is on. */
+  enabled?: boolean;
+  /** Whether the keys it needs are there. */
+  configured?: boolean;
+  /** The tools it carries. */
+  tools?: string[];
+};
+
+/** One row of the catalogue of connectors. */
+export type HermesConnectorCatalog = {
+  slug: string;
+  name?: string;
+  description?: string;
+  category?: string;
+  logo?: string;
+};
+
+/** One connector of the toolkit of the account. */
+export type HermesConnectorToolkit = {
+  connector: string;
+  enabled?: boolean;
+  connected?: boolean;
+  status?: string;
+};
+
+/** One account: a service that is connected. */
+export type HermesConnectorAccount = {
+  connector: string;
+  status?: string;
+  label?: string;
+  active?: boolean;
+};
+
+/** The connectors of the host, as the host answered with them. */
+export type HermesConnectorList = {
+  ok: boolean;
+  /** Whether the connectors are there at all on this host. */
+  available: boolean;
+  catalog: HermesConnectorCatalog[];
+  toolkit: HermesConnectorToolkit[];
+  accounts: HermesConnectorAccount[];
+  message?: string;
+  error?: string;
+};
+
 export type HermesChatResult = {
   ok: boolean;
   text?: string;
@@ -229,6 +291,40 @@ export type HermesBridge = {
   }) => Promise<{ ok: boolean; error?: string }>;
   models: (payload: { profile?: string }) => Promise<HermesModelList>;
   profiles: () => Promise<HermesProfileList>;
+  /** The skills the host holds. */
+  skills: (payload?: { profile?: string }) => Promise<{
+    ok: boolean;
+    skills: HermesSkill[];
+    error?: string;
+  }>;
+  /** A skill is turned on or off, on the host. */
+  toggleSkill: (payload: {
+    name: string;
+    enabled: boolean;
+    profile?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  /** The tools the host offers. */
+  toolsets: (payload?: { profile?: string }) => Promise<{
+    ok: boolean;
+    toolsets: HermesToolset[];
+    error?: string;
+  }>;
+  /** A tool is turned on or off, on the host. */
+  toggleToolset: (payload: {
+    name: string;
+    enabled: boolean;
+    profile?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  /** The connectors of the host: the services a bot can reach. */
+  connectors: () => Promise<HermesConnectorList>;
+  /** The host starts a connection and answers with the link to open. */
+  connectConnector: (payload: { slug: string }) => Promise<{
+    ok: boolean;
+    url?: string;
+    error?: string;
+  }>;
+  /** Opens a link in the browser. */
+  openLink: (url: string) => Promise<{ ok: boolean }>;
   sendChat: (payload: {
     requestId: string;
     sessionId: string;
