@@ -674,14 +674,12 @@ describe('the setup', () => {
     });
     renderSetup();
     await walkToReady(bridge);
-    // The bot is made on the host and shown at once as warming: the setup
-    // does not block on the gateway, and says what is going on instead.
+    // The bot is made on the host and shown at once: no waiting animation on
+    // the page, the button says where things stand instead.
     expect(
-      await screen.findByText(/Connecting your bot/),
+      await screen.findByText('Hermes is starting this bot — it will answer in a moment.'),
     ).toBeTruthy();
-    expect(
-      screen.getByText('Hermes is starting this bot — it will answer in a moment.'),
-    ).toBeTruthy();
+    expect(screen.queryByText(/Connecting your bot/)).toBeNull();
     expect(
       screen.getByRole('button', { name: 'Start talking anyway' }),
     ).toBeEnabled();
@@ -724,15 +722,19 @@ describe('the setup', () => {
     });
     renderSetup();
     await walkToReady(bridge);
-    expect(await screen.findByText(/Connecting your bot/)).toBeTruthy();
+    expect(
+      await screen.findByText('Hermes is starting this bot — it will answer in a moment.'),
+    ).toBeTruthy();
     await act(async () => {
       ready?.({ name: 'nova', served: true });
     });
-    // The wait is over: no waiting line, no serving note, the bot stays.
+    // The wait is over: the notice leaves quietly, the bot stays, and the
+    // button stops saying "anyway".
     await waitFor(() =>
-      expect(screen.queryByText(/Connecting your bot/)).toBeNull(),
+      expect(
+        screen.queryByText('Hermes is starting this bot — it will answer in a moment.'),
+      ).toBeNull(),
     );
-    expect(screen.queryByText(/serving it now/)).toBeNull();
     expect(screen.getByText('Nova')).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Start talking' }),
