@@ -75,13 +75,24 @@ export function connectorLogo(slug: string): string {
 }
 
 /** The account of a service that is connected, when there is one. */
+function keyOf(value: unknown): string {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase();
+}
+
 function accountOf(
   accounts: HermesConnectorAccount[],
   slug: string,
 ): HermesConnectorAccount | undefined {
   // The newest active account is the one the service executes with: it wins
-  // over an account that is still there but no longer used.
-  const mine = accounts.filter((account) => account.connector === slug);
+  // over an account that is still there but no longer used. Slugs are matched
+  // without regard to case: the catalogue, the toolkit and the accounts do
+  // not always spell them the same way.
+  const want = keyOf(slug);
+  const mine = accounts.filter(
+    (account) => keyOf(account.connector) === want,
+  );
   return (
     mine.find((account) => account.active) ??
     mine[mine.length - 1] ??
