@@ -93,9 +93,25 @@ export default defineConfig({
           branches: 100,
           statements: 100,
         },
+        // What may be asked for, and what may not: the marks of the
+        // connectors are the only picture the app fetches, and the rule is
+        // a rule of the network.
+        'electron/logos.js': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
       },
-      include: ['src/**/*.{ts,tsx}', 'electron/updater.js'],
-      include: ['src/**/*.{ts,tsx}', 'electron/connection.js'],
+      // One list, not two: a second "include" key replaces the first one
+      // whole, and the file that fell out of it was the updater — the one
+      // the gate below says must be complete.
+      include: [
+        'src/**/*.{ts,tsx}',
+        'electron/updater.js',
+        'electron/connection.js',
+        'electron/logos.js',
+      ],
       exclude: [
         'src/vendor/**',
         'src/main.tsx',

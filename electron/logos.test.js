@@ -72,4 +72,43 @@ describe('the marks of the connectors', () => {
     const read = createMarkReader(async () => picture('text/html'));
     expect(await read(ADDRESS)).toEqual({ ok: false, logo: '' });
   });
+
+  it('says no when the service answers that it has no such mark', async () => {
+    const read = createMarkReader(async () => ({
+      ok: false,
+      headers: { get: () => 'image/png' },
+      arrayBuffer: async () => new ArrayBuffer(0),
+    }));
+    expect(await read(ADDRESS)).toEqual({ ok: false, logo: '' });
+  });
+
+  it('says no when the answer says nothing about the picture', async () => {
+    const read = createMarkReader(async () => ({
+      ok: true,
+      headers: { get: () => null },
+      arrayBuffer: async () => new ArrayBuffer(0),
+    }));
+    expect(await read(ADDRESS)).toEqual({ ok: false, logo: '' });
+  });
+
+  it('says no when the answer is nothing at all', async () => {
+    const read = createMarkReader(async () => undefined);
+    expect(await read(ADDRESS)).toEqual({ ok: false, logo: '' });
+  });
+
+  it('asks the network itself when it is given no one to ask', async () => {
+    const ask = vi.fn(async () => picture());
+    vi.stubGlobal('fetch', ask);
+    const read = createMarkReader();
+    expect((await read(ADDRESS)).ok).toBe(true);
+    expect(ask).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it('says no when there is no address at all', async () => {
+    const ask = vi.fn(async () => picture());
+    const read = createMarkReader(ask);
+    expect(await read(undefined)).toEqual({ ok: false, logo: '' });
+    expect(ask).not.toHaveBeenCalled();
+  });
 });
