@@ -85,6 +85,20 @@ has had were all found that way.
 - **A pull request explains the why.** The diff already says the what. Say
   what you were trying to do, what you did, and what you did not do.
 
+## Working with more than one agent
+
+Two agents in one checkout step on each other: one writes to
+`src/styles.css` while the other reads it, and the conflict shows up at the
+merge instead of at the start.
+
+**One agent, one worktree.** A worktree is a second checkout of the same
+repository — the same history, a separate copy of the files on the disk. Two
+agents in two worktrees cannot touch the same file, so the conflict has
+nowhere to happen. The [page on working together](docs/working-together.md)
+says how to set one up, with T3 and without, what to do when two agents want
+the same file, and how the branch, the pull request and the version fit
+together.
+
 ## Releasing
 
 A version is a tag on `main`, and the tag is what publishes it.
