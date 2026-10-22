@@ -185,11 +185,12 @@ export function readConnectors(list: HermesConnectorList): Connector[] {
   const rows: Connector[] = [];
   for (const slug of byKey.values()) {
     if (!slug) continue;
+    const key = keyOf(slug);
     const described: HermesConnectorCatalog | undefined = catalog.find(
-      (entry) => String(entry?.slug ?? '') === slug,
+      (entry) => keyOf(entry?.slug) === key,
     );
     const known: HermesConnectorToolkit | undefined = toolkit.find(
-      (entry) => String(entry?.connector ?? '') === slug,
+      (entry) => keyOf(entry?.connector) === key,
     );
     const account = accountOf(accounts, slug);
     rows.push({
