@@ -4513,6 +4513,58 @@ button:focus-visible {
   font-weight: 500;
 }
 
+/* The last page, waiting for the gateway to open the door for the bot. */
+.onboarding-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  margin: 12px 0 0;
+  color: #8a8a92;
+  font-size: 13px;
+  animation: onboarding-rise 620ms 240ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.onboarding-title.is-waiting {
+  max-width: none;
+  margin: 0;
+}
+
+.onboarding-waiting-dots {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.onboarding-waiting-dots i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #6f6f76;
+  animation: onboarding-pulse 1.2s ease-in-out infinite;
+}
+
+.onboarding-waiting-dots i:nth-child(2) {
+  animation-delay: 160ms;
+}
+
+.onboarding-waiting-dots i:nth-child(3) {
+  animation-delay: 320ms;
+}
+
+@keyframes onboarding-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
 .onboarding-error {
   color: #f0a09a;
   font-size: 13.5px;
@@ -4531,6 +4583,12 @@ button:focus-visible {
   color: #7ee2b8;
   font-size: 13.5px;
   animation: onboarding-rise 420ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* A bot that was made but does not answer yet is neither a success to cheer
+   nor an error to shout: it is something the person has to know. */
+.onboarding-notice.is-warning {
+  color: #a3a3aa;
 }
 
 .onboarding-foot {
@@ -4640,6 +4698,7 @@ button:focus-visible {
   .onboarding-checks,
   .onboarding-picker,
   .onboarding-facts,
+  .onboarding-waiting,
   .onboarding-link,
   .onboarding-advanced,
   .onboarding-error.is-alone,
@@ -4649,6 +4708,7 @@ button:focus-visible {
 
   .onboarding-glow,
   .onboarding-halo,
+  .onboarding-waiting-dots i,
   .stage-bloub {
     animation: none;
   }

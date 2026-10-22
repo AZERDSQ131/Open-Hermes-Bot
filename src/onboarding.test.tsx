@@ -41,6 +41,9 @@ function makeBridge(
     })),
     setOnboarding: vi.fn(async () => ({ ok: true })),
     sshHosts: vi.fn(async () => ({ ok: true, hosts: ['jetson', 'lab-box'] })),
+    /** The shell says when a bot that was made is served. */
+    onBotReady: vi.fn(() => () => undefined),
+    updateBot: vi.fn(async () => ({ ok: true })),
     ...overrides,
   };
   (window as unknown as { hermes: unknown }).hermes = bridge;
@@ -620,6 +623,127 @@ describe('the setup', () => {
     await screen.findByText(/What colour\?/);
     await userEvent.click(screen.getByLabelText('Amber'));
     expect(await screen.findByText('the profile already exists')).toBeTruthy();
+  });
+
+  it('shows a bot that was made but has not answered yet', async () => {
+    const bridge = makeBridge({
+      createBot: vi.fn(async () => ({
+        ok: false,
+        created: true,
+        name: 'nova',
+        title: 'Nova',
+        color: '#e8483f',
+        error:
+          '“nova” was created on the host, but the app is not connected to Hermes right now — connect, then open the bot.',
+      })),
+    });
+    renderSetup();
+    await walkToReady(bridge);
+    // The bot exists, so the setup shows it and says what is missing: the
+    // person is not asked for a name Hermes would refuse as already taken.
+    expect(await screen.findByText(/You're all set/)).toBeTruthy();
+    expect(screen.getByText('Nova')).toBeTruthy();
+    expect(screen.getByText(/was created on the host/)).toBeTruthy();
+    expect(screen.queryByText(/could not be created/)).toBeNull();
+  });
+
+  it('waits for the gateway when the bot is not served yet', async () => {
+    const bridge = makeBridge({
+      createBot: vi.fn(async () => ({
+        ok: true,
+        name: 'nova',
+        title: 'Nova',
+        color: '#e8483f',
+        served: false,
+      })),
+    });
+    renderSetup();
+    await walkToReady(bridge);
+    // The bot is made: the setup does not make the person wait for the
+    // gateway to serve it, and says what is going on instead.
+    expect(
+      await screen.findByRole('heading', { name: 'Connecting to your machine…' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText('Hermes is starting this bot — it will answer in a moment.'),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Connecting…' })).toBeDisabled();
+  });
+
+  it('says when the gateway is serving the bot', async () => {
+    let ready: ((event: { name: string; served: boolean }) => void) | undefined;
+    const bridge = makeBridge({
+      createBot: vi.fn(async () => ({
+        ok: true,
+        name: 'nova',
+        title: 'Nova',
+        color: '#e8483f',
+        served: false,
+      })),
+      onBotReady: vi.fn((callback) => {
+        ready = callback;
+        return () => undefined;
+      }),
+    });
+    renderSetup();
+    await walkToReady(bridge);
+    expect(
+      screen.getByRole('heading', { name: 'Connecting to your machine…' }),
+    ).toBeTruthy();
+    await act(async () => {
+      ready?.({ name: 'nova', served: true });
+    });
+    // The door is open: the last page is the last page again.
+    expect(
+      await screen.findByRole('heading', { name: "You're all set." }),
+    ).toBeTruthy();
+    expect(screen.getByText('Hermes is serving it now.')).toBeTruthy();
+  });
+
+  it('shows the next button again when the person comes back', async () => {
+    const bridge = makeBridge();
+    renderSetup();
+    await walkToReady(bridge);
+    // The bot is made: the pages that pick a shape or a colour have nothing
+    // left to say, and the person can go back to correct what was made.
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByText(/What colour\?/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Continue' })).not.toBeDisabled();
+  });
+
+  it('tells the host when the colour is corrected', async () => {
+    const bridge = makeBridge();
+    renderSetup();
+    await walkToReady(bridge);
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await screen.findByText(/What colour\?/);
+    await userEvent.click(screen.getByLabelText('Red'));
+    // The bot wears the colour the person chose the second time.
+    await waitFor(() =>
+      expect(bridge.updateBot).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'nova', color: '#e8483f' }),
+      ),
+    );
+  });
+
+  it('tells the host when the name is corrected', async () => {
+    const bridge = makeBridge();
+    renderSetup();
+    await walkToReady(bridge);
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await screen.findByText(/What is it called\?/);
+    const field = screen.getByLabelText('Its name');
+    await userEvent.clear(field);
+    await userEvent.type(field, 'Bob');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    // The name the person chose is the title the bot answers to.
+    await waitFor(() =>
+      expect(bridge.updateBot).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'nova', title: 'Bob' }),
+      ),
+    );
   });
 
   it('says what went wrong when the test itself falls over', async () => {

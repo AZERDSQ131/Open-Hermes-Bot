@@ -52,8 +52,25 @@ export type HermesBotCreateResult = {
   title?: string;
   /** Already on the server: the earlier attempt outlived the app. */
   exists?: boolean;
+  /**
+   * On the host, but Hermes has not answered for it yet: the bot exists, and
+   * the setup shows it rather than dead-ending on it.
+   */
+  created?: boolean;
+  /**
+   * Whether the gateway serves this bot already. A profile is served at
+   * Hermes' next rescan, so a bot that was just made is often not served yet:
+   * the app warms it up in the background rather than making the person wait.
+   */
+  served?: boolean;
   /** The colour the profile's metadata holds for this bot, if any. */
   color?: string;
+};
+
+/** A bot that was made: the gateway serves it now, or still does not. */
+export type HermesBotReady = {
+  name: string;
+  served: boolean;
 };
 
 export type HermesSessionResult = {
@@ -344,6 +361,8 @@ export type HermesBridge = {
   cancelChat: (requestId: string) => Promise<{ ok: boolean }>;
   onChatDelta: (callback: (delta: HermesChatDelta) => void) => () => void;
   onChatTool: (callback: (tool: HermesChatTool) => void) => () => void;
+  /** A bot that was made is served by the gateway, or still is not. */
+  onBotReady: (callback: (event: HermesBotReady) => void) => () => void;
   getSettings: () => Promise<HermesSettings>;
   saveSettings: (payload: {
     /** Where Hermes runs. */
