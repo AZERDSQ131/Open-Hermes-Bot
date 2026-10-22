@@ -200,12 +200,13 @@ export type HermesConnectorAccount = {
 /** The connectors of the host, as the host answered with them. */
 export type HermesConnectorList = {
   ok: boolean;
-  /** Whether the connectors are there at all on this host. */
+  /** Whether the services are open on this host. */
   available: boolean;
   catalog: HermesConnectorCatalog[];
   toolkit: HermesConnectorToolkit[];
   accounts: HermesConnectorAccount[];
-  message?: string;
+  /** Why a list could not be read, in the words of the host. */
+  messages: string[];
   error?: string;
 };
 

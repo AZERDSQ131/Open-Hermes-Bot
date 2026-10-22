@@ -225,3 +225,21 @@ export function UpdateIcon({ size = 16, className }: IconProps) {
     </svg>
   );
 }
+
+/** A service waiting to be plugged in. */
+export function PlugIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      strokeWidth="1.8"
+      className={className}
+      {...base}
+    >
+      <path d="M9 3.5v5M15 3.5v5" />
+      <path d="M6.5 8.5h11v3a5.5 5.5 0 0 1-11 0z" />
+      <path d="M12 17v3.5" />
+    </svg>
+  );
+}

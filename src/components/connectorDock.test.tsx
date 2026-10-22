@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectorDock } from './ConnectorDock';
 import type { Connector } from '../connectors';
@@ -44,7 +44,7 @@ describe('the dock of the connectors', () => {
     expect(dock.querySelectorAll('.dock-mark')).toHaveLength(2);
     // The picture is the bytes the shell fetched, not an address the page
     // would have had to go and get.
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(container.querySelector('.dock-mark img')?.getAttribute('src')).toBe(MARK);
     });
   });
@@ -52,7 +52,7 @@ describe('the dock of the connectors', () => {
   it('asks the shell for the mark, and not the page', async () => {
     const connectorLogo = withShell();
     render(<ConnectorDock rows={ROWS} onOpen={vi.fn()} />);
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(connectorLogo).toHaveBeenCalledWith({
         url: 'https://logos.composio.dev/api/notion',
       });

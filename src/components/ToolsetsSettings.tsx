@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { HermesToolset } from '../hermes';
+import { ProfilePicker } from './ProfilePicker';
 
 /**
  * The tools: what a bot can use besides Hermes itself.
@@ -9,6 +10,7 @@ import type { HermesToolset } from '../hermes';
  */
 export function ToolsetsSettings() {
   const bridge = window.hermes;
+  const [profile, setProfile] = useState('');
   const [toolsets, setToolsets] = useState<HermesToolset[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
@@ -18,7 +20,8 @@ export function ToolsetsSettings() {
     const reader = bridge?.toolsets;
     if (!reader) return;
     let cancelled = false;
-    reader()
+    setToolsets(null);
+    reader({ profile })
       .then(
         (next: { ok: boolean; toolsets?: HermesToolset[]; error?: string }) => {
           if (cancelled) return;
@@ -33,7 +36,7 @@ export function ToolsetsSettings() {
     return () => {
       cancelled = true;
     };
-  }, [bridge]);
+  }, [bridge, profile]);
 
   /** A tool is turned on or off on the host, where the tools live. */
   async function toggle(toolset: HermesToolset) {
@@ -50,6 +53,7 @@ export function ToolsetsSettings() {
       const result = await bridge.toggleToolset({
         name: toolset.name,
         enabled,
+        profile,
       });
       if (!result.ok) {
         setError(result.error ?? 'The tool could not be turned on or off.');
@@ -97,6 +101,12 @@ export function ToolsetsSettings() {
       </header>
 
       {error ? <p className="models-error">{error}</p> : null}
+
+      <ProfilePicker
+        value={profile}
+        onChange={setProfile}
+        label="Whose tools?"
+      />
 
       <section className="settings-card">
         <header className="settings-card-head">

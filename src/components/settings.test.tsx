@@ -664,6 +664,50 @@ describe('the settings', () => {
     expect(await screen.findByText('research')).toBeTruthy();
   });
 
+  it('say why the services are closed on the host', async () => {
+    withBridge({
+      connectors: vi.fn(async () => ({
+        ok: true,
+        available: false,
+        catalog: [],
+        toolkit: [],
+        accounts: [],
+        messages: ['The catalogue of the services is closed: portal authorization required'],
+      })),
+    });
+    renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+    // The words of the host, and the way out.
+    expect(
+      await screen.findByText(/portal authorization required/),
+    ).toBeTruthy();
+    expect(screen.getByText(/hermes auth add nous/)).toBeTruthy();
+  });
+
+  it('turn a skill off on the host, where the skill lives', async () => {
+    const toggleSkill = vi.fn(async () => ({ ok: true }));
+    withBridge({
+      skills: vi.fn(async () => ({
+        ok: true,
+        skills: [
+          { name: 'research', description: 'Look things up', enabled: true },
+        ],
+      })),
+      toggleSkill,
+    });
+    renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'Skills' }));
+    const skill = await screen.findByRole('switch', { name: 'research' });
+    await userEvent.click(skill);
+    await waitFor(() =>
+      expect(toggleSkill).toHaveBeenCalledWith({
+        name: 'research',
+        enabled: false,
+        profile: '',
+      }),
+    );
+  });
+
   it('show the tools when they are asked for', async () => {
     withBridge({
       toolsets: vi.fn(async () => ({
