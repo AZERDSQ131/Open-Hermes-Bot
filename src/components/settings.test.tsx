@@ -697,6 +697,28 @@ describe('the settings', () => {
     expect(screen.getAllByText('Reading the host…').length).toBeGreaterThan(1);
   });
 
+  it('ask the host again when the connectors fail', async () => {
+    const connectors = vi.fn(async () => ({
+      ok: false,
+      available: false,
+      catalog: [],
+      toolkit: [],
+      accounts: [],
+      messages: [],
+      error: 'boom',
+    }));
+    withBridge({ connectors });
+    renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+    expect(await screen.findByText('boom')).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'The host did not answer' }),
+    ).toBeTruthy();
+    const tries = screen.getAllByRole('button', { name: 'Try again' });
+    await userEvent.click(tries[0]);
+    await waitFor(() => expect(connectors).toHaveBeenCalledTimes(2));
+  });
+
   it('turn a skill off on the host, where the skill lives', async () => {
     const toggleSkill = vi.fn(async () => ({ ok: true }));
     withBridge({
