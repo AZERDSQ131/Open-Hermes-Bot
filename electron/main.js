@@ -1335,6 +1335,40 @@ ipcMain.handle('hermes:connectors', async () => {
   };
 });
 
+// Sign in with Nous without the terminal: the host mints a device code, the
+// page opens where the person approves it, and the poll below waits for that.
+ipcMain.handle('hermes:nous:login-start', async () => {
+  const answer = await askHost('nous-login-start', {}, 30000);
+  return {
+    ok: Boolean(answer.ok),
+    url: typeof answer.url === 'string' ? answer.url : '',
+    user_code: typeof answer.user_code === 'string' ? answer.user_code : '',
+    device_code:
+      typeof answer.device_code === 'string' ? answer.device_code : '',
+    expires_in:
+      typeof answer.expires_in === 'number' ? answer.expires_in : 600,
+    interval: typeof answer.interval === 'number' ? answer.interval : 5,
+    error: typeof answer.error === 'string' ? answer.error : '',
+  };
+});
+
+// One poll for the device code above: pending keeps waiting, approval signs
+// the host in, denial ends the attempt.
+ipcMain.handle('hermes:nous:login-poll', async (_event, payload) => {
+  const deviceCode = String(payload?.device_code ?? '').trim();
+  if (!deviceCode) return { ok: false, pending: false, error: 'Start again.' };
+  const answer = await askHost(
+    'nous-login-poll',
+    { HERMES_BOT_VALUE: deviceCode },
+    30000,
+  );
+  return {
+    ok: Boolean(answer.ok),
+    pending: Boolean(answer.pending),
+    error: typeof answer.error === 'string' ? answer.error : '',
+  };
+});
+
 // The mark of a connector: the shell asks the vendor's service for it and
 // hands the bytes over. The window touches no network of its own, and the
 // only address it will fetch is the one of that service.
