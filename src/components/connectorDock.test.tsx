@@ -59,15 +59,17 @@ describe('the dock of the connectors', () => {
     });
   });
 
-  it('falls back on the first letter when a mark does not come', async () => {
+  it('falls back on the brand mark and the letter when pictures do not come', async () => {
     withShell({ ok: false, logo: '' });
     render(<ConnectorDock rows={ROWS} onOpen={vi.fn()} />);
     const dock = screen.getByRole('button', { name: 'Connectors' });
-    // No mark came: both tiles stand in with the first letter of the name.
+    // Notion draws its real brand mark; only the unknown service stands in
+    // with the first letter of its name.
     const letters = [...dock.querySelectorAll('.dock-mark.is-letter')].map(
       (tile) => tile.textContent,
     );
-    expect(letters).toEqual(['N', 'G']);
+    expect(letters).toEqual(['G']);
+    expect(dock.querySelectorAll('.dock-mark svg')).toHaveLength(1);
   });
 
   it('opens the page where the connectors are listed', async () => {
