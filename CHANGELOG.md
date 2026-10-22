@@ -31,9 +31,32 @@ follow [semantic versioning](https://semver.org/).
 - **An actor that changes its mind.** Every two seconds it takes another
   colour and another shape, and the light of the window takes the colour with
   it.
+- **Hermes on this machine.** The app talks to a Hermes that runs on the same
+  machine, on the API port itself: no SSH, no tunnel, no host to name. The
+  setup and the settings ask first where Hermes runs — this Mac, or another
+  machine reached by the tunnel as before — and the key is read from the
+  Hermes home right here. A connection stored by an older version keeps
+  meaning `ssh`.
 
 ### Changed
 
+- **The connection is two panels, and each is a click.** The setup and the
+  settings ask first where Hermes runs — this Mac, or another machine — as
+  two panels side by side, with the question breathing on its own line
+  above them. A Hermes on this Mac is scanned and connected with nothing
+  to fill in; on another machine, the hosts the SSH config already names
+  are listed, and one click reads the key from that machine, writes the
+  connection down and opens the tunnel. When there is no key to read, the
+  app asks for it where the key goes.
+- **Nothing to fill in on this Mac.** The API key field and the button to
+  read it are gone wherever Hermes runs here: the scan reads the key
+  where it lives, says where it lives for the person whose Hermes insists
+  on one (`~/.hermes/.env`), and only the way to take a stored key back
+  remains. The field and the button stay for a Hermes elsewhere.
+- **The chrome carries no violet.** A chosen panel or host in the
+  settings wears light gray; the setup's glows, page timeline, checks
+  and dots wear smoke and slate, and the light a new bot starts under is
+  the palette's blue. The colour a bot wears keeps being its own.
 - **The connection is one page.** Where Hermes lives, the key, and the
   handshake that says whether the two of them are talking: all three on the
   same page, tested by the button at the bottom.
@@ -55,6 +78,10 @@ follow [semantic versioning](https://semver.org/).
   nobody listens to is thrown, and it took the app down with it. A machine
   without a network, or one whose releases page moved, now keeps the version
   it has.
+- **The settings pane stops dragging the window.** Choosing the panel that
+  shows more grew the content, and the scrollbar that followed dragged
+  everything left as it came. The pane scrolls with the wheel; the bar is
+  retired.
 
 ## [1.0.0] — 2026-10-21
 

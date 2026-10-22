@@ -12,9 +12,19 @@ const {
 } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const os = require('node:os');
 const { spawn, spawnSync, execFileSync } = require('node:child_process');
 const { autoUpdater } = require('electron-updater');
 const { createUpdater } = require('./updater');
+const {
+  apiBaseUrl,
+  apiUrl,
+  connectionLabel,
+  isConfigured,
+  normalizeMode,
+  resolveMode,
+  sshConfigHosts,
+} = require('./connection.js');
 
 app.setName('Hermes Bot');
 
@@ -37,6 +47,9 @@ const updater = createUpdater({
 
 // The live tunnel forwards a configurable local port; a connection test uses
 // a neighbouring port on a throwaway tunnel that is never persisted.
+//
+// A tunnel is only for a Hermes that runs somewhere else. When it runs on
+// this machine the app talks to the port itself, and nothing is forwarded.
 const TUNNEL_TIMEOUT_MS = 15000;
 const DEFAULT_CONNECTION = {
   // No host is a name: the machine running Hermes is the person's to say.
@@ -50,8 +63,11 @@ const DEFAULT_CONNECTION = {
 };
 
 let connectionStatus = { state: 'disconnected' };
+// The tunnel exists only for a Hermes that runs somewhere else.
 let tunnel = null;
 let tunnelError = '';
+// The port Hermes answers on when it runs on this machine.
+let directPort = 0;
 // The person asked to stay offline. The app reconnects on its own for every
 // request that needs Hermes, so a disconnect has to be a promise the app
 // keeps until the person asks for the connection again.
@@ -80,10 +96,23 @@ function writeStore(store) {
   });
 }
 
-function storedConnection() {
+// The record as it is written down. The mode lives here, and only here: it
+// is the answer to "where does Hermes run?", and it is the one thing the
+// app keeps about its own connection.
+function storedRecord() {
   const store = readStore();
-  const connection = store.connection || {};
-  return { ...DEFAULT_CONNECTION, ...connection };
+  return store.connection || {};
+}
+
+function storedConnection() {
+  const record = storedRecord();
+  return {
+    ...DEFAULT_CONNECTION,
+    ...record,
+    // A record written before the modes existed still means what it meant:
+    // a host is a machine somewhere else.
+    mode: resolveMode(record),
+  };
 }
 
 // The setup is a door the person walks through once. The app remembers that
@@ -169,6 +198,8 @@ function storedApiKey() {
 function publicSettings() {
   const connection = storedConnection();
   return {
+    mode: connection.mode,
+    configured: isConfigured(storedRecord()),
     sshHost: connection.sshHost,
     apiPort: connection.apiPort,
     localPort: connection.localPort,
@@ -334,7 +365,17 @@ async function probeHealth(apiKey, localPort) {
       body: response.ok ? await response.json() : null,
     };
   } catch (error) {
-    return { ok: false, status: 0, error: error.message };
+    // "fetch failed" says nothing a person can act on. A refused connection
+    // means one thing: nothing is listening on that port.
+    const code = error?.cause?.code ?? '';
+    return {
+      ok: false,
+      status: 0,
+      error:
+        code === 'ECONNREFUSED'
+          ? 'Nothing is listening on that port'
+          : error.message,
+    };
   } finally {
     clearTimeout(timer);
   }
@@ -362,7 +403,24 @@ async function waitForTunnel(state, apiKey) {
   return last ?? { ok: false, status: 0, error: 'Tunnel timeout' };
 }
 
-function statusFromProbe(probe, sshHost) {
+// A Hermes on this machine has no tunnel to wait for: the port is either
+// answering or it is not. It still gets a moment — a server that is just
+// starting answers a second later, and the person did not ask to be told it
+// was down while it was coming up.
+async function waitForLocal(apiPort, apiKey, timeoutMs = TUNNEL_TIMEOUT_MS) {
+  const started = Date.now();
+  let last = null;
+  while (Date.now() - started < timeoutMs) {
+    last = await probeHealth(apiKey, apiPort);
+    if (last.ok || last.status === 401) return last;
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+  return last ?? { ok: false, status: 0, error: 'No answer on the local port' };
+}
+
+function statusFromProbe(probe, connection) {
+  const mode = connection?.mode === 'local' ? 'local' : 'ssh';
+  const label = connectionLabel(mode, connection?.sshHost);
   if (probe.ok) {
     const body = probe.body ?? {};
     return {
@@ -370,47 +428,58 @@ function statusFromProbe(probe, sshHost) {
       version: body.version,
       platform: body.platform,
       gateway: body.gateway_state,
-      sshHost,
+      mode,
+      label,
+      sshHost: mode === 'ssh' ? connection.sshHost : '',
     };
   }
   if (probe.status === 401) {
     return {
       state: 'error',
       message: 'API key rejected by the Hermes API server',
+      mode,
+      label,
     };
   }
   return {
     state: 'error',
     message: probe.error || tunnelError || `HTTP ${probe.status || '?'}`,
+    mode,
+    label,
   };
 }
 
-function runSsh(host, command, timeoutMs = 20000, input) {
-  // No host is a name: there is nothing to reach.
-  if (!String(host ?? '').trim()) {
-    return Promise.resolve({
-      ok: false,
-      error:
-        'No host configured — open Settings to say where Hermes runs.',
-    });
-  }
+// A GUI app inherits almost nothing of the shell: the PATH it is launched
+// with is short, and the tools Hermes' own scripts need — python3, openssl —
+// live in the places a person installs them. The usual ones are added back,
+// so a command run here finds what it expects.
+const LOCAL_PATH = [
+  process.env.PATH || '',
+  '/opt/homebrew/bin',
+  '/usr/local/bin',
+  '/usr/bin',
+  '/bin',
+  '/usr/sbin',
+  '/sbin',
+].join(':');
+
+// A command, wherever it runs. The bytes of a file the person attached go
+// down the pipe the command reads, never through a command line.
+function runProcess(command, args, timeoutMs, input, timeoutMessage) {
   return new Promise((resolve) => {
-    const child = spawn(
-      'ssh',
-      ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', host, command],
-      { stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'] },
-    );
+    const child = spawn(command, args, {
+      stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'],
+      env: { ...process.env, PATH: LOCAL_PATH },
+    });
     let stdout = '';
     let stderr = '';
     if (input && child.stdin) {
-      // The bytes go down the pipe the command reads: a file the person
-      // attached never passes through a command line.
       child.stdin.on('error', () => undefined);
       child.stdin.end(input);
     }
     const timer = setTimeout(() => {
       child.kill('SIGKILL');
-      resolve({ ok: false, error: 'SSH command timed out' });
+      resolve({ ok: false, error: timeoutMessage });
     }, timeoutMs);
     child.stdout.on('data', (chunk) => {
       stdout += chunk.toString();
@@ -432,6 +501,46 @@ function runSsh(host, command, timeoutMs = 20000, input) {
       });
     });
   });
+}
+
+function runSsh(host, command, timeoutMs = 20000, input) {
+  // No host is a name: there is nothing to reach.
+  if (!String(host ?? '').trim()) {
+    return Promise.resolve({
+      ok: false,
+      error:
+        'No host configured — open Settings to say where Hermes runs.',
+    });
+  }
+  return runProcess(
+    'ssh',
+    ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', host, command],
+    timeoutMs,
+    input,
+    'SSH command timed out',
+  );
+}
+
+// The same command, on this machine. The scripts are the same, the paths are
+// the same: a Hermes that runs here keeps its home in the same place.
+function runLocalCommand(command, timeoutMs = 20000, input) {
+  return runProcess(
+    '/bin/bash',
+    ['-c', command],
+    timeoutMs,
+    input,
+    'Command timed out',
+  );
+}
+
+// A command on the machine that runs Hermes. On another machine it rides the
+// SSH connection; on this one it is run here. Everything above this line
+// asks for a command, not for a way to reach one.
+function runHostCommand(connection, command, timeoutMs = 20000, input) {
+  if (connection?.mode === 'local') {
+    return runLocalCommand(command, timeoutMs, input);
+  }
+  return runSsh(connection?.sshHost, command, timeoutMs, input);
 }
 
 /**
@@ -456,18 +565,29 @@ function parseEnvValue(raw) {
 ipcMain.handle('hermes:settings:get', () => publicSettings());
 
 ipcMain.handle('hermes:settings:save', (_event, payload) => {
-  const host = sanitizeHost(payload?.sshHost);
+  const current = storedConnection();
+  // Where Hermes runs. A record that does not say keeps the mode it had.
+  const mode = payload?.mode ? normalizeMode(payload.mode) : current.mode;
   const port = sanitizePort(payload?.apiPort);
-  if (!host) return { ok: false, error: 'Invalid SSH host' };
   if (!port) return { ok: false, error: 'Invalid API port' };
 
-  const current = storedConnection();
+  // A host is a name, and a name is only needed for a machine elsewhere.
+  const host =
+    mode === 'local'
+      ? sanitizeHost(payload?.sshHost) ?? current.sshHost
+      : sanitizeHost(payload?.sshHost);
+  if (mode === 'ssh' && !host) {
+    return { ok: false, error: 'Invalid SSH host' };
+  }
+
   const localPort =
     payload?.localPort === undefined
       ? current.localPort
       : sanitizePort(payload.localPort);
   if (!localPort) return { ok: false, error: 'Invalid local tunnel port' };
-  if (localPort === port) {
+  // The tunnel forwards a port to a port: they cannot be the same one. A
+  // Hermes on this machine has no tunnel, and no such rule.
+  if (mode === 'ssh' && localPort === port) {
     return { ok: false, error: 'Local and remote ports must differ' };
   }
   const autoConnect =
@@ -484,7 +604,13 @@ ipcMain.handle('hermes:settings:save', (_event, payload) => {
   // through stays where it is.
   writeStore({
     ...readStore(),
-    connection: { sshHost: host, apiPort: port, localPort, autoConnect },
+    connection: {
+      mode,
+      sshHost: host ?? '',
+      apiPort: port,
+      localPort,
+      autoConnect,
+    },
   });
   return { ok: true, settings: publicSettings() };
 });
@@ -506,9 +632,13 @@ ipcMain.handle('hermes:onboarding:set', (_event, payload) => {
 });
 
 ipcMain.handle('hermes:key:import', async (_event, payload) => {
-  const host = sanitizeHost(payload?.sshHost) || storedConnection().sshHost;
-  const result = await runSsh(
-    host,
+  const current = storedConnection();
+  const mode = payload?.mode ? normalizeMode(payload.mode) : current.mode;
+  const host = sanitizeHost(payload?.sshHost) || current.sshHost;
+  // The key sits in the same place either way: the Hermes home of the
+  // machine that runs it.
+  const result = await runHostCommand(
+    { mode, sshHost: host },
     'grep -m1 -E \'^API_SERVER_KEY=\' "$HOME/.hermes/.env" 2>/dev/null | cut -d= -f2-',
   );
   if (!result.ok || !result.stdout.trim()) {
@@ -517,7 +647,7 @@ ipcMain.handle('hermes:key:import', async (_event, payload) => {
       error:
         result.error ||
         stderrOf(result) ||
-        'API_SERVER_KEY not found in the remote ~/.hermes/.env',
+        'API_SERVER_KEY not found in ~/.hermes/.env',
     };
   }
   const key = parseEnvValue(result.stdout);
@@ -526,10 +656,25 @@ ipcMain.handle('hermes:key:import', async (_event, payload) => {
   return { ok: true, keyLength: key.length };
 });
 
+// The persons' machines have names they have already written once. Reading
+// them is a courtesy the setup lives on: a missing file says an empty list,
+// and nothing is asked of the SSH itself — it is a text file.
+ipcMain.handle('hermes:ssh:hosts', () => {
+  try {
+    const config = fs.readFileSync(
+      path.join(os.homedir(), '.ssh', 'config'),
+      'utf8',
+    );
+    return { ok: true, hosts: sshConfigHosts(config) };
+  } catch {
+    return { ok: true, hosts: [] };
+  }
+});
+
 async function connectNow() {
   const connection = storedConnection();
   const apiKey = storedApiKey();
-  if (!connection.sshHost) {
+  if (connection.mode === 'ssh' && !connection.sshHost) {
     return setStatus({
       state: 'error',
       message: 'No host configured — open Settings to say where Hermes runs.',
@@ -542,6 +687,22 @@ async function connectNow() {
   manualDisconnect = false;
 
   setStatus({ state: 'connecting' });
+
+  // One link at a time: the mode says which one it is, and the other is
+  // closed rather than left to rot.
+  directPort = 0;
+
+  // A Hermes on this machine: the port is the connection. There is no
+  // forward to open, and no orphan to reap.
+  if (connection.mode === 'local') {
+    stopTunnel();
+    const probe = await waitForLocal(connection.apiPort, apiKey);
+    if (probe.ok) directPort = connection.apiPort;
+    return setStatus(statusFromProbe(probe, connection));
+  }
+
+  // The orphan comes first: the PID file is what says which ssh to reap, and
+  // closing the live tunnel would take that file with it.
   reapOrphanTunnel();
   let probe = null;
   for (let attempt = 0; attempt < PORT_ATTEMPTS; attempt += 1) {
@@ -558,30 +719,41 @@ async function connectNow() {
       Boolean(state?.dead);
     if (!taken) break;
   }
-  return setStatus(statusFromProbe(probe, connection.sshHost));
+  return setStatus(statusFromProbe(probe, connection));
 }
 
 ipcMain.handle('hermes:connect', () => connectNow());
 
-// Probe unsaved values on a throwaway tunnel: nothing is persisted and an
-// already-connected app keeps its own tunnel untouched.
+// Probe unsaved values: nothing is persisted and an already-connected app
+// keeps its own tunnel untouched.
 ipcMain.handle('hermes:test', async (_event, payload) => {
-  const host = sanitizeHost(payload?.sshHost);
+  const current = storedConnection();
+  const mode = payload?.mode ? normalizeMode(payload.mode) : current.mode;
   const port = sanitizePort(payload?.apiPort);
-  if (!host) return { state: 'error', message: 'Invalid SSH host' };
   if (!port) return { state: 'error', message: 'Invalid API port' };
   const typedKey = typeof payload?.apiKey === 'string' ? payload.apiKey.trim() : '';
   const apiKey = typedKey || storedApiKey();
   if (!apiKey) {
     return { state: 'error', message: 'Enter the API key or import it first' };
   }
+  const connection = { ...current, mode, apiPort: port };
+
+  // A Hermes on this machine is tested on the port itself: there is no
+  // throwaway tunnel to open, and nothing to close afterwards.
+  if (mode === 'local') {
+    const probe = await waitForLocal(port, apiKey, 5000);
+    return statusFromProbe(probe, connection);
+  }
+
+  const host = sanitizeHost(payload?.sshHost);
+  if (!host) return { state: 'error', message: 'Invalid SSH host' };
   const ephemeral = spawnTunnel(
     { sshHost: host, apiPort: port },
-    testPortFor(storedConnection().localPort),
+    testPortFor(current.localPort),
   );
   try {
     const probe = await waitForTunnel(ephemeral, apiKey);
-    return statusFromProbe(probe, host);
+    return statusFromProbe(probe, { ...connection, sshHost: host });
   } finally {
     killTunnel(ephemeral);
   }
@@ -590,6 +762,7 @@ ipcMain.handle('hermes:test', async (_event, payload) => {
 ipcMain.handle('hermes:disconnect', () => {
   manualDisconnect = true;
   stopTunnel();
+  directPort = 0;
   return setStatus({ state: 'disconnected' });
 });
 
@@ -675,12 +848,37 @@ ipcMain.handle('hermes:update:open-release', (_event, url) => {
 
 // ------------------------------------------------------------------ chat
 
-// Everything below rides the live SSH tunnel: 127.0.0.1:<localPort> on this
-// machine *is* the Hermes API server on the other one, so the key never leaves
-// the app and nothing new needs to be exposed.
-function apiUrl(localPort, profile, pathname) {
-  const prefix = profile ? `/p/${encodeURIComponent(profile)}` : '';
-  return `http://127.0.0.1:${localPort}${prefix}${pathname}`;
+// Everything below talks to 127.0.0.1. When Hermes runs on this machine that
+// is the port it answers on; when it runs somewhere else, it is the port the
+// tunnel forwards to. Either way the key never leaves the app, and nothing
+// new needs to be exposed on a server.
+
+// Whether the app is talking to Hermes right now.
+function isLive() {
+  return Boolean(tunnel) || directPort > 0;
+}
+
+// Where Hermes answers, as it answers right now. The tunnel may have taken
+// a neighbouring port when the one that was asked for was taken, so the port
+// that is live is the one that is used.
+function liveEndpoint() {
+  const connection = storedConnection();
+  if (connection.mode === 'local') {
+    if (!directPort) {
+      return { error: 'Not connected to Hermes — open Settings and connect first.' };
+    }
+    return {
+      baseUrl: apiBaseUrl('local', { apiPort: directPort }),
+      mode: 'local',
+    };
+  }
+  if (!tunnel) {
+    return { error: 'Not connected to Hermes — open Settings and connect first.' };
+  }
+  return {
+    baseUrl: apiBaseUrl('ssh', { localPort: tunnel.localPort }),
+    mode: 'ssh',
+  };
 }
 
 // The app can be opened with no tunnel (auto-connect off, or the server was
@@ -689,27 +887,26 @@ function apiUrl(localPort, profile, pathname) {
 let lastConnectAttempt = 0;
 
 async function ensureConnected() {
-  if (tunnel) return true;
+  if (isLive()) return true;
   // Someone who asked to stay offline stays offline.
   if (manualDisconnect) return false;
   if (Date.now() - lastConnectAttempt < 5000) return false;
   lastConnectAttempt = Date.now();
   await connectNow().catch(() => undefined);
-  return Boolean(tunnel);
+  return isLive();
 }
 
 function liveTunnelOrError() {
-  if (!tunnel) {
-    return { error: 'Not connected to Hermes — open Settings and connect first.' };
-  }
+  const endpoint = liveEndpoint();
+  if (endpoint.error) return endpoint;
   const apiKey = storedApiKey();
   if (!apiKey) return { error: 'No API key configured — import it in Settings.' };
-  return { localPort: tunnel.localPort, apiKey };
+  return { ...endpoint, apiKey };
 }
 
 // Every profile mints its own API_SERVER_KEY when it is created, and the
 // gateway checks /p/<name>/ against THAT key: a bot's turns cannot ride the
-// primary profile's key. Keys are read from the profile's .env over the SSH
+// primary profile's key. Keys are read from the profile's .env over the
 // connection the app already has, then kept for the rest of the session.
 const profileKeys = new Map();
 
@@ -718,8 +915,8 @@ async function apiKeyFor(profile) {
   if (!profile || profile === 'default') return stored;
   if (profileKeys.has(profile)) return profileKeys.get(profile);
   if (!PROFILE_NAME_RE.test(profile)) return stored;
-  const result = await runSsh(
-    storedConnection().sshHost,
+  const result = await runHostCommand(
+    storedConnection(),
     `grep -m1 '^API_SERVER_KEY=' "$HOME/.hermes/profiles/${profile}/.env" | cut -d= -f2-`,
     15000,
   );
@@ -730,7 +927,7 @@ async function apiKeyFor(profile) {
 }
 
 async function apiCall(pathname, { method = 'GET', body, profile, timeoutMs = 30000 } = {}) {
-  if (!tunnel) await ensureConnected();
+  if (!isLive()) await ensureConnected();
   const live = liveTunnelOrError();
   if (live.error) return { ok: false, status: 0, error: live.error };
   const apiKey = await apiKeyFor(profile);
@@ -738,7 +935,7 @@ async function apiCall(pathname, { method = 'GET', body, profile, timeoutMs = 30
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(apiUrl(live.localPort, profile, pathname), {
+    const response = await fetch(apiUrl(live.baseUrl, profile, pathname), {
       method,
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -1002,14 +1199,14 @@ ipcMain.handle('hermes:bot:update', async (_event, payload) => {
     return { ok: false, error: 'Nothing to change on that bot.' };
   }
   const connection = storedConnection();
-  if (!tunnel) await ensureConnected();
+  if (!isLive()) await ensureConnected();
   const script = Buffer.from(UPDATE_BOT_META_PYTHON, 'utf8').toString('base64');
   const target = isPrimary
     ? '"$HOME/.hermes/profile.yaml"'
     : `"$HOME/.hermes/profiles/${name}/profile.yaml"`;
   const label = isPrimary ? 'default' : name;
-  const result = await runSsh(
-    connection.sshHost,
+  const result = await runHostCommand(
+    connection,
     [
       `printf %s ${shellQuote(script)} | base64 -d > /tmp/hermesbot-style-${label}.py`,
       `HERMES_BOT_PROFILE=${target} python3 /tmp/hermesbot-style-${label}.py ${shellQuote(title)} ${shellQuote(color)} ${shellQuote(shape)}`,
@@ -1102,8 +1299,8 @@ ipcMain.handle('hermes:bot:delete', async (_event, payload) => {
   }
   const connection = storedConnection();
   const script = Buffer.from(DELETE_BOT_SCRIPT, 'utf8').toString('base64');
-  const result = await runSsh(
-    connection.sshHost,
+  const result = await runHostCommand(
+    connection,
     [
       `printf %s ${shellQuote(script)} | base64 -d > /tmp/hermesbot-delete-${name}.sh`,
       `bash /tmp/hermesbot-delete-${name}.sh ${shellQuote(name)}`,
@@ -1145,12 +1342,12 @@ ipcMain.handle('hermes:attachment:upload', async (_event, payload) => {
   }
   const safe = name.replace(/[^A-Za-z0-9._-]+/g, '_').slice(-60) || 'file';
   const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
-  // The path is built here and quoted with double quotes, so the remote shell
-  // expands the home it knows and the bot reads a real path.
+  // The path is built here and quoted with double quotes, so the shell that
+  // runs the command expands the home it knows and the bot reads a real path.
   const remote = `"$HOME/.hermes/attachments/${stamp}-${safe}"`;
   const connection = storedConnection();
-  const result = await runSsh(
-    connection.sshHost,
+  const result = await runHostCommand(
+    connection,
     [
       'mkdir -p "$HOME/.hermes/attachments"',
       `cat > ${remote}`,
@@ -1166,7 +1363,9 @@ ipcMain.handle('hermes:attachment:upload', async (_event, payload) => {
       error:
         stderrOf(result) ||
         result.error ||
-        `Could not copy ${name} to ${connection.sshHost}`,
+        `Could not copy ${name} to ${
+          connection.mode === 'local' ? 'this Mac' : connection.sshHost
+        }`,
     };
   }
   return {
@@ -1180,11 +1379,17 @@ ipcMain.handle('hermes:attachment:upload', async (_event, payload) => {
 // The dictation: the browser's own speech service is not an option — the key
 // Chromium carries is refused by the service, and a refusal looks exactly like
 // a broken connection. Hermes transcribes instead: the recording is copied to
-// the server and handed to the transcription Hermes already has.
+// the machine that runs Hermes and handed to the transcription Hermes already
+// has.
 const TRANSCRIBE_VOICE_PYTHON = `import json
+import os
 import sys
 
-sys.path.insert(0, "/home/jules/.hermes/hermes-agent")
+# The agent's own directory, told by the shell that runs this: the home of
+# the person is not the same on every machine.
+agent_home = os.environ.get("HERMES_AGENT_HOME", "")
+if agent_home:
+    sys.path.insert(0, agent_home)
 
 from tools.transcription_tools import transcribe_audio
 
@@ -1208,8 +1413,8 @@ ipcMain.handle('hermes:voice:transcribe', async (_event, payload) => {
   const remote = `"$HOME/.hermes/attachments/${stamp}-voice.${extension}"`;
   const script = Buffer.from(TRANSCRIBE_VOICE_PYTHON, 'utf8').toString('base64');
   const connection = storedConnection();
-  const result = await runSsh(
-    connection.sshHost,
+  const result = await runHostCommand(
+    connection,
     [
       `printf %s ${shellQuote(script)} | base64 -d > /tmp/hermesbot-voice.py`,
       'mkdir -p "$HOME/.hermes/attachments"',
@@ -1218,7 +1423,7 @@ ipcMain.handle('hermes:voice:transcribe', async (_event, payload) => {
       // gateway was started with are the ones that can transcribe.
       'PY=$(ls "$HOME"/.hermes/tools/python-*/bin/python3 2>/dev/null | head -1)',
       'PP=$(ls -d "$HOME"/.hermes/cache/uv/archive-v0/*/ 2>/dev/null | tr "\\n" ":")',
-      `cd "$HOME/.hermes/hermes-agent" && PYTHONPATH="$PP" "$PY" /tmp/hermesbot-voice.py ${remote}`,
+      `cd "$HOME/.hermes/hermes-agent" && HERMES_AGENT_HOME="$HOME/.hermes/hermes-agent" PYTHONPATH="$PP" "$PY" /tmp/hermesbot-voice.py ${remote}`,
       'rm -f /tmp/hermesbot-voice.py',
     ].join('\n'),
     180000,
@@ -1303,14 +1508,14 @@ else:
     print(json.dumps({"ok": True}, separators=(",", ":")))
 `;
 
-function prefsCommand(script, mode, payload) {
+function prefsCommand(script, action, payload) {
   const connection = storedConnection();
   const parts = [
     `printf %s ${shellQuote(script)} | base64 -d > /tmp/hermesbot-prefs.py`,
-    `HERMES_BOT_PROFILE="$HOME/.hermes/profile.yaml" python3 /tmp/hermesbot-prefs.py ${mode}`,
+    `HERMES_BOT_PROFILE="$HOME/.hermes/profile.yaml" python3 /tmp/hermesbot-prefs.py ${action}`,
     'rm -f /tmp/hermesbot-prefs.py',
   ];
-  return runSsh(connection.sshHost, parts.join('\n'), 20000, payload);
+  return runHostCommand(connection, parts.join('\n'), 20000, payload);
 }
 
 ipcMain.handle('hermes:prefs', async () => {
@@ -1522,16 +1727,16 @@ function cleanPrimary(value) {
 }
 
 ipcMain.handle('hermes:profiles', async () => {
-  const host = storedConnection().sshHost;
-  if (!host) {
+  const connection = storedConnection();
+  if (connection.mode === 'ssh' && !connection.sshHost) {
     return {
       ok: false,
       error:
         'No host configured — open Settings to say where Hermes runs.',
     };
   }
-  const live = await runSsh(
-    host,
+  const live = await runHostCommand(
+    connection,
     `python3 - <<'PY'\n${LIST_PROFILES_PY}PY`,
     20000,
   );
@@ -1545,7 +1750,7 @@ ipcMain.handle('hermes:profiles', async () => {
     };
   }
 
-  const disk = await runSsh(host, LIST_PROFILES_SH, 15000);
+  const disk = await runHostCommand(connection, LIST_PROFILES_SH, 15000);
   if (!disk.ok) {
     return {
       ok: false,
@@ -1584,7 +1789,7 @@ const chatRequests = new Map();
 // event long before the turn would end, so the app can stop waiting instead of
 // sitting on a request that the server keeps retrying.
 ipcMain.handle('hermes:chat:send', async (event, payload) => {
-  if (!tunnel) await ensureConnected();
+  if (!isLive()) await ensureConnected();
   const live = liveTunnelOrError();
   if (live.error) return { ok: false, error: live.error };
   const apiKey = await apiKeyFor(payload?.profile);
@@ -1639,7 +1844,7 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
 
   try {
     const response = await fetch(
-      apiUrl(live.localPort, payload?.profile, `/api/sessions/${encodeURIComponent(sessionId)}/chat/stream`),
+      apiUrl(live.baseUrl, payload?.profile, `/api/sessions/${encodeURIComponent(sessionId)}/chat/stream`),
       {
         method: 'POST',
         headers: {
@@ -2036,10 +2241,10 @@ async function waitForBotReady(name, timeoutMs = 12000) {
 
 ipcMain.handle('hermes:bot:create', async (_event, payload) => {
   const connection = storedConnection();
-  if (!tunnel) {
+  if (!isLive()) {
     await ensureConnected();
   }
-  if (!tunnel) {
+  if (!isLive()) {
     return {
       ok: false,
       error: 'Not connected to Hermes — connect in Settings, then create the bot.',
@@ -2082,7 +2287,7 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
     `rm -f ${remoteScript}`,
   ].join('\n');
 
-  const result = await runSsh(connection.sshHost, command, 60000);
+  const result = await runHostCommand(connection, command, 60000);
   const line =
     result.stdout
       .split('\n')
@@ -2117,8 +2322,8 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
     // The colour Hermes already shows wins. We only write one when the person
     // picked it here, so opening a bot never repaints it behind their back.
     const adopter = Buffer.from(ADOPT_BOT_META_PYTHON, 'utf8').toString('base64');
-    const adopted = await runSsh(
-      connection.sshHost,
+    const adopted = await runHostCommand(
+      connection,
       [
         `printf %s ${shellQuote(adopter)} | base64 -d > /tmp/hermesbot-adopt-${name}.py`,
         `HERMES_BOT_PROFILE="$HOME/.hermes/profiles/${name}/profile.yaml" python3 /tmp/hermesbot-adopt-${name}.py ${shellQuote(title)} ${shellQuote(color)}`,

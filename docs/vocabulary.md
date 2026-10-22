@@ -23,6 +23,21 @@ and leaves the decisions to the harness.
 whole sentence, and it is the sentence to keep: it says what the app is
 responsible for, and it says what it is not.
 
+## Connection
+
+The link between the app and Hermes. One record holds the one fact it starts
+with — where Hermes runs, `local` for this machine, `ssh` for another one —
+and everything that follows from it: the host when there is one, the ports,
+and whether the person has already placed their Hermes.
+
+**The mode is the choice; the rest follows from it.** A Hermes on this
+machine is reached on the API port itself, with no tunnel; a Hermes on
+another machine is reached through an SSH tunnel. The record is the app's
+own (`hermes-connection.json`), and the rules that read it are
+`electron/connection.js`, tested to the line. A record written before the
+mode existed — a host with no mode — is read as `ssh`; an empty record is
+`local`.
+
 ## Setup
 
 The door the person walks through the first time the app opens. Six scenes:
@@ -34,8 +49,8 @@ host the way the sidebar does, and it writes down one fact of its own: that it
 has been walked through.
 
 **The setup is a scene, not a form.** One character acts in it — it breathes,
-it blinks, it thinks while the tunnel opens, and it is happy when the host
-answers. The words are few on purpose.
+it blinks, it thinks while the connection is tested, and it is happy when
+Hermes answers. The words are few on purpose.
 
 **The setup makes the first bot, and does not show the others.** An app that
 has just been installed has no agents: there is nothing to list, so the pages

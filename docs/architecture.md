@@ -4,10 +4,10 @@ Two pieces, one boundary. This page says where the boundary runs and what
 each side is responsible for.
 
 ```
-the person ──▶ this app (interface) ── SSH tunnel ──▶ Hermes (harness)
-                Electron + React                       the agent loop
-                sidebar, bubbles,                      the memory
-                avatars, group protocol                the tools, the models
+the person ──▶ this app (interface) ── port or tunnel ──▶ Hermes (harness)
+                Electron + React                           the agent loop
+                sidebar, bubbles,                          the memory
+                avatars, group protocol                    the tools, the models
 ```
 
 ## Hermes' side
@@ -44,9 +44,10 @@ The app is the interface. It owns the room the conversation happens in.
 - **The attachments and the dictation.** The file is copied to the server
   where the bot can read it, and the recording is transcribed by Hermes. The
   app records and sends; it does not transcribe.
-- **The connection.** The SSH tunnel to the host, the API key in the macOS
-  Keychain, and the reconnect. The tunnel exists so the app never has to ask
-  the person's server to expose a port.
+- **The connection.** Where Hermes runs — this machine or another one — the
+  API key in the macOS Keychain, and the reconnect. When Hermes is elsewhere,
+  the app opens an SSH tunnel rather than ask the person's server to expose a
+  port; when it is here, the app speaks to the API port itself.
 - **The setup.** The first run asks where Hermes lives, for the key, and who
   answers on the other side — one question at a time. It reads the bots from
   the host like everything else, and it can be run again by hand.
@@ -67,13 +68,14 @@ cached transcript. The app can be closed, wiped or replaced, and the
 conversation is still there, on the host that owns it.
 
 The app keeps two things of its own, and they are about the app rather than
-about the conversation: the **connection record** — the host, the ports, and
-the fact that the setup has been walked through — and the **key**, in the
-Keychain, under the app's own service.
+about the conversation: the **connection record** — where Hermes runs, the
+host when it runs elsewhere, the ports, and the fact that the setup has been
+walked through — and the **key**, in the Keychain, under the app's own
+service.
 
-The setup flag lives with the connection because the app has to know it before
-Hermes is reachable: the first question the setup asks is where Hermes lives.
-Everything the setup learns about the bots stays on the host.
+The setup flag lives with the connection because the app has to know it
+before Hermes is reachable: the first question the setup asks is where Hermes
+runs. Everything the setup learns about the bots stays on the host.
 
 The only secret on this machine is the Hermes API key, in the Keychain, under
 the app's own service.
@@ -83,7 +85,8 @@ the app's own service.
 - To change **which model answers**, or what the bot can do: Hermes.
 - To change **who speaks next**, or how a group reads: this app, and only
   this app.
-- To change **how the app reaches Hermes**: `electron/main.js`, with the
+- To change **how the app reaches Hermes**: `electron/main.js` for the calls,
+  with the rules of the two connections in `electron/connection.js` and the
   shape of the calls written down in `src/hermes.d.ts`.
 - To change **what the first run asks**: `src/onboarding.tsx`, which owns the
   steps, the order and the voice.

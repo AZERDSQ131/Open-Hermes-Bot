@@ -49,12 +49,14 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "!electron/**/*.test.js",
       "build/**/*",
       "package.json"
     ],
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "build/icon.icns",
+      "artifactName": "Hermes-Bot-${version}-${arch}.${ext}",
       "target": [
         {
           "target": "dmg",

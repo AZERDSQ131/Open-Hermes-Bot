@@ -2143,6 +2143,15 @@ button:focus-visible {
   min-width: 0;
   justify-content: center;
   overflow-y: auto;
+  /* The pane is scrolled with the wheel, not with a bar: a bar that
+     appears when one panel shows more than the other drags the whole
+     window sideways as the content grows. */
+  scrollbar-width: none;
+}
+
+.settings-pane::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .settings-pane-inner {
@@ -2376,12 +2385,150 @@ button:focus-visible {
   flex-direction: column;
 }
 
+/* The two ways of connecting, as two panels: the choice is where Hermes
+   runs, and each panel says everything that follows from it. */
+.settings-modes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+  margin: 0;
+  padding: 0 0 4px;
+  border: none;
+}
+
+/* The question gets its own air before the panels answer it. */
+.settings-modes legend {
+  grid-column: 1 / -1;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 420px) {
+  .settings-modes {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 10px;
+  background: #1a1a1d;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.settings-mode:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.settings-mode:has(input:checked) {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: #26262b;
+}
+
+.settings-mode input {
+  margin: 2px 0 0;
+  accent-color: #c6c6cd;
+}
+
+.settings-mode-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.settings-mode-copy strong {
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.settings-mode-copy em {
+  color: #8d8d96;
+  font-size: 11.5px;
+  font-style: normal;
+  line-height: 1.45;
+}
+
 .settings-field {
   display: flex;
   flex-direction: column;
   gap: 7px;
   padding: 14px 0;
   border-top: 1px solid var(--divider);
+}
+
+/* The machines the SSH config already names: one click each. */
+.settings-hosts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0 4px;
+}
+
+.settings-hosts-hint {
+  margin: 8px 0 0;
+  color: #8d8d96;
+  font-size: 12px;
+}
+
+/* Where the key would be, on this Mac there is no key to fill in: only
+   the word of where the app will find one. */
+.settings-key-guide {
+  margin: 8px 0 0;
+  color: #8d8d96;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settings-host {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 9px;
+  background: #1a1a1d;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.settings-host:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: #1f1f23;
+}
+
+.settings-host:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.settings-host.is-chosen {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: #26262b;
+}
+
+.settings-host-name {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.settings-host-cue {
+  color: #8d8d96;
+  font-size: 10.5px;
 }
 
 .settings-field:first-child {
@@ -3534,11 +3681,11 @@ button:focus-visible {
   will-change: transform;
 }
 
-.onboarding-glow.is-violet {
+.onboarding-glow.is-slate {
   top: -28%;
   left: 8%;
-  background: var(--actor-color, #8b5cf6);
-  opacity: 0.3;
+  background: #4e5b70;
+  opacity: 0.26;
   transition: background-color 900ms ease;
   animation: onboarding-drift-a 34s ease-in-out infinite;
 }
@@ -3546,16 +3693,16 @@ button:focus-visible {
 .onboarding-glow.is-teal {
   right: -14%;
   bottom: -34%;
-  background: #2fbfa0;
-  opacity: 0.14;
+  background: #3f6f66;
+  opacity: 0.15;
   animation: onboarding-drift-b 44s ease-in-out infinite;
 }
 
 .onboarding-glow.is-rose {
   top: 24%;
   right: 16%;
-  background: #e152b0;
-  opacity: 0.11;
+  background: #6e5a62;
+  opacity: 0.12;
   animation: onboarding-drift-c 52s ease-in-out infinite;
 }
 
@@ -3607,8 +3754,8 @@ button:focus-visible {
 .onboarding-timeline-fill {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #8b5cf6, #c084fc);
-  box-shadow: 0 0 14px rgba(139, 92, 246, 0.7);
+  background: linear-gradient(90deg, #d0d0d8, #97979f);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.22);
   transition: width 520ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
@@ -3714,7 +3861,7 @@ button:focus-visible {
   width: 210px;
   height: 210px;
   border-radius: 50%;
-  background: var(--actor-color, #8b5cf6);
+  background: var(--actor-color, #66708a);
   filter: blur(48px);
   opacity: 0.4;
   transition: background-color 900ms ease;
@@ -3776,7 +3923,7 @@ button:focus-visible {
 
 .onboarding-eyebrow {
   margin: 26px 0 0;
-  color: #a78bfa;
+  color: #9b9ba3;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -3834,10 +3981,158 @@ button:focus-visible {
   height: 20px;
   place-items: center;
   border-radius: 50%;
-  background: rgba(139, 92, 246, 0.2);
-  color: #c4b5fd;
+  background: rgba(255, 255, 255, 0.12);
+  color: #d6d6dd;
   font-size: 10.5px;
   font-weight: 600;
+}
+
+/* The choice of where Hermes runs is two panels, not a line of options:
+   each says a whole way of connecting, and its own text is the answer. */
+.onboarding-modes {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: stretch;
+  margin: 26px 0 0;
+  padding: 0;
+  border: none;
+  text-align: left;
+  animation: onboarding-rise 620ms 240ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@media (max-width: 540px) {
+  .onboarding-modes {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The question gets its own air before the panels answer it. */
+.onboarding-modes legend {
+  grid-column: 1 / -1;
+  margin-bottom: 8px;
+}
+
+/* The machines the SSH config already names: one click each. */
+.onboarding-hosts {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.onboarding-hosts-hint {
+  width: 100%;
+  margin-top: 8px;
+  color: #8d8d96;
+  font-size: 12.5px;
+}
+
+/* Where the key would be, on this Mac there is no key to fill in: only
+   the word of where the app will find one. */
+.onboarding-key-guide {
+  width: 100%;
+  margin: 2px 0 0;
+  color: #8d8d96;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.onboarding-host {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.045);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.onboarding-host:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.onboarding-host:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.onboarding-host.is-chosen {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.onboarding-host-name {
+  color: #f3f3f5;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  overflow-wrap: anywhere;
+}
+
+.onboarding-host-cue {
+  color: #8d8d96;
+  font-size: 11px;
+}
+
+.onboarding-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 15px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.onboarding-mode:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.onboarding-mode:has(input:checked) {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.05);
+}
+
+.onboarding-mode input {
+  margin: 3px 0 0;
+  accent-color: #c6c6cd;
+}
+
+.onboarding-mode-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.onboarding-mode-copy strong {
+  color: #f3f3f5;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.onboarding-mode-copy em {
+  color: #8d8d96;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.45;
 }
 
 .onboarding-field {
@@ -3875,9 +4170,9 @@ button:focus-visible {
 }
 
 .onboarding-field input:focus {
-  border-color: rgba(167, 139, 250, 0.55);
+  border-color: rgba(255, 255, 255, 0.32);
   background: rgba(255, 255, 255, 0.07);
-  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.12);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
 }
 
 .onboarding-field input::placeholder {
@@ -3982,7 +4277,7 @@ button:focus-visible {
 }
 
 .onboarding-check.is-working {
-  background: rgba(139, 92, 246, 0.12);
+  background: rgba(255, 255, 255, 0.08);
   color: #d4d4da;
 }
 
@@ -4005,7 +4300,7 @@ button:focus-visible {
 }
 
 .onboarding-check.is-working .onboarding-check-dot {
-  background: #a78bfa;
+  background: #c6c6cd;
   animation: onboarding-pulse 1.3s ease-in-out infinite;
 }
 
@@ -4124,14 +4419,14 @@ button:focus-visible {
 }
 
 .onboarding-dot.is-done {
-  background: rgba(167, 139, 250, 0.55);
+  background: rgba(255, 255, 255, 0.4);
 }
 
 .onboarding-dot.is-current {
   width: 22px;
   border-radius: 999px;
-  background: #a78bfa;
-  box-shadow: 0 0 12px rgba(139, 92, 246, 0.6);
+  background: #d6d6dd;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
 }
 
 .onboarding-dot:disabled {

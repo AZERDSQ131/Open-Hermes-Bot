@@ -485,8 +485,9 @@ export default function App() {
   }
 
   // The setup is asked for once. The app's own record says whether the door
-  // was already walked through; a host that is already written down means the
-  // person knows what they are doing, and the app does not ask them again.
+  // was already walked through; a Hermes the person has already placed — on
+  // this machine or on another one — means they know what they are doing, and
+  // the app does not ask them again.
   useEffect(() => {
     const bridge = window.hermes;
     if (!bridge?.getSettings) {
@@ -500,7 +501,8 @@ export default function App() {
         if (cancelled) return;
         const already =
           Boolean(settings.onboardingCompleted) ||
-          Boolean(settings.sshHost.trim());
+          Boolean(settings.configured) ||
+          Boolean(settings.sshHost?.trim());
         if (!already) setOnboardingOpen(true);
       })
       .catch(() => undefined)
