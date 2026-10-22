@@ -57,6 +57,14 @@ function createUpdater({ app, autoUpdater, onEvent }) {
     });
   }
 
+  /** Says something to the person, whatever check is running. */
+  function tell(state, extra) {
+    const before = asked;
+    asked = true;
+    emit(state, extra);
+    asked = before;
+  }
+
   function answer(result) {
     const running = pending;
     pending = null;
@@ -112,9 +120,7 @@ function createUpdater({ app, autoUpdater, onEvent }) {
   function check() {
     if (!app.isPackaged) {
       // A copy running from the sources has no releases page of its own.
-      asked = true;
-      emit(UNSUPPORTED, { message: UNSUPPORTED_MESSAGE });
-      asked = false;
+      tell(UNSUPPORTED, { message: UNSUPPORTED_MESSAGE });
       return Promise.resolve({
         ok: false,
         state: UNSUPPORTED,
@@ -123,9 +129,7 @@ function createUpdater({ app, autoUpdater, onEvent }) {
     }
     if (ready) {
       // The version is already on the disk: there is nothing left to look for.
-      asked = true;
-      emit(READY, { percent: 100 });
-      asked = false;
+      tell(READY, { percent: 100 });
       return Promise.resolve({ ok: true, state: READY, version: found });
     }
     if (pending) {
@@ -175,7 +179,7 @@ function createUpdater({ app, autoUpdater, onEvent }) {
     } catch (error) {
       leaving = false;
       const message = error?.message ?? String(error);
-      emit(ERROR, { message });
+      tell(ERROR, { message });
       return false;
     }
   }
