@@ -36,12 +36,14 @@ it, which is the normal state of a fresh install.
 |---|---|
 | `electron/main.js` | the shell, and every call to Hermes (SSH, tunnel, sessions, files, voice) |
 | `electron/preload.js` | the only bridge the renderer is allowed to use |
+| `electron/updater.js` | the rules of the update: what is looked for, and what happens to it |
 | `src/App.tsx` | the window: sidebar, conversation, composer, groups |
 | `src/components/` | the faces, the dialogs, the pickers, the panels |
 | `src/onboarding.tsx` | the setup: the first run, step by step |
 | `src/group.ts` | the protocol of a group: silence, tapbacks, mentions, waves |
 | `src/conversations.ts` | reading a conversation back out of the sessions |
 | `src/turns.ts` | the rules of a turn: tapbacks, quota, a server still installing |
+| `src/updates.ts` | what an update means, in words |
 | `src/modelPrefs.tsx` | what the person chose, and where it is kept |
 | `src/recording.ts` | the microphone, and the bytes it produces |
 | `docs/` | how the app is put together — read these before changing it |
@@ -85,6 +87,11 @@ tapback, a silence.
 - **The group is not a Hermes object.** It is rebuilt from the titles of its
   members' sessions (`Group · <group> · <member>`). Change the convention
   and you lose every group on every host.
+- **An update needs room and a signature.** The update is downloaded and
+  unpacked on the machine: a disk with a gigabyte free fails it for a reason
+  that has nothing to do with the update. The app is signed with a
+  development identity, and Squirrel.Mac checks the signature of what it
+  installs against the one of the app that is running.
 - **A conversation is read back from the server**, not kept. A test that
   passes locally against a cached transcript is not a test.
 - **The Mac is where the app is built.** The CI runs the checks on Linux

@@ -69,6 +69,17 @@ exist, and shows them. Nothing else is needed: no account, no cloud, no key
 typed by hand. The setup can be run again from **Settings → Setup**, whenever
 Hermes moves to another machine.
 
+### Updates
+
+The app finds its next version by itself: it looks on the releases page when
+it opens, downloads the build in the background, and takes it over when you
+close the app.
+
+You can also ask for it yourself. **Settings → Updates** says which version
+is running, and one button does the whole of it: it looks, it downloads the
+new build while the bar shows how far it has come, and the app restarts as the
+version that was found.
+
 ## Run it from the sources
 
 ```bash
@@ -143,15 +154,18 @@ gh release create v1.0.0 \
 ```
 docs/                   Architecture, transport and the words this project uses
 electron/main.js        Electron shell, window chrome, dock icon, Hermes bridge
+electron/updater.js     The rules of the update: what is looked for, and what happens to it
 src/App.tsx             Sidebar, chat, composer and interactions
 src/components/         Bloub avatars, create dialog, logo editor, icons
 src/conversations.ts    Reading a conversation back out of the Hermes sessions
 src/data.ts             Threads, group members, messages and reactions
 src/group.ts            Group protocol: silence, tapbacks, @mentions, turns
 src/turns.ts            The rules of a turn: tapbacks, quota, a server installing
+src/updates.ts          What an update means, in words
 src/styles.css          Design system and layout
 build/                  App icon (.icns + .png) and icon source
 site/                   The project site (static, no build step)
+e2e/update/             The update, tested for real: two builds, a feed, a button
 ```
 
 The other files worth knowing: [CONTRIBUTING.md](CONTRIBUTING.md) says how to

@@ -31,6 +31,7 @@ The day-to-day commands:
 | `npm run build` | the typecheck and the production renderer build |
 | `npm test` | the tests |
 | `npm run test:coverage` | the tests, with the coverage — and the thresholds |
+| `npm run test:update` | the update, for real: two builds, a feed, a button |
 | `npm run dist` | the `.app` and the `.dmg`, in `release/` |
 | `npm start` | the built app, without packaging it |
 
@@ -38,6 +39,7 @@ The day-to-day commands:
 
 ```
 electron/main.js        the shell and the bridge to Hermes
+electron/updater.js     the rules of the update: what is looked for, and what happens to it
 src/App.tsx             the window: sidebar, conversation, composer
 src/components/         the faces, the dialogs, the pickers
 src/onboarding.tsx      the setup: the first run, step by step
@@ -46,6 +48,7 @@ src/conversations.ts    reading a conversation back out of the sessions
 src/turns.ts            the rules of a turn: tapbacks, quota, a server installing
 src/modelPrefs.tsx      what the person chose, and where it is kept
 src/recording.ts        the microphone, and the bytes it produces
+src/updates.ts          what an update means, in words
 electron/preload.js     the bridge the renderer is allowed to use
 docs/                   how the app is put together
 site/                   the page that presents the project
