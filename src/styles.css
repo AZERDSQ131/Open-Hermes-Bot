@@ -2388,6 +2388,12 @@ button:focus-visible {
   border: none;
 }
 
+/* The question gets its own air before the panels answer it. */
+.settings-modes legend {
+  grid-column: 1 / -1;
+  margin-bottom: 8px;
+}
+
 @media (max-width: 420px) {
   .settings-modes {
     grid-template-columns: 1fr;
@@ -3982,6 +3988,12 @@ button:focus-visible {
   .onboarding-modes {
     grid-template-columns: 1fr;
   }
+}
+
+/* The question gets its own air before the panels answer it. */
+.onboarding-modes legend {
+  grid-column: 1 / -1;
+  margin-bottom: 8px;
 }
 
 /* The machines the SSH config already names: one click each. */
