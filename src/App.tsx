@@ -3310,7 +3310,8 @@ export default function App() {
             // list it yet: the sidebar carries it by hand until it does, so
             // the bot the person just made is there when they arrive.
             if (bot) {
-              pendingBots.current.add(bot.name);
+              const now = Date.now();
+              pendingBots.current.set(bot.name, now);
               addThread({
                 id: `agent-${uid()}`,
                 name: bot.title,
@@ -3320,10 +3321,12 @@ export default function App() {
                   shape: bot.shape,
                   variant: 'neutral',
                 },
-                preview: `Hermes profile ${bot.name}`,
-                time: 'Now',
+                preview: 'Starting…',
+                time: '…',
                 chatTime: 'Now',
                 messages: [],
+                pending: true,
+                pendingSince: now,
               });
             }
             // The setup may have created a bot, or opened the connection for
