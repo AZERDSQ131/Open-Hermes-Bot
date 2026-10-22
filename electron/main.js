@@ -14,6 +14,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { spawn, spawnSync, execFileSync } = require('node:child_process');
 const { autoUpdater } = require('electron-updater');
+const { createUpdater } = require('./updater');
 
 app.setName('Hermes Bot');
 
@@ -21,21 +22,18 @@ const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 
 // The app finds its own next version on the releases page, the way every
 // other app does. The update waits for the person to close the app: a
-// conversation is not something to interrupt.
-let updateReady = false;
-
-function lookForUpdates() {
-  if (!app.isPackaged) return;
-  try {
-    autoUpdater.autoDownload = true;
-    autoUpdater.on('update-downloaded', () => {
-      updateReady = true;
-    });
-    autoUpdater.checkForUpdatesAndNotify();
-  } catch {
-    // No release feed yet, or no network: the app runs the version it has.
-  }
-}
+// conversation is not something to interrupt. A person who asks for it gets
+// it there and then: looked for, downloaded, and the app comes back as the
+// version that was found.
+const updater = createUpdater({
+  app,
+  autoUpdater,
+  onEvent: (event) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send('hermes:update:event', event);
+    }
+  },
+});
 
 // The live tunnel forwards a configurable local port; a connection test uses
 // a neighbouring port on a throwaway tunnel that is never persisted.
@@ -596,6 +594,19 @@ ipcMain.handle('hermes:disconnect', () => {
 });
 
 ipcMain.handle('hermes:status', () => connectionStatus);
+
+// ----------------------------------------------------------------- update
+
+// The version the app is running, and whether it has a way of finding the
+// next one: a copy running from the sources has no releases page.
+ipcMain.handle('hermes:update:info', () => updater.info());
+
+// A person asks for an update: it is looked for, downloaded, and the app
+// comes back as the version that was found.
+ipcMain.handle('hermes:update:check', () => updater.check());
+
+// The new version takes over: the app closes and comes back as itself.
+ipcMain.handle('hermes:update:install', () => ({ ok: updater.install() }));
 
 // ------------------------------------------------------------------ chat
 
@@ -2165,7 +2176,7 @@ app.whenReady().then(() => {
   if (storedConnection().autoConnect && storedApiKey()) {
     connectNow().catch(() => undefined);
   }
-  lookForUpdates();
+  updater.checkInBackground();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -2176,13 +2187,7 @@ app.on('before-quit', stopTunnel);
 // The new version waits for the app to close: quitting is the moment the
 // update takes over.
 app.on('before-quit', () => {
-  if (!updateReady) return;
-  updateReady = false;
-  try {
-    autoUpdater.quitAndInstall();
-  } catch {
-    // The update stays on the disk for the next launch.
-  }
+  updater.installOnQuit();
 });
 
 app.on('window-all-closed', () => {

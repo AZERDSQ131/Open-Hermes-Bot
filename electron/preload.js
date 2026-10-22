@@ -38,6 +38,14 @@ contextBridge.exposeInMainWorld('hermes', {
   connect: () => ipcRenderer.invoke('hermes:connect'),
   disconnect: () => ipcRenderer.invoke('hermes:disconnect'),
   status: () => ipcRenderer.invoke('hermes:status'),
+  updateInfo: () => ipcRenderer.invoke('hermes:update:info'),
+  checkForUpdates: () => ipcRenderer.invoke('hermes:update:check'),
+  installUpdate: () => ipcRenderer.invoke('hermes:update:install'),
+  onUpdate: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('hermes:update:event', listener);
+    return () => ipcRenderer.removeListener('hermes:update:event', listener);
+  },
   onStatus: (callback) => {
     const listener = (_event, status) => callback(status);
     ipcRenderer.on('hermes:status', listener);
