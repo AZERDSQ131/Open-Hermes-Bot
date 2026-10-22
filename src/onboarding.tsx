@@ -774,14 +774,26 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     shape: BloubShape;
     color?: string;
   }): Promise<boolean> {
+    // Continuity: the page shows the bot the person just picked from the
+    // first frame — name, colour, face — and the server confirms it behind.
+    // A double click costs nothing: a name that is already there is adopted.
+    const previewTitle = botName.trim();
+    setMadeBot({
+      name: toProfileId(previewTitle),
+      title: previewTitle,
+      color: botTouched
+        ? botColor
+        : (profileColor(toProfileId(previewTitle)) ?? DEFAULT_COLOR),
+      shape: botFace,
+    });
     // Instant: the page turns on the click, and the bot is made behind it.
-    // The wait lives on the next page, never on the colour. A double click
-    // costs nothing: a name that is already there is adopted, not remade.
+    // The wait lives on the next page, never on the colour.
     goTo(stepIndex + 1);
     const made = await handleCreateBot(input);
     // The connection dropped mid-setup: back to the connection page, marked
     // as a connection error — the person has no settings to open from here.
     if (made.connectionError) {
+      setMadeBot(null);
       setConnected(false);
       setFailed(true);
       setChecks(emptyChecks());
@@ -790,7 +802,8 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       return false;
     }
     if (!made.made) {
-      // Nothing was made: back to the colour with the reason.
+      // Nothing was made: the preview goes with it, back to the colour.
+      setMadeBot(null);
       goTo(STEPS.indexOf('colour'));
       setError(made.error ?? 'The bot could not be created.');
       return false;
@@ -1234,7 +1247,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                   </li>
                 ) : null}
               </ul>
-              {busy === 'bot' || warming === 'pending' ? (
+              {warming === 'pending' ? (
                 <div className="onboarding-waiting" role="status">
                   <span className="onboarding-waiting-dots" aria-hidden="true">
                     <i />
@@ -1242,9 +1255,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                     <i />
                   </span>
                   <span className="onboarding-waiting-word">
-                    {busy === 'bot'
-                      ? 'Making your bot…'
-                      : 'Connecting your bot… it will answer in a moment.'}
+                    Connecting your bot… it will answer in a moment.
                   </span>
                 </div>
               ) : null}
