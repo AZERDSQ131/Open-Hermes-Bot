@@ -172,6 +172,9 @@ Things that are true today and worth saying out loud:
 - `electron/main.js` carries the SSH, the tunnel and the shell commands, and
   the coverage gate does not reach it. The rules it holds are the ones a
   careful read has to check.
+- `electron/updater.js` — the rules of the update — is out of the gate too,
+  for an accident: the coverage configuration names its files twice, and the
+  second naming wins. Its threshold of 100 % therefore passes on nothing.
 
 ## Reporting a problem
 
