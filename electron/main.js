@@ -1214,12 +1214,21 @@ ipcMain.handle('hermes:toolsets:toggle', async (_event, payload) => {
 ipcMain.handle('hermes:connectors', async () => {
   const answer = await askHost('connectors', {}, 60000);
   const messages = Array.isArray(answer.messages) ? answer.messages : [];
+  const catalog = Array.isArray(answer.catalog) ? answer.catalog : [];
+  const toolkit = Array.isArray(answer.toolkit) ? answer.toolkit : [];
+  const accounts = Array.isArray(answer.accounts) ? answer.accounts : [];
+  const ok = Boolean(answer.ok);
+  // Open means the host answered with services, not merely without
+  // complaints: a failed ask (ok:false) is never open, and a partial ask
+  // that still brought rows is open with a warning attached.
+  const hasData =
+    catalog.length > 0 || toolkit.length > 0 || accounts.length > 0;
   return {
-    ok: Boolean(answer.ok),
-    available: messages.length === 0,
-    catalog: Array.isArray(answer.catalog) ? answer.catalog : [],
-    toolkit: Array.isArray(answer.toolkit) ? answer.toolkit : [],
-    accounts: Array.isArray(answer.accounts) ? answer.accounts : [],
+    ok,
+    available: ok && (hasData || messages.length === 0),
+    catalog,
+    toolkit,
+    accounts,
     messages,
     error: typeof answer.error === 'string' ? answer.error : '',
   };
