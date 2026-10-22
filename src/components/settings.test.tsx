@@ -719,6 +719,25 @@ describe('the settings', () => {
     await waitFor(() => expect(connectors).toHaveBeenCalledTimes(2));
   });
 
+  it('warn when only some connector lists stayed closed', async () => {
+    withBridge({
+      connectors: vi.fn(async () => ({
+        ok: true,
+        available: true,
+        catalog: [{ slug: 'notion', name: 'Notion' }],
+        toolkit: [{ connector: 'notion', enabled: true }],
+        accounts: [],
+        messages: ['The accounts of the services are closed: boom'],
+      })),
+    });
+    renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+    expect(await screen.findByText('Notion')).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'Some lists stayed closed' }),
+    ).toBeTruthy();
+  });
+
   it('turn a skill off on the host, where the skill lives', async () => {
     const toggleSkill = vi.fn(async () => ({ ok: true }));
     withBridge({
