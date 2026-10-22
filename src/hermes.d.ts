@@ -260,6 +260,15 @@ export type HermesBridge = {
     mode?: HermesConnectionMode;
     sshHost?: string;
   }) => Promise<{ ok: boolean; error?: string; keyLength?: number }>;
+  /**
+   * The hosts the person's `~/.ssh/config` already names, the way the setup
+   * calls them — a machine the person does not have to name twice.
+   */
+  sshHosts: () => Promise<{
+    ok: boolean;
+    hosts: string[];
+    error?: string;
+  }>;
   /** Remembers that the person has been through the setup. */
   setOnboarding: (payload: {
     completed: boolean;

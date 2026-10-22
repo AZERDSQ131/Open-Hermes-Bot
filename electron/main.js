@@ -12,6 +12,7 @@ const {
 } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const os = require('node:os');
 const { spawn, spawnSync, execFileSync } = require('node:child_process');
 const { autoUpdater } = require('electron-updater');
 const { createUpdater } = require('./updater');
@@ -22,6 +23,7 @@ const {
   isConfigured,
   normalizeMode,
   resolveMode,
+  sshConfigHosts,
 } = require('./connection.js');
 
 app.setName('Hermes Bot');
@@ -652,6 +654,21 @@ ipcMain.handle('hermes:key:import', async (_event, payload) => {
   if (key.length < 16) return { ok: false, error: 'Imported key looks invalid' };
   storeSecret(key);
   return { ok: true, keyLength: key.length };
+});
+
+// The persons' machines have names they have already written once. Reading
+// them is a courtesy the setup lives on: a missing file says an empty list,
+// and nothing is asked of the SSH itself — it is a text file.
+ipcMain.handle('hermes:ssh:hosts', () => {
+  try {
+    const config = fs.readFileSync(
+      path.join(os.homedir(), '.ssh', 'config'),
+      'utf8',
+    );
+    return { ok: true, hosts: sshConfigHosts(config) };
+  } catch {
+    return { ok: true, hosts: [] };
+  }
 });
 
 async function connectNow() {
