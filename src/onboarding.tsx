@@ -777,15 +777,16 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   }): Promise<boolean> {
     // Continuity: the page shows the bot the person just picked from the
     // first frame — name, colour, face — and the server confirms it behind.
+    // The picked values travel with the click: the states have not caught up
+    // yet, so reading them would preview the colour from before the click.
     // A double click costs nothing: a name that is already there is adopted.
     const previewTitle = botName.trim();
     setMadeBot({
       name: toProfileId(previewTitle),
       title: previewTitle,
-      color: botTouched
-        ? botColor
-        : (profileColor(toProfileId(previewTitle)) ?? DEFAULT_COLOR),
-      shape: botFace,
+      color:
+        input.color ?? (profileColor(toProfileId(previewTitle)) ?? DEFAULT_COLOR),
+      shape: input.shape,
     });
     // Instant: the page turns on the click, and the bot is made behind it.
     // The wait lives on the next page, never on the colour.
