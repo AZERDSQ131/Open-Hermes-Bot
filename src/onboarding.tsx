@@ -739,11 +739,12 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   }, [actorShape, botFace, busy, connected, failed, scene, step]);
 
   // The light of the window follows the actor, and the last scene follows the
-  // bot the person made.
+  // bot the person made. From the face on, the preview wears the bot's own
+  // colour — the big shape above the grid is the bot, not the actor.
   const light =
     step === 'ready'
       ? (madeBot?.color ?? actorColor)
-      : step === 'colour'
+      : step === 'face' || step === 'colour'
         ? botColor
         : actorColor;
 
