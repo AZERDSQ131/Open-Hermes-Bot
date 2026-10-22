@@ -2143,6 +2143,15 @@ button:focus-visible {
   min-width: 0;
   justify-content: center;
   overflow-y: auto;
+  /* The pane is scrolled with the wheel, not with a bar: a bar that
+     appears when one panel shows more than the other drags the whole
+     window sideways as the content grows. */
+  scrollbar-width: none;
+}
+
+.settings-pane::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .settings-pane-inner {
