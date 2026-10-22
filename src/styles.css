@@ -2478,6 +2478,15 @@ button:focus-visible {
   font-size: 12px;
 }
 
+/* Where the key would be, on this Mac there is no key to fill in: only
+   the word of where the app will find one. */
+.settings-key-guide {
+  margin: 8px 0 0;
+  color: #8d8d96;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .settings-host {
   display: flex;
   align-items: center;

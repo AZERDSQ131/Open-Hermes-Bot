@@ -285,6 +285,8 @@ export function SettingsView({
     await persist(at, name);
   }
 
+  // Reading a key from elsewhere is something the person asks for: on
+  // this Mac the scan does it unasked, so the button lives in ssh mode.
   async function handleImportKey() {
     if (!bridge) return;
     start('import');
@@ -294,11 +296,7 @@ export function SettingsView({
     if (result.ok) {
       setHasKey(true);
       setApiKey('');
-      setNotice(
-        mode === 'local'
-          ? 'Key imported from this Mac.'
-          : `Key imported from ${host || 'the server'}.`,
-      );
+      setNotice(`Key imported from ${host || 'the server'}.`);
     } else {
       setError(result.error ?? 'Could not read the key from the server');
     }
@@ -571,59 +569,86 @@ export function SettingsView({
                     </>
                   ) : null}
 
-                  <div className="settings-field">
-                    <label
-                      className="settings-field-label"
-                      htmlFor="connection-key"
-                    >
-                      API key
-                    </label>
-                    <input
-                      id="connection-key"
-                      type="password"
-                      value={apiKey}
-                      autoComplete="off"
-                      spellCheck={false}
-                      disabled={Boolean(busy)}
-                      placeholder={
-                        hasKey ? 'Saved in Keychain' : 'Paste API_SERVER_KEY'
-                      }
-                      onChange={(event) => {
-                        setApiKey(event.target.value);
-                        setError('');
-                        setNotice('');
-                      }}
-                    />
-                    <div className="settings-field-actions">
-                      <button
-                        type="button"
-                        className="settings-text-button"
-                        disabled={
-                          disabled || (mode === 'ssh' && !host.trim())
-                        }
-                        onClick={handleImportKey}
+                  {mode === 'local' ? (
+                    hasKey ? (
+                      <div className="settings-field">
+                        <div className="settings-field-actions">
+                          <button
+                            type="button"
+                            className="settings-text-button is-muted"
+                            disabled={disabled}
+                            onClick={handleClearKey}
+                          >
+                            {busy === 'clear'
+                              ? 'Removing…'
+                              : 'Remove stored key'}
+                          </button>
+                        </div>
+                        <span className="settings-field-note">
+                          Kept in the macOS Keychain, never written by Hermes
+                          Bot.
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="settings-key-guide">
+                        No key to paste — the app reads API_SERVER_KEY from
+                        ~/.hermes/.env on its own.
+                      </p>
+                    )
+                  ) : (
+                    <div className="settings-field">
+                      <label
+                        className="settings-field-label"
+                        htmlFor="connection-key"
                       >
-                        {busy === 'import'
-                          ? 'Reading…'
-                          : mode === 'local'
-                            ? 'Import from this Mac'
-                            : `Import from ${host || 'server'}`}
-                      </button>
-                      {hasKey ? (
+                        API key
+                      </label>
+                      <input
+                        id="connection-key"
+                        type="password"
+                        value={apiKey}
+                        autoComplete="off"
+                        spellCheck={false}
+                        disabled={Boolean(busy)}
+                        placeholder={
+                          hasKey ? 'Saved in Keychain' : 'Paste API_SERVER_KEY'
+                        }
+                        onChange={(event) => {
+                          setApiKey(event.target.value);
+                          setError('');
+                          setNotice('');
+                        }}
+                      />
+                      <div className="settings-field-actions">
                         <button
                           type="button"
-                          className="settings-text-button is-muted"
-                          disabled={disabled}
-                          onClick={handleClearKey}
+                          className="settings-text-button"
+                          disabled={disabled || !host.trim()}
+                          onClick={handleImportKey}
                         >
-                          {busy === 'clear' ? 'Removing…' : 'Remove stored key'}
+                          {busy === 'import'
+                            ? 'Reading…'
+                            : `Import from ${host || 'server'}`}
                         </button>
-                      ) : null}
+                        {hasKey ? (
+                          <button
+                            type="button"
+                            className="settings-text-button is-muted"
+                            disabled={disabled}
+                            onClick={handleClearKey}
+                          >
+                            {busy === 'clear'
+                              ? 'Removing…'
+                              : 'Remove stored key'}
+                          </button>
+                        ) : null}
+                      </div>
+                      <span className="settings-field-note">
+                        Kept in the macOS Keychain, never written by Hermes
+                        Bot.
+                      </span>
                     </div>
-                    <span className="settings-field-note">
-                      Kept in the macOS Keychain, never written by Hermes Bot.
-                    </span>
-                  </div>
+                  )}
                 </div>
               </section>
 

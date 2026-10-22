@@ -242,12 +242,12 @@ describe('the settings', () => {
     ).toBeChecked();
   });
 
-  it('read the key from this machine when Hermes runs here', async () => {
+  it('read the key from the server when the person asks it to', async () => {
     const bridge = {
       getSettings: vi.fn(async () => ({
-        mode: 'local',
+        mode: 'ssh',
         configured: true,
-        sshHost: '',
+        sshHost: 'my-host',
         apiPort: 8642,
         localPort: 18742,
         autoConnect: true,
@@ -266,13 +266,14 @@ describe('the settings', () => {
     (window as unknown as { hermes: unknown }).hermes = bridge;
     renderSettings();
     await waitFor(() =>
-      expect(screen.getByText('Import from this Mac')).toBeTruthy(),
+      expect(screen.getByText('Import from my-host')).toBeTruthy(),
     );
-    await userEvent.click(screen.getByText('Import from this Mac'));
+    await userEvent.click(screen.getByText('Import from my-host'));
     await waitFor(() => expect(bridge.importKey).toHaveBeenCalled());
-    expect(bridge.importKey).toHaveBeenCalledWith(
-      expect.objectContaining({ mode: 'local' }),
-    );
+    expect(bridge.importKey).toHaveBeenCalledWith({
+      mode: 'ssh',
+      sshHost: 'my-host',
+    });
   });
 
   it('save the mode the person chose', async () => {
@@ -302,6 +303,12 @@ describe('the settings', () => {
       expect(screen.getByRole('radio', { name: /Another machine/ })).toBeChecked(),
     );
     await userEvent.click(screen.getByRole('radio', { name: /This Mac/ }));
+    // A key is already stored: what is left of the key row is the way to
+    // take it back.
+    await waitFor(() =>
+      expect(screen.getByText('Remove stored key')).toBeTruthy(),
+    );
+    expect(screen.queryByLabelText('API key')).toBeNull();
     await userEvent.click(screen.getByText(/Scan & connect/));
     await waitFor(() => expect(bridge.saveSettings).toHaveBeenCalled());
     expect(bridge.saveSettings).toHaveBeenCalledWith(
@@ -346,6 +353,10 @@ describe('the settings', () => {
     await waitFor(() =>
       expect(screen.getByText(/Scan & connect/)).toBeTruthy(),
     );
+    // No key stored: the row says where the app will find one itself.
+    expect(
+      await screen.findByText(/API_SERVER_KEY from ~\/\.hermes\/\.env/),
+    ).toBeTruthy();
     await userEvent.click(screen.getByText(/Scan & connect/));
     await waitFor(() => expect(bridge.connect).toHaveBeenCalled());
     // The whole scan: the key is read where it lives, then the connection
@@ -428,6 +439,12 @@ describe('the settings', () => {
     ).toBeTruthy();
     // Nothing was written down: the scan was the only ask.
     expect(bridge.saveSettings).not.toHaveBeenCalled();
+    // And nothing is asked to be pasted: one line, naming where the key
+    // will be found once Hermes is set up.
+    expect(screen.queryByLabelText('API key')).toBeNull();
+    expect(
+      screen.getByText(/API_SERVER_KEY from ~\/\.hermes\/\.env/),
+    ).toBeTruthy();
   });
 
   it('say when the connection failed', () => {
