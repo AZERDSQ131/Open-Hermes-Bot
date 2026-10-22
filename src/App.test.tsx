@@ -209,6 +209,39 @@ describe('the app', () => {
     await userEvent.type(search, 'zzz');
     expect(await screen.findByText('No agents found')).toBeTruthy();
   });
+
+  it('carries the bot the setup made into the sidebar', async () => {
+    const bridge = makeBridge({
+      // A machine that knows nothing yet: the setup asks for everything.
+      getSettings: vi.fn(async () => ({
+        mode: 'local',
+        configured: false,
+        sshHost: '',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: false,
+        onboardingCompleted: false,
+      })),
+    });
+    await renderApp(bridge);
+    // The setup opens, the scan finds the Hermes on this Mac, and the person
+    // makes their first bot.
+    await userEvent.click(await screen.findByRole('button', { name: 'Begin' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Continue|Test the connection/ }),
+    );
+    await userEvent.type(await screen.findByLabelText('Its name'), 'Nova');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await userEvent.click(await screen.findByLabelText('Hexagon'));
+    await userEvent.click(await screen.findByLabelText('Amber'));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Start talking' }),
+    );
+    // The bot the person made is in the sidebar, even though the server does
+    // not list it yet: the app carries it until the list catches up.
+    expect((await screen.findAllByText('Nova')).length).toBeGreaterThan(0);
+  });
 });
 
 describe('the conversation', () => {

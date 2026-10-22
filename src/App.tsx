@@ -895,6 +895,16 @@ export default function App() {
     };
   }, []);
 
+  // A bot that was made is served by the gateway a moment later: the sidebar
+  // is rebuilt then, so the bot stops being the one that is only expected.
+  useEffect(() => {
+    const bridge = window.hermes;
+    if (!bridge?.onBotReady) return;
+    return bridge.onBotReady(() => {
+      setRefreshToken((current) => current + 1);
+    });
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (!event.metaKey) return;
@@ -3175,8 +3185,28 @@ export default function App() {
 
       {onboardingOpen ? (
         <Onboarding
-          onFinish={() => {
+          onFinish={(bot) => {
             setOnboardingOpen(false);
+            // The bot the setup made is on the host, but the gateway may not
+            // list it yet: the sidebar carries it by hand until it does, so
+            // the bot the person just made is there when they arrive.
+            if (bot) {
+              pendingBots.current.add(bot.name);
+              addThread({
+                id: `agent-${uid()}`,
+                name: bot.title,
+                profile: bot.name,
+                avatar: {
+                  color: avatarColor(bot.color, bot.name),
+                  shape: bot.shape,
+                  variant: 'neutral',
+                },
+                preview: `Hermes profile ${bot.name}`,
+                time: 'Now',
+                chatTime: 'Now',
+                messages: [],
+              });
+            }
             // The setup may have created a bot, or opened the connection for
             // the first time: the sidebar is read again either way.
             setRefreshToken((count) => count + 1);

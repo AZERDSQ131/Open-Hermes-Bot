@@ -1221,7 +1221,21 @@ async function apiKeyFor(profile) {
   return key;
 }
 
-async function apiCall(pathname, { method = 'GET', body, profile, timeoutMs = 30000 } = {}) {
+// A bot that was made a moment ago is not served by the gateway yet. The
+// person asking for it is waiting for an answer anyway, so the wait happens
+// here rather than failing a message that would have worked.
+async function awaitWarming(profile) {
+  if (!profile) return;
+  const warming = warmingBots.get(profile);
+  if (!warming) return;
+  await Promise.race([
+    warming.promise,
+    new Promise((resolve) => setTimeout(resolve, 35000)),
+  ]);
+}
+
+async function apiCall(pathname, { method = 'GET', body, profile, timeoutMs = 30000, waitForWarming = true } = {}) {
+  if (waitForWarming) await awaitWarming(profile);
   if (!isLive()) await ensureConnected();
   const live = liveTunnelOrError();
   if (live.error) return { ok: false, status: 0, error: live.error };
@@ -2085,6 +2099,9 @@ const chatRequests = new Map();
 // sitting on a request that the server keeps retrying.
 ipcMain.handle('hermes:chat:send', async (event, payload) => {
   if (!isLive()) await ensureConnected();
+  // A bot that was made a moment ago is not served yet: the person is waiting
+  // for the answer anyway, so the wait belongs here.
+  await awaitWarming(payload?.profile);
   const live = liveTunnelOrError();
   if (live.error) return { ok: false, error: live.error };
   const apiKey = await apiKeyFor(payload?.profile);
@@ -2496,9 +2513,47 @@ ${READ_META_PYTHON}PY
 echo "OK $NAME $META"
 `;
 
+// Asking the gateway to serve a profile, on its own. The build asks once,
+// with the profile's creation; the gateway may not have been able to serve it
+// then — the profile it reads is written a moment before. The ask is cheap
+// (a python that answers in a tenth of a second) and it is worth asking
+// again: a bot that is served now does not wait for the next rescan.
+const SERVE_PROFILE_SCRIPT = `set -u
+
+ROOT="$HOME/.hermes"
+NAME="$1"
+
+python3 - "$ROOT" "$NAME" <<'PY'
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+sys.path.insert(0, str(root / "hermes-agent"))
+try:
+    from gateway.control_socket import request_serve_profile_hot
+    try:
+        request_serve_profile_hot(root, sys.argv[2], timeout=3.0)
+    except TypeError:
+        request_serve_profile_hot(root, sys.argv[2])
+except Exception:
+    pass
+PY
+`;
+
+// The ask, as a command on the machine that runs Hermes.
+function serveProfileCommand(name) {
+  const encoded = Buffer.from(SERVE_PROFILE_SCRIPT, 'utf8').toString('base64');
+  const remoteScript = `/tmp/hermesbot-serve-${name}.sh`;
+  return [
+    'set -u',
+    `printf %s ${shellQuote(encoded)} | base64 -d > ${remoteScript}`,
+    `bash ${remoteScript} ${shellQuote(name)}`,
+    `rm -f ${remoteScript}`,
+  ].join('\n');
+}
+
 // "OK <name> <metadata json>" from the script above.
-function parseCreateOutcome(line) {
-  const rest = line.slice(3).trim();
+function parseCreateOutcome(line) {  const rest = line.slice(3).trim();
   const split = rest.indexOf(' ');
   const created = split === -1 ? rest : rest.slice(0, split);
   const rawMeta = split === -1 ? '' : rest.slice(split + 1).trim();
@@ -2517,27 +2572,83 @@ function parseCreateOutcome(line) {
   return { created, meta };
 }
 
-// Creating a bot only needs SSH, so it used to succeed while the app was not
-// connected — the bot appeared in Hermes and the first message failed with
-// "not connected". Creation now needs a live tunnel, and does not report
-// success until the gateway answers for the profile.
-async function waitForBotReady(name, timeoutMs = 12000) {
-  const deadline = Date.now() + timeoutMs;
-  let last = '';
-  while (Date.now() < deadline) {
-    const probe = await apiCall('/api/sessions', { profile: name, timeoutMs: 4000 });
-    if (probe.ok) return { ok: true };
-    last = apiErrorText(probe, `HTTP ${probe.status || 0}`);
-    if (probe.status === 401) return { ok: false, error: last };
-    await new Promise((resolve) => setTimeout(resolve, 400));
+// A bot that was made is on the host, but the gateway does not serve a
+// profile the moment it is written: Hermes holds its adapters and takes a
+// new profile at its next rescan (30 s). The gateway can be asked to serve it
+// sooner, and that ask is bounded to 3 s.
+//
+// So the person, clicking a colour, waited for a question nobody could
+// answer faster — and the app said the bot had failed while it was only
+// warming up. The wait is taken out of the click: the bot is made, the app
+// remembers that it is not served yet, and the waiting happens in the
+// background. Anything that asks for the bot waits for it where the person is
+// already waiting for an answer.
+const warmingBots = new Map();
+
+// The window is told when a bot is served, or when it is not: the page that
+// made it has something to say about it.
+function tellWindows(name, served) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send('hermes:bot:ready', { name, served });
   }
-  return { ok: false, error: last || 'Hermes never answered for this profile' };
+}
+
+// One question, asked once: is the gateway serving this profile yet?
+async function botServed(name) {
+  const probe = await apiCall('/api/sessions', {
+    profile: name,
+    timeoutMs: 3000,
+    waitForWarming: false,
+  });
+  return probe.ok;
+}
+
+// The waiting, in the background: the profile is asked for until the gateway
+// answers, or until the rescan has certainly happened. A link that dropped is
+// opened again — the throttle of `ensureConnected` is for an app that is
+// idling, not for a bot that is being born.
+function startWarming(name, timeoutMs = 60000) {
+  const already = warmingBots.get(name);
+  if (already) return already;
+  const promise = (async () => {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (!isLive() && !manualDisconnect) {
+        lastConnectAttempt = Date.now();
+        await connectNow().catch(() => undefined);
+      }
+      // The gateway is asked again: the build asked once, and the gateway may
+      // not have been able to serve a profile that was written a moment ago.
+      await runHostCommand(storedConnection(), serveProfileCommand(name), 10000).catch(
+        () => undefined,
+      );
+      const probe = await apiCall('/api/sessions', {
+        profile: name,
+        timeoutMs: 4000,
+        waitForWarming: false,
+      });
+      if (probe.ok) return true;
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    return false;
+  })();
+  warmingBots.set(name, { promise });
+  promise.then((served) => {
+    warmingBots.delete(name);
+    tellWindows(name, served);
+  });
+  return promise;
 }
 
 ipcMain.handle('hermes:bot:create', async (_event, payload) => {
   const connection = storedConnection();
   if (!isLive()) {
-    await ensureConnected();
+    // A person asking for a bot is asking for the link: the throttle that
+    // keeps an idle app from reconnecting every few seconds is not for them.
+    if (!manualDisconnect) {
+      lastConnectAttempt = Date.now();
+      await connectNow().catch(() => undefined);
+    }
   }
   if (!isLive()) {
     return {
@@ -2596,20 +2707,21 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
 
   if (line.startsWith('OK ')) {
     const { created, meta } = parseCreateOutcome(line);
+    const profile = created || name;
     // The build mints a fresh API_SERVER_KEY: drop any key cached for this name.
-    profileKeys.delete(created || name);
-    const ready = await waitForBotReady(created || name);
-    if (!ready.ok) {
-      return {
-        ok: false,
-        error: `“${created || name}” was created but Hermes does not answer for it: ${ready.error}.`,
-      };
-    }
+    profileKeys.delete(profile);
+    // The bot is on the host: it is made. Whether the gateway serves it yet is
+    // another question, and one nobody has to wait for here — the profile is
+    // served at Hermes' next rescan, or at once if the gateway can be asked.
+    // The app asks in the background and says which of the two it is.
+    const served = await botServed(profile);
+    if (!served) startWarming(profile);
     return {
       ok: true,
-      name: created || name,
+      name: profile,
       title: meta.title || title || name,
       color: meta.color,
+      served,
     };
   }
 
@@ -2635,12 +2747,17 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
     } catch {
       before = { title: '', color: '' };
     }
+    // A bot that was already there is served the same way a new one is: the
+    // gateway may still be holding its adapters for it.
+    const served = await botServed(name);
+    if (!served) startWarming(name);
     return {
       ok: true,
       name,
       title: before.title || title || name,
       color: before.color,
       exists: true,
+      served,
     };
   }
 

@@ -51,6 +51,12 @@ contextBridge.exposeInMainWorld('hermes', {
     ipcRenderer.on('hermes:chat:tool', listener);
     return () => ipcRenderer.removeListener('hermes:chat:tool', listener);
   },
+  /** A bot that was made: the gateway serves it now, or still does not. */
+  onBotReady: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('hermes:bot:ready', listener);
+    return () => ipcRenderer.removeListener('hermes:bot:ready', listener);
+  },
   connect: () => ipcRenderer.invoke('hermes:connect'),
   disconnect: () => ipcRenderer.invoke('hermes:disconnect'),
   status: () => ipcRenderer.invoke('hermes:status'),

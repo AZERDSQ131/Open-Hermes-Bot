@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { HermesConnectionMode, HermesStatus } from './hermes';
 import { AgentAvatar } from './components/AgentAvatar';
 import { BLOUB_COLOR_OPTIONS } from './components/Bloub';
@@ -181,10 +181,22 @@ type MadeBot = {
 };
 
 type OnboardingProps = {
-  /** The setup is done: the app takes over. */
-  onFinish: () => void;
+  /**
+   * The setup is done: the app takes over. The bot the person made travels
+   * with it, so the sidebar can carry it until the server lists it.
+   */
+  onFinish: (bot?: OnboardingBot) => void;
   /** The person walked away from the setup. */
   onDismiss: () => void;
+};
+
+/** The bot the setup made, as the app needs to know it. */
+export type OnboardingBot = {
+  /** The profile id on the host: the name Hermes knows the bot by. */
+  name: string;
+  title: string;
+  color: string;
+  shape: BloubShape;
 };
 
 export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
@@ -204,6 +216,15 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   );
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  /** A notice is good news by default; this one is only worth knowing. */
+  const [noticeWarn, setNoticeWarn] = useState(false);
+  // The bot that was made and is not served by the gateway yet: the shell says
+  // when it is, and the page has something to say about it then.
+  const warmingBot = useRef('');
+  // Where the bot stands with the gateway: still coming, served, or never.
+  const [warming, setWarming] = useState<'none' | 'pending' | 'ready' | 'failed'>(
+    'none',
+  );
   const [checks, setChecks] = useState<Check[]>(emptyChecks);
   const [connected, setConnected] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -404,6 +425,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       if (result.ok) {
         setHasKey(true);
         setApiKey('');
+        setNoticeWarn(false);
         setNotice(
           at === 'local'
             ? 'Read from this Mac, and kept in the Keychain.'
@@ -489,17 +511,73 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     };
   }, [bridge, mode, savedHosts, step]);
 
+  // The gateway serves a bot that was just made a moment later — or not, and
+  // the page then says which of the two it is. The bot is made either way;
+  // this is the answer to "is it there yet".
+  useEffect(() => {
+    const listener = window.hermes;
+    if (!listener?.onBotReady) return;
+    return listener.onBotReady((event) => {
+      if (!warmingBot.current || event.name !== warmingBot.current) return;
+      setNoticeWarn(!event.served);
+      setNotice(
+        event.served
+          ? 'Hermes is serving it now.'
+          : 'Hermes is not serving it yet — it will come up at the next scan of the host.',
+      );
+      setWarming(event.served ? 'ready' : 'failed');
+      if (event.served) warmingBot.current = '';
+    });
+  }, []);
+
+  /**
+   * A bot that was made can be corrected: the person goes back, changes the
+   * name, the shape or the colour, and the host is told — so the bot wears
+   * what they chose when they come back to it.
+   */
+  async function correctBot(next: {
+    title?: string;
+    color?: string;
+    shape?: BloubShape;
+  }): Promise<boolean> {
+    const made = madeBot;
+    if (!made) return false;
+    if (!bridge?.updateBot) return false;
+    const title = next.title ?? made.title;
+    const color = next.color ?? made.color;
+    const shape = next.shape ?? made.shape;
+    try {
+      await bridge.updateBot({ name: made.name, title, color, shape });
+    } catch {
+      return false;
+    }
+    setMadeBot({ ...made, title, color, shape });
+    return true;
+  }
+
+  /**
+   * Makes the first bot. The answer carries what the page has to say after
+   * the step changes: the notice about a bot that exists but does not answer
+   * yet would be wiped by the move itself, so it travels with the result.
+   */
   async function handleCreateBot(input: {
     shape: BloubShape;
     /** The colour the person chose; absent when they chose none. */
     color?: string;
-  }): Promise<boolean> {
-    if (!bridge?.createBot) return false;
+  }): Promise<{ made: boolean; notice?: string }> {
     const title = botName.trim();
-    if (!title) return false;
+    if (!title) return { made: false };
     setBusy('bot');
     setError('');
     setNotice('');
+    // A bot that is already there is corrected, not made again: the person
+    // went back and changed its colour, its shape or its name.
+    if (madeBot) {
+      await correctBot({ title, color: input.color, shape: input.shape });
+      setBusy('none');
+      return { made: true };
+    }
+    if (!bridge?.createBot) return { made: false };
     const result = await bridge
       .createBot({
         name: toProfileId(title),
@@ -514,11 +592,13 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
         name: undefined,
         title: undefined,
         color: undefined,
+        created: false,
+        served: false,
       }));
-    if (!result.ok) {
+    if (!result.ok && !result.created) {
       setError(result.error ?? 'The bot could not be created.');
       setBusy('none');
-      return false;
+      return { made: false };
     }
     const name = result.name || toProfileId(title);
     setMadeBot({
@@ -529,10 +609,30 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       // the page shows the bot that was made.
       shape: input.shape,
     });
-    setBotName('');
-    setBotTouched(false);
     setBusy('none');
-    return true;
+    // A bot that is on the host but not answering yet is still a bot that was
+    // made: the setup shows it and says what is missing, instead of asking
+    // for a name Hermes would now refuse as already taken.
+    if (!result.ok) {
+      return {
+        made: true,
+        notice:
+          result.error ??
+          'The bot was created, but Hermes has not answered for it yet.',
+      };
+    }
+    // The gateway serves a new profile at its next scan: the bot is made, and
+    // it is on its way. The page says so and the shell says when it is there.
+    if (result.served === false) {
+      warmingBot.current = name;
+      setWarming('pending');
+      return {
+        made: true,
+        notice: 'Hermes is starting this bot — it will answer in a moment.',
+      };
+    }
+    setWarming('ready');
+    return { made: true };
   }
 
   async function remember(completed: boolean) {
@@ -546,7 +646,18 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
 
   async function handleFinish() {
     await remember(true);
-    onFinish();
+    // The bot the person made travels with the setup: the server may not list
+    // it yet, and the sidebar has to carry it until it does.
+    onFinish(
+      madeBot
+        ? {
+            name: madeBot.name,
+            title: madeBot.title,
+            color: madeBot.color,
+            shape: madeBot.shape,
+          }
+        : undefined,
+    );
   }
 
   async function handleDismiss() {
@@ -578,8 +689,10 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   const isLast = stepIndex === STEPS.length - 1;
   const testing = step === 'setup' && !connected;
   // The pages that pick a shape or a colour advance on the click itself:
-  // there is nothing left for a button to say.
-  const picksItsOwnWay = step === 'face' || step === 'colour';
+  // there is nothing left for a button to say. Once the bot is made, the
+  // person can come back to correct it: the button says so again.
+  const picksItsOwnWay =
+    (step === 'face' || step === 'colour') && madeBot === null;
   // The line that says how the app will reach Hermes. A Hermes on this
   // machine needs no tunnel: the port is the way in.
   const linkLine =
@@ -616,27 +729,37 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
         ? botColor
         : actorColor;
 
-  const primaryLabel = isLast
-    ? 'Start talking'
-    : step === 'welcome'
-      ? 'Begin'
-      : testing
-        ? mode === 'local'
-          ? failed
-            ? 'Scan again'
-            : 'Scan this Mac'
-          : 'Test the connection'
-        : step === 'colour' && !madeBot
-          ? 'Make the bot'
-          : 'Continue';
+  // The last page waits for the gateway: the bot is made, and the machine it
+  // answers on has to open the door for it before the person can talk to it.
+  const connecting = step === 'ready' && warming === 'pending';
+
+  const primaryLabel = connecting
+    ? 'Connecting…'
+    : isLast
+      ? 'Start talking'
+      : step === 'welcome'
+        ? 'Begin'
+        : testing
+          ? mode === 'local'
+            ? failed
+              ? 'Scan again'
+              : 'Scan this Mac'
+            : 'Test the connection'
+          : step === 'colour' && !madeBot
+            ? 'Make the bot'
+            : 'Continue';
 
   async function makeBot(input: {
     shape: BloubShape;
     color?: string;
   }): Promise<boolean> {
     const made = await handleCreateBot(input);
-    if (!made) return false;
+    if (!made.made) return false;
     goTo(stepIndex + 1);
+    if (made.notice) {
+      setNoticeWarn(true);
+      setNotice(made.notice);
+    }
     return true;
   }
 
@@ -649,7 +772,16 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       await (mode === 'local' ? scanLocal() : runHandshake());
       return;
     }
+    if (step === 'name') {
+      // The name is the title the bot answers to: a correction is told to
+      // the host before the page gets out of the way.
+      if (madeBot) await correctBot({ title: botName.trim() });
+      goTo(stepIndex + 1);
+      return;
+    }
     if (step === 'face') {
+      // The shape is worn everywhere the bot shows up.
+      if (madeBot) await correctBot({ shape: botFace });
       goTo(stepIndex + 1);
       return;
     }
@@ -730,11 +862,28 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
             </div>
           )}
 
-          <p className="onboarding-eyebrow">{scene.eyebrow}</p>
-          <h1 id="onboarding-title" className="onboarding-title">
-            {scene.title}
-          </h1>
-          <p className="onboarding-line">{scene.line}</p>
+          <p className="onboarding-eyebrow">
+            {connecting ? 'Almost' : scene.eyebrow}
+          </p>
+          {connecting ? (
+            <div className="onboarding-waiting" id="onboarding-title" role="status">
+              <span className="onboarding-waiting-dots" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+              <h1 className="onboarding-title is-waiting">
+                Connecting to your machine…
+              </h1>
+            </div>
+          ) : (
+            <>
+              <h1 id="onboarding-title" className="onboarding-title">
+                {scene.title}
+              </h1>
+              <p className="onboarding-line">{scene.line}</p>
+            </>
+          )}
 
           {step === 'setup' ? (
             <>
@@ -1021,6 +1170,9 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                   // A click is the way forward: the person chose, the page
                   // gets out of the way.
                   setBotFace(shape);
+                  // A bot that was made and is being corrected: the host is
+                  // told, so the shape it wears is the one that was chosen.
+                  if (madeBot) void correctBot({ shape });
                   goTo(stepIndex + 1);
                 }}
               />
@@ -1043,28 +1195,49 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
           ) : null}
 
           {step === 'ready' ? (
-            <ul className="onboarding-facts">
-              <li>
-                <span>Hermes runs</span>
-                <strong>{mode === 'local' ? 'on this Mac' : `on ${host}`}</strong>
-              </li>
-              <li>
-                <span>Key</span>
-                <strong>in the Keychain</strong>
-              </li>
-              {madeBot ? (
+            connecting ? (
+              <div className="onboarding-waiting" role="status">
+                <span className="onboarding-waiting-dots" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <span className="onboarding-waiting-word">
+                  Connecting to your machine…
+                </span>
+              </div>
+            ) : (
+              <ul className="onboarding-facts">
                 <li>
-                  <span>First bot</span>
-                  <strong>{madeBot.title}</strong>
+                  <span>Hermes runs</span>
+                  <strong>{mode === 'local' ? 'on this Mac' : `on ${host}`}</strong>
                 </li>
-              ) : null}
-            </ul>
+                <li>
+                  <span>Key</span>
+                  <strong>in the Keychain</strong>
+                </li>
+                {madeBot ? (
+                  <li>
+                    <span>First bot</span>
+                    <strong>{madeBot.title}</strong>
+                  </li>
+                ) : null}
+              </ul>
+            )
           ) : null}
 
           {error && step !== 'setup' ? (
             <p className="onboarding-error is-alone">{error}</p>
           ) : null}
-          {notice ? <p className="onboarding-notice">{notice}</p> : null}
+          {notice ? (
+            <p
+              className={
+                noticeWarn ? 'onboarding-notice is-warning' : 'onboarding-notice'
+              }
+            >
+              {notice}
+            </p>
+          ) : null}
         </div>
       </main>
 
@@ -1111,7 +1284,11 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
             <button
               type="button"
               className="onboarding-button is-primary"
-              disabled={busy !== 'none' || (testing ? !canTest : !canContinue)}
+              disabled={
+                busy !== 'none' ||
+                connecting ||
+                (testing ? !canTest : !canContinue)
+              }
               onClick={() => void handlePrimary()}
             >
               {busy === 'handshake'
