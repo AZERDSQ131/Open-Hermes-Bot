@@ -43,6 +43,19 @@ function fingerprint(
   return `${mode}\u0000${host.trim()}\u0000${port.trim()}\u0000${apiKey.trim()}`;
 }
 
+/**
+ * What is said here when scanning finds nothing on this Mac: where it
+ * looked, and the question to ask.
+ */
+function scanSilence(message: string | undefined, port: string) {
+  const nothing =
+    message === 'Nothing is listening on that port' ||
+    message === 'No answer on the local port';
+  return nothing
+    ? `No Hermes answered on 127.0.0.1:${port}. Is it running?`
+    : (message ?? 'Could not reach the server');
+}
+
 export function SettingsView({
   status,
   onClose,
@@ -128,11 +141,12 @@ export function SettingsView({
           : null;
 
   const disabled = Boolean(busy) || !bridge;
-  // A host is only needed for a Hermes that runs somewhere else.
+  // A host is only needed for a Hermes that runs somewhere else, and so is
+  // a key written down first: scanning reads it where it lives.
   const canTest =
     !disabled &&
     (mode === 'local' || host.trim() !== '') &&
-    (hasKey || apiKey.trim() !== '');
+    (mode === 'local' || hasKey || apiKey.trim() !== '');
 
   function report(next: HermesStatus) {
     onStatusChange(next);
@@ -167,6 +181,22 @@ export function SettingsView({
   async function handleSave() {
     if (!bridge) return;
     start('save');
+    // Scanning this Mac for the first time means reading the key where it
+    // lives if none is known yet: the whole scan is one click.
+    if (mode === 'local' && !hasKey && !apiKey.trim()) {
+      const result = await bridge
+        .importKey({ mode: 'local' })
+        .catch((reason: Error) => ({ ok: false, error: reason.message }));
+      if (!result.ok) {
+        setError(
+          result.error ?? 'Could not read the key from this Mac',
+        );
+        setBusy(null);
+        return;
+      }
+      setHasKey(true);
+      setApiKey('');
+    }
     const saved = await bridge
       .saveSettings({
         mode,
@@ -195,7 +225,11 @@ export function SettingsView({
       setAutoConnect(saved.settings.autoConnect);
     }
     setApiKey('');
-    report(await bridge.connect());
+    const afterConnect = await bridge.connect();
+    if (afterConnect.state === 'error' && mode === 'local') {
+      setError(scanSilence(afterConnect.message, port || '8642'));
+    }
+    report(afterConnect);
     setBusy(null);
   }
 
@@ -681,10 +715,14 @@ export function SettingsView({
                     onClick={handleSave}
                   >
                     {busy === 'save'
-                      ? 'Connecting…'
-                      : status.state === 'connected'
-                        ? 'Save & reconnect'
-                        : 'Save & connect'}
+                      ? mode === 'local'
+                        ? 'Scanning…'
+                        : 'Connecting…'
+                      : mode === 'local'
+                        ? 'Scan & connect'
+                        : status.state === 'connected'
+                          ? 'Save & reconnect'
+                          : 'Save & connect'}
                   </button>
                 </div>
               </div>

@@ -168,11 +168,132 @@ describe('the settings', () => {
       expect(screen.getByRole('radio', { name: /Another machine/ })).toBeChecked(),
     );
     await userEvent.click(screen.getByRole('radio', { name: /This Mac/ }));
-    await userEvent.click(screen.getByText(/Save & (connect|reconnect)/));
+    await userEvent.click(screen.getByText(/Scan & connect/));
     await waitFor(() => expect(bridge.saveSettings).toHaveBeenCalled());
     expect(bridge.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ mode: 'local' }),
     );
+  });
+
+  it('scan this Mac and connect with one click', async () => {
+    const bridge = {
+      getSettings: vi.fn(async () => ({
+        mode: 'local',
+        configured: true,
+        sshHost: '',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: false,
+      })),
+      importKey: vi.fn(async () => ({ ok: true, keyLength: 64 })),
+      saveSettings: vi.fn(async () => ({
+        ok: true,
+        settings: {
+          mode: 'local',
+          configured: true,
+          sshHost: '',
+          apiPort: 8642,
+          localPort: 18742,
+          autoConnect: true,
+          hasKey: true,
+        },
+      })),
+      test: vi.fn(),
+      disconnect: vi.fn(),
+      connect: vi.fn(async () => ({ state: 'connected' })),
+      models: vi.fn(async () => ({ ok: true, models: [] })),
+      profiles: vi.fn(async () => ({ ok: true, profiles: [] })),
+      prefs: vi.fn(async () => ({ ok: true, prefs: {} })),
+      savePrefs: vi.fn(async () => ({ ok: true })),
+    };
+    (window as unknown as { hermes: unknown }).hermes = bridge;
+    renderSettings({ state: 'disconnected' });
+    await waitFor(() =>
+      expect(screen.getByText(/Scan & connect/)).toBeTruthy(),
+    );
+    await userEvent.click(screen.getByText(/Scan & connect/));
+    await waitFor(() => expect(bridge.connect).toHaveBeenCalled());
+    // The whole scan: the key is read where it lives, then the connection
+    // is written down and opened.
+    expect(bridge.importKey).toHaveBeenCalledWith({ mode: 'local' });
+    expect(bridge.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'local' }),
+    );
+  });
+
+  it('say what has to be running when this Mac answers nothing', async () => {
+    const bridge = {
+      getSettings: vi.fn(async () => ({
+        mode: 'local',
+        configured: true,
+        sshHost: '',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: true,
+      })),
+      importKey: vi.fn(),
+      saveSettings: vi.fn(async () => ({ ok: true })),
+      test: vi.fn(),
+      disconnect: vi.fn(),
+      connect: vi.fn(async () => ({
+        state: 'error',
+        message: 'Nothing is listening on that port',
+      })),
+      models: vi.fn(async () => ({ ok: true, models: [] })),
+      profiles: vi.fn(async () => ({ ok: true, profiles: [] })),
+      prefs: vi.fn(async () => ({ ok: true, prefs: {} })),
+      savePrefs: vi.fn(async () => ({ ok: true })),
+    };
+    (window as unknown as { hermes: unknown }).hermes = bridge;
+    renderSettings({ state: 'disconnected' });
+    await waitFor(() =>
+      expect(screen.getByText(/Scan & connect/)).toBeTruthy(),
+    );
+    await userEvent.click(screen.getByText(/Scan & connect/));
+    expect(
+      await screen.findByText(
+        'No Hermes answered on 127.0.0.1:8642. Is it running?',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('ask for the key when this Mac has none to read', async () => {
+    const bridge = {
+      getSettings: vi.fn(async () => ({
+        mode: 'local',
+        configured: true,
+        sshHost: '',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: false,
+      })),
+      importKey: vi.fn(async () => ({
+        ok: false,
+        error: 'API_SERVER_KEY not found in ~/.hermes/.env',
+      })),
+      saveSettings: vi.fn(),
+      test: vi.fn(),
+      disconnect: vi.fn(),
+      connect: vi.fn(),
+      models: vi.fn(async () => ({ ok: true, models: [] })),
+      profiles: vi.fn(async () => ({ ok: true, profiles: [] })),
+      prefs: vi.fn(async () => ({ ok: true, prefs: {} })),
+      savePrefs: vi.fn(async () => ({ ok: true })),
+    };
+    (window as unknown as { hermes: unknown }).hermes = bridge;
+    renderSettings({ state: 'disconnected' });
+    await waitFor(() =>
+      expect(screen.getByText(/Scan & connect/)).toBeTruthy(),
+    );
+    await userEvent.click(screen.getByText(/Scan & connect/));
+    expect(
+      await screen.findByText(/API_SERVER_KEY not found/),
+    ).toBeTruthy();
+    // Nothing was written down: the scan was the only ask.
+    expect(bridge.saveSettings).not.toHaveBeenCalled();
   });
 
   it('say when the connection failed', () => {
