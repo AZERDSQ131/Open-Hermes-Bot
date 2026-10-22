@@ -1249,18 +1249,6 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                   </li>
                 ) : null}
               </ul>
-              {warming === 'pending' ? (
-                <div className="onboarding-waiting" role="status">
-                  <span className="onboarding-waiting-dots" aria-hidden="true">
-                    <i />
-                    <i />
-                    <i />
-                  </span>
-                  <span className="onboarding-waiting-word">
-                    Connecting your bot… it will answer in a moment.
-                  </span>
-                </div>
-              ) : null}
             </>
           ) : null}
 
