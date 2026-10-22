@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react';
-import type { HermesUpdateInfo, HermesUpdateResult } from '../hermes';
+import type {
+  HermesUpdateHistory,
+  HermesUpdateInfo,
+  HermesUpdateResult,
+} from '../hermes';
 import {
   applyUpdateEvent,
   initialUpdateStatus,
+  releaseDateWords,
+  releaseRows,
   updateButtonBusy,
   updateButtonDisabled,
   updateButtonLabel,
   updateDetail,
   updateIsTakingOver,
+  type ReleaseRow,
   type UpdateStatus,
 } from '../updates';
 
@@ -36,10 +43,29 @@ function stateMeta(status: UpdateStatus): string {
   }
 }
 
+/**
+ * The version is named the way the releases page names it: a `v` before it,
+ * and no second one after the first.
+ */
+function tagOf(version: string): string {
+  return version ? `v${version.replace(/^v/, '')}` : '';
+}
+
+/** What the page of the project has published, and what went wrong reading it. */
+type History = {
+  loaded: boolean;
+  rows: ReleaseRow[];
+  page: string;
+  message: string;
+};
+
+const EMPTY_HISTORY: History = { loaded: false, rows: [], page: '', message: '' };
+
 export function UpdatesSettings() {
   const bridge = window.hermes;
   const [status, setStatus] = useState<UpdateStatus>(initialUpdateStatus);
   const [info, setInfo] = useState<HermesUpdateInfo | null>(null);
+  const [book, setBook] = useState<History>(EMPTY_HISTORY);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,6 +83,38 @@ export function UpdatesSettings() {
         }
       })
       .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge]);
+
+  // What the page of the project has published. Read once, said plainly: a
+  // page that says no, or says nothing, is not an error the person carries.
+  useEffect(() => {
+    let cancelled = false;
+    bridge
+      ?.updateHistory?.()
+      .then((next: HermesUpdateHistory) => {
+        if (cancelled) return;
+        setBook({
+          loaded: true,
+          rows: releaseRows(next?.rows),
+          page: typeof next?.page === 'string' ? next.page : '',
+          message:
+            next?.ok === false
+              ? next.message ||
+                'GitHub did not say. The app still looks for its next version.'
+              : '',
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBook({
+          ...EMPTY_HISTORY,
+          loaded: true,
+          message: 'GitHub did not answer. The app still looks for its next version.',
+        });
+      });
     return () => {
       cancelled = true;
     };
@@ -112,6 +170,16 @@ export function UpdatesSettings() {
 
   const busy = updateButtonBusy(status);
   const disabled = !bridge || updateButtonDisabled(status);
+  // The version the page named, while it is being looked at, carried in, or
+  // waited on: shown apart, and read in its row too.
+  const wanted = tagOf(status.version);
+  const beingFound =
+    ['available', 'downloading', 'ready'].includes(status.state)
+      ? book.loaded
+        ? book.rows.find((row) => row.tag === wanted) || null
+        : null
+      : null;
+  const rows = book.rows.filter((row) => row.tag !== wanted);
 
   return (
     <div className="settings-page">
@@ -119,8 +187,8 @@ export function UpdatesSettings() {
         <div>
           <h2>Updates</h2>
           <p>
-            The app looks for its next version on the releases page, and takes
-            it when it is ready.
+            Hermes Bot reads its next version on GitHub, and becomes it on its
+            own: the download runs here, and the restart too.
           </p>
         </div>
         <div className="settings-page-side">
@@ -139,7 +207,7 @@ export function UpdatesSettings() {
       <section className="settings-card">
         <header className="settings-card-head">
           <div>
-            <h3>Check for updates</h3>
+            <h3>Now</h3>
             <p>{updateDetail(status)}</p>
           </div>
           <span className="settings-card-meta">{stateMeta(status)}</span>
@@ -176,8 +244,81 @@ export function UpdatesSettings() {
           <p className="settings-hint">
             {busy
               ? 'The app restarts itself when the download is done.'
-              : 'The app also looks by itself when it opens, and takes the update when it closes.'}
+              : 'The app also looks when it opens, and takes the update when it closes.'}
           </p>
+        </div>
+      </section>
+
+      <section className="settings-card">
+        <header className="settings-card-head">
+          <div>
+            <h3>On GitHub</h3>
+            <p>What the page of the project has published.</p>
+          </div>
+          <span className="settings-card-meta">GitHub</span>
+        </header>
+
+        <div className="settings-card-body">
+          {beingFound ? (
+            <button
+              type="button"
+              className="update-release is-found"
+              title="Read the release on GitHub"
+              onClick={() =>
+                bridge?.openRelease?.(beingFound.url || book.page)
+              }
+            >
+              <code className="update-release-tag">{beingFound.tag}</code>
+              <span className="update-release-name">{beingFound.name}</span>
+              <span className="update-release-date">
+                {releaseDateWords(beingFound.date)}
+              </span>
+            </button>
+          ) : null}
+
+          {!book.loaded ? (
+            <p className="settings-hint">Reading the page…</p>
+          ) : rows.length === 0 && !beingFound ? (
+            <p className="settings-hint">
+              {book.message || 'The page is there, and it has nothing on it yet.'}
+            </p>
+          ) : (
+            <ul className="update-releases">
+              {rows.map((row, which) => (
+                <li key={`${row.tag}-${which}`}>
+                  <button
+                    type="button"
+                    className="update-release"
+                    title={
+                      row.url ? 'Read the release on GitHub' : undefined
+                    }
+                    onClick={() => row.url && bridge?.openRelease?.(row.url)}
+                  >
+                    <code className="update-release-tag">{row.tag}</code>
+                    <span className="update-release-name">{row.name}</span>
+                    {row.prerelease ? (
+                      <span className="update-release-chip">prerelease</span>
+                    ) : null}
+                    <span className="update-release-date">
+                      {releaseDateWords(row.date)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {book.page ? (
+            <div className="settings-page-buttons">
+              <button
+                type="button"
+                className="update-open"
+                onClick={() => bridge?.openRelease?.(book.page)}
+              >
+                Open the releases page
+              </button>
+            </div>
+          ) : null}
         </div>
       </section>
     </div>

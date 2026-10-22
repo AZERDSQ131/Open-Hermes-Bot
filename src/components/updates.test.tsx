@@ -6,6 +6,39 @@ import type { HermesUpdateEvent } from '../hermes';
 
 type Listeners = ((event: HermesUpdateEvent) => void)[];
 
+/** What the page of the project has published, the way GitHub keeps it. */
+const ROWS = [
+  {
+    tag_name: 'v1.1.0',
+    name: 'The one that takes care of itself',
+    published_at: '2025-10-20T12:00:00Z',
+    prerelease: false,
+    draft: false,
+    html_url:
+      'https://github.com/AZERDSQ131/Open-Hermes-Bot/releases/tag/v1.1.0',
+  },
+  {
+    tag_name: 'v1.0.1',
+    name: 'A rehearsal',
+    published_at: '2025-10-02T12:00:00Z',
+    prerelease: true,
+    draft: false,
+    html_url:
+      'https://github.com/AZERDSQ131/Open-Hermes-Bot/releases/tag/v1.0.1',
+  },
+  {
+    tag_name: 'v1.0.0',
+    name: 'First of its name',
+    published_at: '2025-09-30T12:00:00Z',
+    prerelease: false,
+    draft: false,
+    html_url:
+      'https://github.com/AZERDSQ131/Open-Hermes-Bot/releases/tag/v1.0.0',
+  },
+];
+
+const PAGE = 'https://github.com/AZERDSQ131/Open-Hermes-Bot/releases';
+
 function withBridge(
   overrides: Record<string, unknown> = {},
   listeners: Listeners = [],
@@ -18,6 +51,8 @@ function withBridge(
       version: '1.0.0',
     })),
     installUpdate: vi.fn(async () => ({ ok: true })),
+    updateHistory: vi.fn(async () => ({ ok: true, rows: ROWS, page: PAGE })),
+    openRelease: vi.fn(async () => ({ ok: true })),
     onUpdate: vi.fn((callback: (event: HermesUpdateEvent) => void) => {
       listeners.push(callback);
       return () => undefined;
@@ -37,7 +72,9 @@ describe('the page of updates', () => {
   it('offers to look for an update', async () => {
     withBridge();
     render(<UpdatesSettings />);
-    expect(await screen.findByRole('button', { name: /Check for updates/ })).toBeTruthy();
+    expect(
+      await screen.findByRole('button', { name: /Check for updates/ }),
+    ).toBeTruthy();
   });
 
   it('cannot look when it is not installed', async () => {
@@ -46,23 +83,26 @@ describe('the page of updates', () => {
     });
     render(<UpdatesSettings />);
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Check for updates/ })).toHaveProperty(
-        'disabled',
-        true,
-      );
+      expect(
+        screen.getByRole('button', { name: /Check for updates/ }),
+      ).toHaveProperty('disabled', true);
     });
     expect(screen.getByText(/installed app/)).toBeTruthy();
   });
 
   it('says so when it is not the desktop app', () => {
     render(<UpdatesSettings />);
-    expect(screen.getByText(/only available inside the desktop app/)).toBeTruthy();
+    expect(
+      screen.getByText(/only available inside the desktop app/),
+    ).toBeTruthy();
   });
 
   it('looks when the button is pressed', async () => {
     const listeners = withBridge();
     render(<UpdatesSettings />);
-    const button = await screen.findByRole('button', { name: /Check for updates/ });
+    const button = await screen.findByRole('button', {
+      name: /Check for updates/,
+    });
     await userEvent.click(button);
     expect(window.hermes?.checkForUpdates).toHaveBeenCalledTimes(1);
     expect(listeners.length).toBeGreaterThan(0);
@@ -82,7 +122,9 @@ describe('the page of updates', () => {
       listeners,
     );
     render(<UpdatesSettings />);
-    const button = await screen.findByRole('button', { name: /Check for updates/ });
+    const button = await screen.findByRole('button', {
+      name: /Check for updates/,
+    });
     await userEvent.click(button);
     expect(await screen.findByRole('button', { name: /Checking/ })).toBeTruthy();
   });
@@ -92,8 +134,12 @@ describe('the page of updates', () => {
     withBridge({}, listeners);
     render(<UpdatesSettings />);
     await screen.findByRole('button', { name: /Check for updates/ });
-    act(() => listeners[0]({ state: 'downloading', version: '1.1.0', percent: 42 }));
-    expect(await screen.findByRole('button', { name: /Downloading… 42%/ })).toBeTruthy();
+    act(() =>
+      listeners[0]({ state: 'downloading', version: '1.1.0', percent: 42 }),
+    );
+    expect(
+      await screen.findByRole('button', { name: /Downloading… 42%/ }),
+    ).toBeTruthy();
     expect(screen.getByText(/Downloading 1.1.0/)).toBeTruthy();
   });
 
@@ -134,7 +180,9 @@ describe('the page of updates', () => {
     withBridge({}, listeners);
     render(<UpdatesSettings />);
     await screen.findByRole('button', { name: /Check for updates/ });
-    act(() => listeners[0]({ state: 'downloading', version: '1.1.0', percent: 10 }));
+    act(() =>
+      listeners[0]({ state: 'downloading', version: '1.1.0', percent: 10 }),
+    );
     await screen.findByRole('button', { name: /Downloading/ });
     expect(window.hermes?.installUpdate).not.toHaveBeenCalled();
   });
@@ -166,5 +214,75 @@ describe('the page of updates', () => {
     const { unmount } = render(<UpdatesSettings />);
     unmount();
     expect(off).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('what the page of the project has published', () => {
+  it('reads the history GitHub kept', async () => {
+    withBridge();
+    render(<UpdatesSettings />);
+    expect(
+      await screen.findByText('The one that takes care of itself'),
+    ).toBeTruthy();
+    expect(screen.getByText('Oct 20')).toBeTruthy();
+    expect(screen.getByText('Oct 2')).toBeTruthy();
+    expect(screen.getByText('prerelease')).toBeTruthy();
+  });
+
+  it('opens a row where its release lives', async () => {
+    withBridge();
+    render(<UpdatesSettings />);
+    const row = await screen.findByRole('button', { name: /v1\.1\.0/ });
+    await userEvent.click(row);
+    expect(window.hermes?.openRelease).toHaveBeenCalledWith(
+      'https://github.com/AZERDSQ131/Open-Hermes-Bot/releases/tag/v1.1.0',
+    );
+  });
+
+  it('opens the page of the releases from its foot', async () => {
+    withBridge();
+    render(<UpdatesSettings />);
+    const open = await screen.findByRole('button', {
+      name: /Open the releases page/,
+    });
+    await userEvent.click(open);
+    expect(window.hermes?.openRelease).toHaveBeenCalledWith(PAGE);
+  });
+
+  it('shows the release it is being given, apart from the history', async () => {
+    const listeners: Listeners = [];
+    withBridge({}, listeners);
+    render(<UpdatesSettings />);
+    await screen.findByRole('button', { name: /Check for updates/ });
+    act(() =>
+      listeners[0]({
+        state: 'downloading',
+        version: '1.1.0',
+        percent: 12,
+        released: '2025-10-20T12:00:00Z',
+      }),
+    );
+    await screen.findByRole('button', { name: /Downloading/ });
+    expect(await screen.findByText('v1.1.0')).toBeTruthy();
+    // The one being carried in is not two rows of the same list.
+    expect(screen.getAllByText('v1.1.0')).toHaveLength(1);
+  });
+
+  it('says so when GitHub did not answer', async () => {
+    withBridge({
+      updateHistory: vi.fn(async () => {
+        throw new Error('offline');
+      }),
+    });
+    render(<UpdatesSettings />);
+    expect(await screen.findByText(/GitHub did not answer/)).toBeTruthy();
+  });
+
+  it('says so when the page has nothing on it', async () => {
+    withBridge({
+      updateHistory: vi.fn(async () => ({ ok: true, rows: [], page: '' })),
+    });
+    render(<UpdatesSettings />);
+    expect(await screen.findByText(/nothing on it yet/)).toBeTruthy();
   });
 });
