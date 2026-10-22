@@ -176,7 +176,7 @@ export function UpdatesSettings() {
           <p className="settings-hint">
             {busy
               ? 'The app restarts itself when the download is done.'
-              : 'A conversation is not interrupted: the app restarts when you are ready.'}
+              : 'The app also looks by itself when it opens, and takes the update when it closes.'}
           </p>
         </div>
       </section>
