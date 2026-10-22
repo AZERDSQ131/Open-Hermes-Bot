@@ -1098,6 +1098,77 @@ def nous_login_start():
     }
 
 
+def nous_login_poll():
+    """One poll for the device code minted above.
+
+    Pending approval answers {pending:true} so the page keeps waiting.
+    Approval persists the credential like `hermes auth add nous` and answers
+    {ok:true}. Anything else is a terminal error.
+    """
+    from datetime import datetime, timezone
+
+    from hermes_cli.auth import PROVIDER_REGISTRY
+    from hermes_cli.auth_constants import DEVICE_CODE_GRANT_TYPE
+    from hermes_cli.auth_nous import (
+        _nous_http_client, persist_nous_credentials, refresh_nous_oauth_from_state)
+
+    device_code = VALUE.strip()
+    if not device_code:
+        answer({"ok": False, "pending": False, "error": "The sign-in ran out of paper: start again."})
+    pconfig = PROVIDER_REGISTRY["nous"]
+    portal = str(pconfig.portal_base_url or "").rstrip("/")
+    with _nous_http_client(15.0, True) as client:
+        response = client.post(
+            f"{portal}/api/oauth/token",
+            data={
+                "grant_type": DEVICE_CODE_GRANT_TYPE,
+                "client_id": pconfig.client_id,
+                "device_code": device_code,
+            })
+        if response.status_code != 200:
+            try:
+                payload = response.json()
+            except Exception:
+                payload = {}
+            code = str((payload or {}).get("error") or "")
+            if code in ("authorization_pending", "slow_down"):
+                answer({"ok": False, "pending": True})
+            description = str((payload or {}).get("error_description") or code or "Sign-in failed.")
+            if code in ("expired_token", "access_denied"):
+                answer({"ok": False, "pending": False, "error": description})
+            answer({"ok": False, "pending": code == "", "error": description})
+        token_data = response.json()
+    if not isinstance(token_data, dict) or not token_data.get("access_token"):
+        answer({"ok": False, "pending": False, "error": "The host answered without a credential."})
+    now = datetime.now(timezone.utc)
+    try:
+        ttl = int(token_data.get("expires_in") or 3600)
+    except Exception:
+        ttl = 3600
+    auth_state = {
+        "portal_base_url": portal,
+        "inference_base_url": str(
+            token_data.get("inference_base_url") or pconfig.inference_base_url or "").rstrip("/"),
+        "client_id": pconfig.client_id,
+        "scope": str(token_data.get("scope") or pconfig.scope or ""),
+        "token_type": str(token_data.get("token_type") or "Bearer"),
+        "access_token": str(token_data.get("access_token") or ""),
+        "refresh_token": token_data.get("refresh_token"),
+        "obtained_at": now.isoformat(),
+        "expires_at": datetime.fromtimestamp(now.timestamp() + ttl, tz=timezone.utc).isoformat(),
+        "expires_in": ttl,
+        "tls": {"insecure": False, "ca_bundle": None},
+        "agent_key": None, "agent_key_id": None, "agent_key_expires_at": None,
+        "agent_key_expires_in": None, "agent_key_reused": None, "agent_key_obtained_at": None,
+    }
+    try:
+        auth_state = refresh_nous_oauth_from_state(auth_state, timeout_seconds=15.0)
+        persist_nous_credentials(auth_state)
+    except Exception as exc:
+        answer({"ok": False, "pending": False, "error": "%s" % (exc,)})
+    answer({"ok": True, "pending": False})
+
+
 # -------------------------------------------------------------------- answer
 
 try:
@@ -1115,6 +1186,8 @@ try:
         connector_connect()
     elif WHAT == "nous-login-start":
         answer(nous_login_start())
+    elif WHAT == "nous-login-poll":
+        nous_login_poll()
     else:
         answer({"ok": False, "error": "Nothing is asked for that the host knows."})
 except SystemExit:
