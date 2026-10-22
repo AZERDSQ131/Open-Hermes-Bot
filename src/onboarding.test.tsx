@@ -672,6 +672,26 @@ describe('the setup', () => {
     ).toBeEnabled();
   });
 
+  it('goes back to the connection when the link dropped before the bot', async () => {
+    const bridge = makeBridge({
+      createBot: vi.fn(async () => ({
+        ok: false,
+        error:
+          'Not connected to Hermes — connect in Settings, then create the bot.',
+      })),
+    });
+    renderSetup();
+    await walkToReady(bridge);
+    // No settings to open from the setup: the connection page comes back,
+    // marked as a connection error rather than quoting the settings.
+    expect(await screen.findByText(/Connect your Hermes/)).toBeTruthy();
+    expect(
+      screen.getByText('Not connected to Hermes — reconnect to continue.'),
+    ).toBeTruthy();
+    expect(screen.queryByText(/settings/i)).toBeNull();
+    expect(screen.queryByText(/You're all set/)).toBeNull();
+  });
+
   it('says when the gateway is serving the bot', async () => {
     let ready: ((event: { name: string; served: boolean }) => void) | undefined;
     const bridge = makeBridge({
