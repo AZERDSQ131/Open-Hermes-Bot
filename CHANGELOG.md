@@ -8,6 +8,40 @@ follow [semantic versioning](https://semver.org/).
 
 ### Added
 
+- **A page of connectors.** **Settings → Connectors** is where the services
+  your bots can reach besides Hermes will be listed — a calendar, a place, a
+  document. The page is empty for now: it is there before its content.
+
+### Changed
+
+- **The page of security.** `SECURITY.md` says now what the app holds — the
+  key in the Keychain, the two files it writes on the disk, and nothing else
+  — what it does with it, and what leaves the machine: the host you named,
+  and two requests to GitHub that carry no token. It is plain about the
+  limits as well: the build is signed with a development certificate and is
+  not notarized.
+
+- **The foot of the sidebar.** The settings and the update mark are one pill
+  now. The round face on the left is the update button, and the app looks for
+  its next version by itself: the face turns while it looks, a ring walks with
+  the download, a dot pulses when a version was seen, and pings when the new
+  version is on the disk. The name in the middle is the machine Hermes runs
+  on, and it opens the settings. The marks on the right are the connectors,
+  and they open their page.
+
+### Fixed
+
+- **A bot that was made is a bot you can see.** A link that dropped while
+  the bot was being built was reported as the bot failing: the setup then
+  asked for a name Hermes would refuse as already taken, and told the person
+  to open the settings they were standing in. The app opens the link again,
+  shows the bot it made, and says what is still missing — in one sentence,
+  with one full stop.
+
+## [1.1.0] — 2026-10-22
+
+### Added
+
 - **An update, on a button.** **Settings → Updates** says which version the
   app is running, and one button looks for the next one. If there is one, it
   is downloaded in front of the person — the bar shows how far it has come —
