@@ -196,7 +196,17 @@ button:focus-visible {
 
 /* The foot of the sidebar: who the app is talking to, and what it can reach.
    Two pills sit side by side: the face of the app and the name of the host
-   it belongs to, then the dock of the connectors. */
+   it belongs to, then the dock of the connectors. Both pills share the same
+   design: same height, same contour, same colour, same answer on hover. */
+
+.sidebar-footer {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 10px 12px;
+  border-top: 1px solid var(--divider);
+}
 
 .sidebar-footer {
   flex: 0 0 auto;
@@ -222,6 +232,7 @@ button:focus-visible {
   min-width: 0;
   align-items: center;
   padding: 0 14px 0 42px;
+  border: 1px solid var(--divider);
   border-radius: 999px;
   background: var(--field);
   color: #d2d2d8;
@@ -231,11 +242,13 @@ button:focus-visible {
   text-align: left;
   transition:
     background-color 120ms ease,
-    color 120ms ease;
+    color 120ms ease,
+    border-color 120ms ease;
 }
 
 .footer-host:hover,
 .footer-host:focus-visible {
+  border-color: rgba(255, 255, 255, 0.14);
   background: var(--field-focus);
   color: #f2f2f4;
 }
@@ -259,11 +272,14 @@ button:focus-visible {
   border: 1px solid var(--divider);
   border-radius: 999px;
   background: var(--field);
-  transition: background-color 120ms ease;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
 }
 
 .footer-dock:hover,
 .footer-dock:focus-visible {
+  border-color: rgba(255, 255, 255, 0.14);
   background: var(--field-focus);
 }
 
