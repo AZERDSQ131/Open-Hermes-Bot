@@ -2419,12 +2419,39 @@ ipcMain.handle('hermes:profiles', async () => {
     20000,
   );
   const answer = lastJsonObject(live.stdout);
-  if (live.ok && answer?.ok && Array.isArray(answer.profiles)) {
+  const gatewayOk = live.ok && answer?.ok && Array.isArray(answer.profiles);
+  // Disk is always read: a bot just created is on disk before the gateway
+  // serves it, and it must stay visible across a restart instead of vanishing
+  // until the next rescan.
+  const diskLive = await runHostCommand(
+    connection,
+    `python3 - <<'PY'\n${LIST_DISK_PROFILES_PY}PY`,
+    15000,
+  );
+  const diskAnswer = lastJsonObject(diskLive.stdout);
+  const diskProfiles = Array.isArray(diskAnswer?.profiles)
+    ? diskAnswer.profiles
+    : [];
+  if (gatewayOk) {
+    const served = new Set(
+      (answer.profiles ?? []).map((entry) => String(entry?.name ?? '').trim()),
+    );
+    const unserved = diskProfiles.filter(
+      (entry) => !served.has(String(entry?.name ?? '').trim()),
+    ).map((entry) => ({ ...entry, served: false }));
+    const profiles = cleanProfiles([
+      ...(answer.profiles ?? []),
+      ...unserved,
+    ]);
+    const warming = profiles.filter((entry) => entry.served === false);
     return {
       ok: true,
       source: 'gateway',
-      profiles: cleanProfiles(answer.profiles),
+      profiles,
       primary: cleanPrimary(answer.primary),
+      ...(warming.length
+        ? { warning: `${warming.length} bot${warming.length > 1 ? 's' : ''} starting — Hermes is connecting.` }
+        : {}),
     };
   }
 
