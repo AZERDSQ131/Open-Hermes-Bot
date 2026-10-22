@@ -15,6 +15,11 @@ const fs = require('node:fs');
 const { spawn, spawnSync, execFileSync } = require('node:child_process');
 const { autoUpdater } = require('electron-updater');
 const { createUpdater } = require('./updater');
+const {
+  isConfigured,
+  normalizeMode,
+  resolveMode,
+} = require('./connection.js');
 
 app.setName('Hermes Bot');
 
@@ -80,10 +85,23 @@ function writeStore(store) {
   });
 }
 
-function storedConnection() {
+// The record as it is written down. The mode lives here, and only here: it
+// is the answer to "where does Hermes run?", and it is the one thing the
+// app keeps about its own connection.
+function storedRecord() {
   const store = readStore();
-  const connection = store.connection || {};
-  return { ...DEFAULT_CONNECTION, ...connection };
+  return store.connection || {};
+}
+
+function storedConnection() {
+  const record = storedRecord();
+  return {
+    ...DEFAULT_CONNECTION,
+    ...record,
+    // A record written before the modes existed still means what it meant:
+    // a host is a machine somewhere else.
+    mode: resolveMode(record),
+  };
 }
 
 // The setup is a door the person walks through once. The app remembers that
@@ -169,6 +187,8 @@ function storedApiKey() {
 function publicSettings() {
   const connection = storedConnection();
   return {
+    mode: connection.mode,
+    configured: isConfigured(storedRecord()),
     sshHost: connection.sshHost,
     apiPort: connection.apiPort,
     localPort: connection.localPort,
@@ -456,18 +476,29 @@ function parseEnvValue(raw) {
 ipcMain.handle('hermes:settings:get', () => publicSettings());
 
 ipcMain.handle('hermes:settings:save', (_event, payload) => {
-  const host = sanitizeHost(payload?.sshHost);
+  const current = storedConnection();
+  // Where Hermes runs. A record that does not say keeps the mode it had.
+  const mode = payload?.mode ? normalizeMode(payload.mode) : current.mode;
   const port = sanitizePort(payload?.apiPort);
-  if (!host) return { ok: false, error: 'Invalid SSH host' };
   if (!port) return { ok: false, error: 'Invalid API port' };
 
-  const current = storedConnection();
+  // A host is a name, and a name is only needed for a machine elsewhere.
+  const host =
+    mode === 'local'
+      ? sanitizeHost(payload?.sshHost) ?? current.sshHost
+      : sanitizeHost(payload?.sshHost);
+  if (mode === 'ssh' && !host) {
+    return { ok: false, error: 'Invalid SSH host' };
+  }
+
   const localPort =
     payload?.localPort === undefined
       ? current.localPort
       : sanitizePort(payload.localPort);
   if (!localPort) return { ok: false, error: 'Invalid local tunnel port' };
-  if (localPort === port) {
+  // The tunnel forwards a port to a port: they cannot be the same one. A
+  // Hermes on this machine has no tunnel, and no such rule.
+  if (mode === 'ssh' && localPort === port) {
     return { ok: false, error: 'Local and remote ports must differ' };
   }
   const autoConnect =
@@ -484,7 +515,13 @@ ipcMain.handle('hermes:settings:save', (_event, payload) => {
   // through stays where it is.
   writeStore({
     ...readStore(),
-    connection: { sshHost: host, apiPort: port, localPort, autoConnect },
+    connection: {
+      mode,
+      sshHost: host ?? '',
+      apiPort: port,
+      localPort,
+      autoConnect,
+    },
   });
   return { ok: true, settings: publicSettings() };
 });
