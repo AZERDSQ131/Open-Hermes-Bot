@@ -15,11 +15,12 @@ follow [semantic versioning](https://semver.org/).
 ### Changed
 
 - **The page of security.** `SECURITY.md` says now what the app holds — the
-  key in the Keychain, the two files it writes on the disk, and nothing else
-  — what it does with it, and what leaves the machine: the host you named,
-  and two requests to GitHub that carry no token. It is plain about the
-  limits as well: the build is signed with a development certificate and is
-  not notarized.
+  key in the Keychain, the connection record, the installation id — what it
+  does with it, what it does to the host when a bot is made, and what leaves
+  the machine: the host you named, and GitHub, which gets the id of the copy
+  and no more. It is plain about the limits as well, and about the two that
+  matter most: the build published by the release workflow is not signed, and
+  it is not notarized.
 
 - **The foot of the sidebar.** The settings and the update mark are one pill
   now. The round face on the left is the update button, and the app looks for
@@ -37,6 +38,15 @@ follow [semantic versioning](https://semver.org/).
   to open the settings they were standing in. The app opens the link again,
   shows the bot it made, and says what is still missing — in one sentence,
   with one full stop.
+- **The wait is out of the click.** The setup held the person for twelve
+  seconds, waiting for the gateway to serve a bot that Hermes only serves at
+  its next scan. The bot is made, the app warms it up in the background — it
+  asks the gateway again, and waits for it where the person is already
+  waiting — and the last page says "Connecting to your machine…" until the
+  door is open.
+- **The bot of the setup is in the sidebar.** The bot the person made during
+  the setup is carried by hand until the server lists it, instead of waiting
+  for the list to catch up.
 
 ## [1.1.0] — 2026-10-22
 
