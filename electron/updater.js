@@ -45,22 +45,36 @@ function createUpdater({ app, autoUpdater, onEvent }) {
   let pending = null;
   /** The check running now is one the person asked for. */
   let asked = false;
+  /**
+   * Where the last look left the app. A screen that opens on the mark reads
+   * this, so the look the app started on its own is seen from the first word.
+   */
+  let current = {
+    state: IDLE,
+    version: '',
+    released: '',
+    percent: 0,
+    message: '',
+    quiet: true,
+  };
 
   function emit(state, extra) {
-    // The check on launch is quiet: it downloads in the background and waits
-    // for the app to close. Only a check the person asked for is reported.
-    if (!asked) return;
-    onEvent({
+    current = {
+      ...current,
       state,
       version: found,
       released,
       percent: 0,
       message: '',
+      // A quiet look is the app looking for its next version on its own: it
+      // says what it is doing, but it does not take the app over.
+      quiet: !asked,
       ...extra,
-    });
+    };
+    onEvent({ ...current });
   }
 
-  /** Says something to the person, whatever check is running. */
+  /** Says something to the person, whatever look is running. */
   function tell(state, extra) {
     const before = asked;
     asked = true;
@@ -165,6 +179,9 @@ function createUpdater({ app, autoUpdater, onEvent }) {
       resolve,
     };
     asked = false;
+    // The app looks by itself, and says so: the mark in the sidebar shows
+    // the scan going on. It does not take the app over, though.
+    emit(CHECKING);
     autoUpdater.checkForUpdates().catch(() => undefined);
   }
 
@@ -195,12 +212,22 @@ function createUpdater({ app, autoUpdater, onEvent }) {
     return install();
   }
 
+  /**
+   * Where the look stands right now, for a screen that opens on it.
+   *
+   * @returns {object} the state the mark reads when it mounts.
+   */
+  function status() {
+    return { ...current };
+  }
+
   return {
     info,
     check,
     checkInBackground,
     install,
     installOnQuit,
+    status,
     isReady: () => ready,
   };
 }

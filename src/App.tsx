@@ -23,7 +23,6 @@ import { ModelPicker } from './components/ModelPicker';
 import {
   ArrowUpIcon,
   FileIcon,
-  GearIcon,
   MenuIcon,
   MicIcon,
   PlusIcon,
@@ -78,7 +77,10 @@ import { avatarColor } from './profileColor';
 import { Onboarding } from './onboarding';
 import { SettingsView, type Section } from './components/SettingsView';
 import { ConnectorDock } from './components/ConnectorDock';
-import { dockConnectors, readConnectors } from './connectors';
+import {
+  dockConnectors,
+  readConnectors,
+} from './connectors';
 import { LogoEditor } from './components/LogoEditor';
 import {
   groupReactions,
@@ -2625,19 +2627,18 @@ export default function App() {
         </nav>
 
         <div className="sidebar-footer">
-          <button
-            type="button"
-            className={`settings-entry ${
-              settingsOpen ? 'is-active' : ''
-            }`}
-            onClick={() => openSettings()}
-            aria-label="Settings"
-            title="Settings  ⌘,"
-          >
-            <GearIcon size={16} />
-            <span className="settings-entry-label">Settings</span>
-          </button>
-          <UpdateButton />
+          <div className="footer-identity">
+            <UpdateButton />
+            <button
+              type="button"
+              className="footer-host"
+              onClick={() => openSettings()}
+              aria-label="Settings"
+              title="Settings  ⌘,"
+            >
+              <span className="footer-host-name">Settings</span>
+            </button>
+          </div>
           <ConnectorDock rows={dockRows} onOpen={openConnectors} />
         </div>
       </aside>

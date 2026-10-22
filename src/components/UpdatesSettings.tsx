@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type {
+  HermesUpdateEvent,
   HermesUpdateHistory,
   HermesUpdateInfo,
   HermesUpdateResult,
@@ -128,9 +129,36 @@ export function UpdatesSettings() {
     });
   }, [bridge]);
 
-  // The new version is on the disk: the app becomes it and comes back.
+  // The look the app started on its own is already running: the page reads
+  // where it stands, so the scan is seen from the first word. What it says
+  // is only read while the page still knows nothing: a look the person
+  // started has already moved it on.
   useEffect(() => {
-    if (!updateIsTakingOver(status)) return;
+    if (!bridge?.updateState) return;
+    let cancelled = false;
+    bridge
+      .updateState()
+      .then((next: HermesUpdateEvent) => {
+        if (cancelled) return;
+        setStatus((current) =>
+          // A copy running from the sources cannot look at all: that is said
+          // already, and nothing the shell says later takes it away.
+          current.state !== 'idle'
+            ? current
+            : applyUpdateEvent(current, next),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge]);
+
+  // The new version is on the disk: the app becomes it and comes back — but
+  // only when the person asked for it. The app's own look waits for the app
+  // to close: a conversation is not something to interrupt.
+  useEffect(() => {
+    if (!updateIsTakingOver(status) || status.quiet) return;
     let cancelled = false;
     bridge
       ?.installUpdate()
@@ -145,7 +173,7 @@ export function UpdatesSettings() {
     return () => {
       cancelled = true;
     };
-  }, [status.state, bridge]);
+  }, [status.state, status.quiet, bridge]);
 
   async function handleCheck() {
     if (!bridge) return;

@@ -165,7 +165,7 @@ describe('the app', () => {
   it('opens the settings', async () => {
     const bridge = makeBridge();
     await renderApp(bridge);
-    await userEvent.click(screen.getByLabelText('Settings'));
+    await userEvent.click(screen.getByRole('button', { name: /settings/i }));
     expect((await screen.findAllByText('Connection')).length).toBeGreaterThan(0);
   });
 
@@ -176,6 +176,15 @@ describe('the app', () => {
     expect(
       await screen.findByRole('heading', { name: 'Connectors' }),
     ).toBeTruthy();
+  });
+
+  it('opens the settings from the pill, and says what it is', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    const pill = await screen.findByRole('button', { name: 'Settings' });
+    expect(pill.textContent).toContain('Settings');
+    await userEvent.click(pill);
+    expect((await screen.findAllByText('Connection')).length).toBeGreaterThan(0);
   });
 
   it('opens the dialog that creates a bot', async () => {
@@ -1251,7 +1260,7 @@ describe('the setup', () => {
   it('runs again from the settings', async () => {
     const bridge = makeBridge();
     await renderApp(bridge);
-    await userEvent.click(screen.getByLabelText('Settings'));
+    await userEvent.click(screen.getByRole('button', { name: /settings/i }));
     await userEvent.click(await screen.findByText('Setup'));
     await userEvent.click(
       await screen.findByRole('button', { name: 'Run the setup again' }),

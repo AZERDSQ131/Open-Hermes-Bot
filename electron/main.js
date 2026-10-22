@@ -778,6 +778,10 @@ ipcMain.handle('hermes:update:info', () => updater.info());
 // comes back as the version that was found.
 ipcMain.handle('hermes:update:check', () => updater.check());
 
+// Where the look stands: the mark in the sidebar reads it when it opens, so
+// the scan the app started on its own is seen from the first word.
+ipcMain.handle('hermes:update:state', () => updater.status());
+
 // The new version takes over: the app closes and comes back as itself.
 ipcMain.handle('hermes:update:install', () => ({ ok: updater.install() }));
 

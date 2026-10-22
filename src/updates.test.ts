@@ -21,6 +21,7 @@ describe('the state of an update', () => {
     expect(status.version).toBe('');
     expect(status.percent).toBe(0);
     expect(status.message).toBe('');
+    expect(status.quiet).toBe(false);
   });
 
   it('gives every caller its own state', () => {
@@ -56,6 +57,22 @@ describe('the state of an update', () => {
       { state: 'current', version: '1.0.0' },
     );
     expect(status.message).toBe('');
+  });
+
+  it('knows when the look was the app’s own', () => {
+    const status = applyUpdateEvent(initialUpdateStatus(), {
+      state: 'checking',
+      quiet: true,
+    });
+    expect(status.quiet).toBe(true);
+  });
+
+  it('keeps what it knew of the look when the shell does not say', () => {
+    const status = applyUpdateEvent(
+      { ...initialUpdateStatus(), quiet: true },
+      { state: 'downloading' },
+    );
+    expect(status.quiet).toBe(true);
   });
 });
 

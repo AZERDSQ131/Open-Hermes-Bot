@@ -25,6 +25,11 @@ export type UpdateEvent = {
   released?: string;
   /** Why it went wrong, when it did. */
   message?: string;
+  /**
+   * The look was the app's own: the new version waits for the app to close
+   * instead of taking it over.
+   */
+  quiet?: boolean;
 };
 
 export type UpdateStatus = {
@@ -37,11 +42,23 @@ export type UpdateStatus = {
   released: string;
   /** Why it went wrong, when it did. */
   message: string;
+  /**
+   * The look was the app's own: it says what it is doing, but the new
+   * version waits for the app to close instead of taking it over.
+   */
+  quiet: boolean;
 };
 
 /** Nothing is known yet: the app has not been asked anything. */
 export function initialUpdateStatus(): UpdateStatus {
-  return { state: 'idle', version: '', percent: 0, released: '', message: '' };
+  return {
+    state: 'idle',
+    version: '',
+    percent: 0,
+    released: '',
+    message: '',
+    quiet: false,
+  };
 }
 
 /**
@@ -60,6 +77,7 @@ export function applyUpdateEvent(
     percent: event.percent ?? status.percent,
     released: event.released ?? status.released,
     message: event.message ?? '',
+    quiet: event.quiet ?? status.quiet,
   };
 }
 

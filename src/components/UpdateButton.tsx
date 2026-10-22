@@ -14,14 +14,21 @@ import { UpdateIcon } from './Icons';
 const CIRCLE = 2 * Math.PI * 9;
 
 /**
- * The small place beside the settings, where the next version lives.
+ * The round face at the foot of the sidebar, where the next version lives.
  *
- * Ico only: it listens to the shell for what is happening with the update,
+ * Icon only: it listens to the shell for what is happening with the update,
  * and says it with a mark instead of a word — nothing while nothing is
  * known, a turning look while it checks, a ring while the download walks, a
  * pulsing dot when a version was seen, a ping when it is on the disk. The
- * words are for the ear that reads before pressing. It is not shown where
- * there is no app around it, as in a page seen from a browser.
+ * words are for the ear that reads before pressing.
+ *
+ * The app looks by itself: the scan the shell starts on launch is read here,
+ * so the face shows the search going on without anybody asking for it. What
+ * the app found on its own waits for the app to close — only a look the
+ * person asked for takes the app over.
+ *
+ * It is not shown where there is no app around it, as in a page seen from a
+ * browser.
  */
 export function UpdateButton() {
   const bridge = window.hermes;
@@ -35,11 +42,34 @@ export function UpdateButton() {
     });
   }, [bridge]);
 
-  // The new version is on the disk: let it take over, from here too.
+  // The look the app started on its own is already running: the mark reads
+  // where it stands, so the search is seen from the first word. What it says
+  // is only read while the mark still knows nothing: a look the person
+  // started has already moved it on.
   useEffect(() => {
-    if (!updateIsTakingOver(status)) return;
+    if (!bridge?.updateState) return;
+    let cancelled = false;
+    bridge
+      .updateState()
+      .then((event) => {
+        if (cancelled) return;
+        setStatus((current) =>
+          current.state === 'idle' ? applyUpdateEvent(current, event) : current,
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge]);
+
+  // The new version is on the disk: let it take over, from here too — but
+  // only when the person asked for it. The app's own look waits for the app
+  // to close: a conversation is not something to interrupt.
+  useEffect(() => {
+    if (!updateIsTakingOver(status) || status.quiet) return;
     bridge?.installUpdate().catch(() => undefined);
-  }, [status.state, bridge]);
+  }, [status.state, status.quiet, bridge]);
 
   if (!bridge) return null;
 
@@ -87,12 +117,7 @@ export function UpdateButton() {
           />
         </svg>
       ) : (
-        <UpdateIcon
-          size={16}
-          className={
-            status.state === 'checking' ? 'update-entry-spin' : undefined
-          }
-        />
+        <UpdateIcon size={16} />
       )}
       <span className="update-entry-dot" aria-hidden="true" />
     </button>

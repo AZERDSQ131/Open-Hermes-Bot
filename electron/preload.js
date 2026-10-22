@@ -56,6 +56,8 @@ contextBridge.exposeInMainWorld('hermes', {
   status: () => ipcRenderer.invoke('hermes:status'),
   updateInfo: () => ipcRenderer.invoke('hermes:update:info'),
   checkForUpdates: () => ipcRenderer.invoke('hermes:update:check'),
+  /** Where the look stands right now, for the mark that opens on it. */
+  updateState: () => ipcRenderer.invoke('hermes:update:state'),
   installUpdate: () => ipcRenderer.invoke('hermes:update:install'),
   /** What GitHub has put on the page of the project, row by row. */
   updateHistory: () => ipcRenderer.invoke('hermes:update:history'),
