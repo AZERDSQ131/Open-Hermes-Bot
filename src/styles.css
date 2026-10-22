@@ -265,22 +265,49 @@ button:focus-visible {
 .footer-dock {
   display: flex;
   flex: 0 0 auto;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
   height: 38px;
   padding: 0 14px;
   border: 1px solid var(--divider);
   border-radius: 999px;
   background: var(--field);
+  color: #d2d2d8;
   transition:
     background-color 120ms ease,
-    border-color 120ms ease;
+    border-color 120ms ease,
+    color 120ms ease;
 }
 
 .footer-dock:hover,
 .footer-dock:focus-visible {
   border-color: rgba(255, 255, 255, 0.14);
   background: var(--field-focus);
+  color: #f2f2f4;
+}
+
+/* The word before the marks: what the pill holds. */
+.dock-label {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* The marks overlap: each tile sits on the previous one. */
+.dock-marks {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.dock-marks .dock-mark {
+  position: relative;
+  margin-left: -7px;
+}
+
+.dock-marks .dock-mark:first-child {
+  margin-left: 0;
 }
 
 .dock-mark {
@@ -289,7 +316,7 @@ button:focus-visible {
   height: 24px;
   place-items: center;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.45);
   border-radius: 7px;
   background: #33333a;
 }

@@ -62,9 +62,12 @@ export function ConnectorDock({
       aria-label="Connectors"
       title="Connectors"
     >
-      {(rows.length ? rows : PREVIEW_ROWS).map((row) => (
-        <ConnectorMark key={row.slug} row={row} className="dock-mark" />
-      ))}
+      <span className="dock-label">Apps</span>
+      <span className="dock-marks">
+        {(rows.length ? rows : PREVIEW_ROWS).map((row) => (
+          <ConnectorMark key={row.slug} row={row} className="dock-mark" />
+        ))}
+      </span>
     </button>
   );
 }
