@@ -608,18 +608,27 @@ ipcMain.handle('hermes:update:check', () => updater.check());
 // The new version takes over: the app closes and comes back as itself.
 ipcMain.handle('hermes:update:install', () => ({ ok: updater.install() }));
 
-// Where the releases live, the way the package says it. When the package
-// says nothing, the person reads why instead of a list. The record is read
-// from the root of the app — the file's own directory is not it, inside or
-// outside a bundle.
-const RECIPE = require(path.join(app.getAppPath(), 'package.json'));
-const PAGE = (Array.isArray(RECIPE.publish) ? RECIPE.publish : []).find(
-  (one) => one && one.provider === 'github',
-);
-const RELEASES_URL =
-  PAGE && PAGE.owner && PAGE.repo
-    ? `https://api.github.com/repos/${PAGE.owner}/${PAGE.repo}/releases?per_page=12`
-    : '';
+// Where the releases live, the way the record of the app says it: the same
+// record the updater reads for its feed (app-update.yml, beside the
+// bundle's own resources). A copy that runs from the sources has no such
+// record, and then the person reads why instead of a list.
+const GITHUB = (() => {
+  try {
+    const note = fs.readFileSync(
+      path.join(process.resourcesPath, 'app-update.yml'),
+      'utf8',
+    );
+    const owner = /^owner:\s*(\S+)/m.exec(note)?.[1];
+    const repo = /^repo:\s*(\S+)/m.exec(note)?.[1];
+    if (!owner || !repo) return null;
+    return { owner, repo };
+  } catch {
+    return null;
+  }
+})();
+const RELEASES_URL = GITHUB
+  ? `https://api.github.com/repos/${GITHUB.owner}/${GITHUB.repo}/releases?per_page=12`
+  : '';
 
 // What GitHub has put on the page of the project: the history the look for
 // an update reads its latest line from. The shell asks, because the screen
@@ -643,10 +652,9 @@ ipcMain.handle('hermes:update:history', async () => {
     return {
       ok: true,
       rows: await answer.json(),
-      page:
-        PAGE && PAGE.owner && PAGE.repo
-          ? `https://github.com/${PAGE.owner}/${PAGE.repo}/releases`
-          : '',
+      page: GITHUB
+        ? `https://github.com/${GITHUB.owner}/${GITHUB.repo}/releases`
+        : '',
     };
   } catch (error) {
     return { ok: false, rows: [], message: error?.message ?? String(error) };
