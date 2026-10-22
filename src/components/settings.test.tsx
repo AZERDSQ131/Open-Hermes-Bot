@@ -10,6 +10,8 @@ const connected: HermesStatus = { state: 'connected', version: '0.21.5' };
 function withBridge(overrides: Record<string, unknown> = {}) {
   (window as unknown as { hermes: unknown }).hermes = {
     getSettings: vi.fn(async () => ({
+      mode: 'ssh',
+      configured: true,
       sshHost: 'my-host',
       apiPort: 8642,
       localPort: 18742,
@@ -69,6 +71,110 @@ describe('the settings', () => {
     );
   });
 
+  it('ask where Hermes runs', async () => {
+    withBridge();
+    renderSettings();
+    await waitFor(() =>
+      expect(screen.getByText('Where does Hermes run?')).toBeTruthy(),
+    );
+    expect(
+      screen.getByRole('radio', { name: /This Mac/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('radio', { name: /Another machine/ }),
+    ).toBeTruthy();
+  });
+
+  it('ask for no host when Hermes runs on this machine', async () => {
+    withBridge({
+      getSettings: vi.fn(async () => ({
+        mode: 'local',
+        configured: true,
+        sshHost: '',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: true,
+      })),
+    });
+    renderSettings();
+    await waitFor(() =>
+      expect(screen.getByText('Where does Hermes run?')).toBeTruthy(),
+    );
+    expect(screen.queryByDisplayValue('my-host')).toBeNull();
+    expect(screen.queryByText('SSH host')).toBeNull();
+    expect(
+      screen.getByRole('radio', { name: /This Mac/ }),
+    ).toBeChecked();
+  });
+
+  it('read the key from this machine when Hermes runs here', async () => {
+    const bridge = {
+      getSettings: vi.fn(async () => ({
+        mode: 'local',
+        configured: true,
+        sshHost: '',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: false,
+      })),
+      importKey: vi.fn(async () => ({ ok: true, keyLength: 64 })),
+      saveSettings: vi.fn(async () => ({ ok: true })),
+      test: vi.fn(),
+      disconnect: vi.fn(),
+      connect: vi.fn(),
+      models: vi.fn(async () => ({ ok: true, models: [] })),
+      profiles: vi.fn(async () => ({ ok: true, profiles: [] })),
+      prefs: vi.fn(async () => ({ ok: true, prefs: {} })),
+      savePrefs: vi.fn(async () => ({ ok: true })),
+    };
+    (window as unknown as { hermes: unknown }).hermes = bridge;
+    renderSettings();
+    await waitFor(() =>
+      expect(screen.getByText('Import from this Mac')).toBeTruthy(),
+    );
+    await userEvent.click(screen.getByText('Import from this Mac'));
+    await waitFor(() => expect(bridge.importKey).toHaveBeenCalled());
+    expect(bridge.importKey).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'local' }),
+    );
+  });
+
+  it('save the mode the person chose', async () => {
+    const bridge = {
+      getSettings: vi.fn(async () => ({
+        mode: 'ssh',
+        configured: true,
+        sshHost: 'my-host',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: true,
+      })),
+      saveSettings: vi.fn(async () => ({ ok: true })),
+      test: vi.fn(),
+      disconnect: vi.fn(),
+      connect: vi.fn(async () => ({ state: 'connected' })),
+      importKey: vi.fn(),
+      models: vi.fn(async () => ({ ok: true, models: [] })),
+      profiles: vi.fn(async () => ({ ok: true, profiles: [] })),
+      prefs: vi.fn(async () => ({ ok: true, prefs: {} })),
+      savePrefs: vi.fn(async () => ({ ok: true })),
+    };
+    (window as unknown as { hermes: unknown }).hermes = bridge;
+    renderSettings();
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: /Another machine/ })).toBeChecked(),
+    );
+    await userEvent.click(screen.getByRole('radio', { name: /This Mac/ }));
+    await userEvent.click(screen.getByText(/Save & (connect|reconnect)/));
+    await waitFor(() => expect(bridge.saveSettings).toHaveBeenCalled());
+    expect(bridge.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'local' }),
+    );
+  });
+
   it('say when the connection failed', () => {
     withBridge();
     renderSettings({ state: 'error', message: 'the key was refused' });
@@ -78,6 +184,8 @@ describe('the settings', () => {
   it('test the connection with what is written', async () => {
     const bridge = {
       getSettings: vi.fn(async () => ({
+        mode: 'ssh',
+        configured: true,
         sshHost: 'my-host',
         apiPort: 8642,
         localPort: 18742,
@@ -106,6 +214,8 @@ describe('the settings', () => {
   it('import the key from the host', async () => {
     const bridge = {
       getSettings: vi.fn(async () => ({
+        mode: 'ssh',
+        configured: true,
         sshHost: 'my-host',
         apiPort: 8642,
         localPort: 18742,
@@ -134,6 +244,8 @@ describe('the settings', () => {
   it('disconnect when the person asks', async () => {
     const bridge = {
       getSettings: vi.fn(async () => ({
+        mode: 'ssh',
+        configured: true,
         sshHost: 'my-host',
         apiPort: 8642,
         localPort: 18742,
@@ -160,6 +272,8 @@ describe('the settings', () => {
   it('connect again when the person asks', async () => {
     const bridge = {
       getSettings: vi.fn(async () => ({
+        mode: 'ssh',
+        configured: true,
         sshHost: 'my-host',
         apiPort: 8642,
         localPort: 18742,
@@ -186,6 +300,8 @@ describe('the settings', () => {
   it('remove the key that is stored', async () => {
     const bridge = {
       getSettings: vi.fn(async () => ({
+        mode: 'ssh',
+        configured: true,
         sshHost: 'my-host',
         apiPort: 8642,
         localPort: 18742,

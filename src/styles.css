@@ -2376,6 +2376,62 @@ button:focus-visible {
   flex-direction: column;
 }
 
+.settings-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0 0 4px;
+  border: none;
+}
+
+.settings-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 10px;
+  background: #1a1a1d;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.settings-mode:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.settings-mode:has(input:checked) {
+  border-color: rgba(139, 92, 246, 0.5);
+  background: rgba(139, 92, 246, 0.1);
+}
+
+.settings-mode input {
+  margin: 2px 0 0;
+  accent-color: #a78bfa;
+}
+
+.settings-mode-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-mode-copy strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-mode-copy em {
+  color: #8d8d96;
+  font-size: 11.5px;
+  font-style: normal;
+  line-height: 1.4;
+}
+
 .settings-field {
   display: flex;
   flex-direction: column;
