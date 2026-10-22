@@ -246,15 +246,17 @@ button:focus-visible {
   white-space: nowrap;
 }
 
-/* The dock of the connectors: the marks of the services a bot can reach. */
+/* The dock of the connectors: the marks of the services a bot can reach.
+   A wide pill next to the host: the marks sit side by side in it. */
 
 .footer-dock {
   display: flex;
   flex: 0 0 auto;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
   height: 38px;
-  padding: 0 9px;
+  padding: 0 14px;
+  border: 1px solid var(--divider);
   border-radius: 999px;
   background: var(--field);
   transition: background-color 120ms ease;
