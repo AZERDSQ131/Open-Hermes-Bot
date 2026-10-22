@@ -692,7 +692,7 @@ describe('the setup', () => {
     expect(screen.queryByText(/You're all set/)).toBeNull();
   });
 
-  it('says when the gateway is serving the bot', async () => {
+  it('clears the wait when the gateway is serving the bot', async () => {
     let ready: ((event: { name: string; served: boolean }) => void) | undefined;
     const bridge = makeBridge({
       createBot: vi.fn(async () => ({
@@ -709,14 +709,58 @@ describe('the setup', () => {
     });
     renderSetup();
     await walkToReady(bridge);
-    expect(
-      await screen.findByText(/Connecting your bot/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/Connecting your bot/)).toBeTruthy();
     await act(async () => {
       ready?.({ name: 'nova', served: true });
     });
-    // The door is open: the warming notice leaves, the bot stays.
-    expect(screen.getByText('Hermes is serving it now.')).toBeTruthy();
+    // The wait is over: no waiting line, no serving note, the bot stays.
+    await waitFor(() =>
+      expect(screen.queryByText(/Connecting your bot/)).toBeNull(),
+    );
+    expect(screen.queryByText(/serving it now/)).toBeNull();
+    expect(screen.getByText('Nova')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Start talking' }),
+    ).toBeEnabled();
+  });
+
+  it('turns the page the instant the colour is picked', async () => {
+    let resolveBot!: (value: unknown) => void;
+    const bridge = makeBridge({
+      createBot: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveBot = resolve;
+          }),
+      ),
+    });
+    renderSetup();
+    await walkToBot(bridge);
+    await userEvent.type(screen.getByLabelText('Its name'), 'Nova');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await screen.findByText(/What shape\?/);
+    await userEvent.click(screen.getByLabelText('Hexagon'));
+    await screen.findByText(/What colour\?/);
+    await userEvent.click(screen.getByLabelText('Amber'));
+    // The page turns before the host answers: one wait, on the new page.
+    expect(await screen.findByText(/You're all set/)).toBeTruthy();
+    expect(screen.getByText('Making your bot…')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Making the bot…' }),
+    ).toBeDisabled();
+    await act(async () => {
+      resolveBot({
+        ok: true,
+        name: 'nova',
+        title: 'Nova',
+        color: '#e8483f',
+        served: true,
+      });
+    });
+    expect(await screen.findByText('Nova')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Start talking' }),
+    ).toBeEnabled();
   });
 
   it('shows the next button again when the person comes back', async () => {
