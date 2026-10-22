@@ -41,6 +41,10 @@ contextBridge.exposeInMainWorld('hermes', {
   updateInfo: () => ipcRenderer.invoke('hermes:update:info'),
   checkForUpdates: () => ipcRenderer.invoke('hermes:update:check'),
   installUpdate: () => ipcRenderer.invoke('hermes:update:install'),
+  /** What GitHub has put on the page of the project, row by row. */
+  updateHistory: () => ipcRenderer.invoke('hermes:update:history'),
+  /** A row of the history opens where its release lives. */
+  openRelease: (url) => ipcRenderer.invoke('hermes:update:open-release', url),
   onUpdate: (callback) => {
     const listener = (_event, data) => callback(data);
     ipcRenderer.on('hermes:update:event', listener);

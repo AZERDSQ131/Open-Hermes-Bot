@@ -147,6 +147,13 @@ export type HermesUpdateResult = {
   message?: string;
 };
 
+/** What GitHub put on the page of the project, before the words trim it. */
+export type HermesUpdateHistory = {
+  ok: boolean;
+  rows?: unknown[];
+  message?: string;
+};
+
 export type HermesBridge = {
   createSession: (payload: {
     profile?: string;
@@ -266,6 +273,10 @@ export type HermesBridge = {
   checkForUpdates: () => Promise<HermesUpdateResult>;
   /** Lets the new version take over: the app comes back as itself. */
   installUpdate: () => Promise<{ ok: boolean }>;
+  /** What GitHub has put on the page of the project, row by row. */
+  updateHistory: () => Promise<HermesUpdateHistory>;
+  /** A row of the history opens where its release lives. */
+  openRelease: (url: string) => Promise<{ ok: boolean }>;
   /** Says what happened while looking for an update. */
   onUpdate: (callback: (event: HermesUpdateEvent) => void) => () => void;
 };
