@@ -288,7 +288,7 @@ button:focus-visible {
 .dock-mark.is-letter {
   background: #f2efe5;
   color: #1b1b19;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1;
 }
