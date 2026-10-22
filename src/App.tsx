@@ -205,8 +205,11 @@ function chiefFace(primary?: HermesProfile): SingleAvatar {
 }
 
 // A bot in Hermes becomes a thread here: the profile name is the identity, the
-// title, colour and face are the ones Hermes already shows for it.
-function threadForBot(profile: HermesProfile): Thread {
+// title, colour and face are the ones Hermes already shows for it. A profile
+// the gateway does not serve yet becomes a warming thread: visible at once,
+// with a loading screen instead of a composer.
+function threadForBot(profile: HermesProfile, now = Date.now()): Thread {
+  const warming = profile.served === false;
   return {
     id: `bot:${profile.name}`,
     name: profile.title?.trim() || profile.name,
@@ -216,11 +219,22 @@ function threadForBot(profile: HermesProfile): Thread {
       shape: botShape(profile.shape),
       variant: 'neutral',
     },
-    preview: '',
-    time: '',
+    preview: warming ? 'Starting…' : '',
+    time: warming ? '…' : '',
     chatTime: '',
     messages: [],
+    ...(warming ? { pending: true as const, pendingSince: now } : {}),
   };
+}
+
+// Is this warming bot past the delay without being served?
+export function isPendingExpired(
+  thread: Thread,
+  now = Date.now(),
+): boolean {
+  if (!thread.pending || !thread.profile) return false;
+  const since = thread.pendingSince ?? now;
+  return now - since > PENDING_BOT_TIMEOUT_MS;
 }
 
 // The face a bot wears is kept with the bot, on the server: a bot that came
