@@ -41,11 +41,18 @@ we use for all of it in [docs/vocabulary.md](docs/vocabulary.md).
 Grab the `.dmg` from the [releases](https://github.com/AZERDSQ131/Open-Hermes-Bot/releases),
 drag **Hermes Bot** into *Applications*, and open it.
 
+Two files are published: `-arm64` for Apple silicon, `-x64` for Intel.
+
 The app is not signed with a Developer ID, so macOS greets it like it greets any
 program it has never seen: *“Hermes Bot cannot be opened because the developer
 cannot be verified.”* Open it with a right click → **Open** → **Open**, once. From
-then on it opens like any other app. (Or from a terminal:
-`xattr -dr com.apple.quarantine "/Applications/Hermes Bot.app"`.)
+then on it opens like any other app.
+
+Or, from a terminal, once:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Hermes Bot.app"
+```
 
 ### First run
 
