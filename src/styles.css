@@ -2954,6 +2954,48 @@ button:focus-visible {
   font-size: 11.5px;
 }
 
+/* connectors: the wait while the host is asked, big and in the middle */
+
+.connectors-loading {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  min-height: 40vh;
+  text-align: center;
+}
+
+.connectors-loading-word {
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.connectors-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.14);
+  border-top-color: #fff;
+  animation: connectors-spin 0.9s linear infinite;
+}
+
+@keyframes connectors-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .connectors-spinner {
+    animation: none;
+  }
+}
+
 /* models: the settings pane that curates the picker and each bot's default */
 
 .models-stats {

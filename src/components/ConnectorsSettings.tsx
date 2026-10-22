@@ -139,16 +139,9 @@ export function ConnectorsSettings() {
       {notice ? <p className="settings-hint">{notice}</p> : null}
 
       {loading && !answer ? (
-        <div
-          style={{
-            display: 'flex',
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '40vh',
-          }}
-        >
-          <p className="settings-hint">Reading the host…</p>
+        <div className="connectors-loading" role="status">
+          <span className="connectors-spinner" aria-hidden="true" />
+          <p className="connectors-loading-word">Reading the host…</p>
         </div>
       ) : null}
 
