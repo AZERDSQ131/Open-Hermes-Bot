@@ -47,6 +47,8 @@ export function ConnectorsSettings() {
 
   const rows = answer ? readConnectors(answer) : [];
   const connected = rows.filter((row) => row.state === 'connected');
+  // Why the host could not answer, in its own words.
+  const closed = answer?.messages ?? [];
 
   /** The host starts the connection and answers with the link to open. */
   async function connect(row: Connector) {
@@ -106,17 +108,29 @@ export function ConnectorsSettings() {
       {error ? <p className="models-error">{error}</p> : null}
       {notice ? <p className="settings-hint">{notice}</p> : null}
 
-      {answer && !answer.available ? (
+      {closed.length ? (
         <section className="settings-card">
           <header className="settings-card-head">
             <div>
-              <h3>Not on this host</h3>
+              <h3>Closed on this host</h3>
               <p>
-                {answer.message ||
-                  'The connectors are not available on this host.'}
+                The services of Hermes live with the account, not on the
+                machine. The host has to be signed in to Nous for them to open.
               </p>
             </div>
           </header>
+          <div className="settings-card-body">
+            {closed.map((message) => (
+              <p className="settings-hint" key={message}>
+                {message}
+              </p>
+            ))}
+            <p className="settings-hint">
+              On the host, run <code>hermes auth add nous</code> and sign in.
+              The services open by themselves after that, and the marks of the
+              connected ones come back to the dock.
+            </p>
+          </div>
         </section>
       ) : null}
 

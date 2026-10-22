@@ -10,6 +10,7 @@ import {
 const LIST = {
   ok: true,
   available: true,
+  messages: [] as string[],
   catalog: [
     {
       slug: 'notion',

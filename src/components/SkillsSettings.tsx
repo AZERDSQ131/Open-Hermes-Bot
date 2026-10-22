@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { HermesSkill } from '../hermes';
+import { ProfilePicker } from './ProfilePicker';
 
 /**
  * The skills: what a bot can be taught to do.
@@ -9,6 +10,7 @@ import type { HermesSkill } from '../hermes';
  */
 export function SkillsSettings() {
   const bridge = window.hermes;
+  const [profile, setProfile] = useState('');
   const [skills, setSkills] = useState<HermesSkill[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
@@ -18,7 +20,8 @@ export function SkillsSettings() {
     const reader = bridge?.skills;
     if (!reader) return;
     let cancelled = false;
-    reader()
+    setSkills(null);
+    reader({ profile })
       .then((next: { ok: boolean; skills?: HermesSkill[]; error?: string }) => {
         if (cancelled) return;
         setSkills(next?.skills ?? []);
@@ -31,7 +34,7 @@ export function SkillsSettings() {
     return () => {
       cancelled = true;
     };
-  }, [bridge]);
+  }, [bridge, profile]);
 
   /** A skill is turned on or off on the host, where the skill lives. */
   async function toggle(skill: HermesSkill) {
@@ -50,6 +53,7 @@ export function SkillsSettings() {
       const result = await bridge.toggleSkill({
         name: skill.name,
         enabled,
+        profile,
       });
       if (!result.ok) {
         setError(result.error ?? 'The skill could not be turned on or off.');
@@ -95,6 +99,12 @@ export function SkillsSettings() {
       </header>
 
       {error ? <p className="models-error">{error}</p> : null}
+
+      <ProfilePicker
+        value={profile}
+        onChange={setProfile}
+        label="Whose skills?"
+      />
 
       <section className="settings-card">
         <header className="settings-card-head">
