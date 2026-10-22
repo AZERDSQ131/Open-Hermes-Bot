@@ -132,6 +132,15 @@ function stateOf(
     ) {
       return 'connected';
     }
+    if (
+      status === 'expired' ||
+      status === 'revoked' ||
+      status === 'failed' ||
+      status === 'error' ||
+      status === 'broken'
+    ) {
+      return 'broken';
+    }
     if (toolkit.enabled === false) return 'off';
     return 'available';
   }
