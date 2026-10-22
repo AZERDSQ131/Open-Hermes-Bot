@@ -1212,6 +1212,7 @@ export default function App() {
     const bridge = window.hermes;
     let profile: string | undefined;
     let color = input.color;
+    let served = true;
 
     if (bridge?.createBot) {
       // One round trip builds the whole profile (~90 ms on the server), so the
@@ -1237,7 +1238,9 @@ export default function App() {
         return { ok: false, error: result.error ?? 'Could not create the bot' };
       }
       profile = result.name;
-      if (profile) pendingBots.current.add(profile);
+      served = result.served !== false;
+      if (profile && !served) pendingBots.current.set(profile, Date.now());
+      else if (profile) pendingBots.current.delete(profile);
       // The colour the server keeps for this profile is the one to wear: that
       // is exactly what Hermes paints for the same bot. Only when nothing is
       // stored does the hue derived from the name stand in.
@@ -1253,10 +1256,15 @@ export default function App() {
         shape: input.shape,
         variant: 'neutral',
       },
-      preview: profile ? `Hermes profile ${profile}` : 'Start a conversation',
-      time: 'Now',
+      preview: profile
+        ? served ? `Hermes profile ${profile}` : 'Starting…'
+        : 'Start a conversation',
+      time: served ? 'Now' : '…',
       chatTime: 'Now',
       messages: [],
+      ...(profile && !served
+        ? { pending: true as const, pendingSince: Date.now() }
+        : {}),
     });
     return { ok: true };
   }
