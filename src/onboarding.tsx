@@ -105,8 +105,8 @@ const SCENES: Record<StepId, Scene> = {
   },
 };
 
-/** The violet the app wears, and the colour a bot starts from. */
-const DEFAULT_COLOR = '#5b5bda';
+/** The blue the app wears, and the colour a bot starts from. */
+const DEFAULT_COLOR = '#3f6fd1';
 
 /** Something else from the pool — the actor never stays what it was. */
 function another<T>(current: T, pool: readonly T[]): T {
@@ -685,7 +685,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       }}
     >
       <div className="onboarding-sky" aria-hidden="true">
-        <span className="onboarding-glow is-violet" />
+        <span className="onboarding-glow is-slate" />
         <span className="onboarding-glow is-teal" />
         <span className="onboarding-glow is-rose" />
       </div>
