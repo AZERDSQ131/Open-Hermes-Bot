@@ -159,6 +159,14 @@ describe('the hosts an SSH config knows', () => {
     expect(sshConfigHosts('Host 10.* !10.0.*\n')).toEqual([]);
   });
 
+  it('are not the machines a wildcard stands for', () => {
+    expect(sshConfigHosts('Host la?\n')).toEqual([]);
+  });
+
+  it('are not the names a pattern was made to leave out', () => {
+    expect(sshConfigHosts('Host jetson !renamed\n')).toEqual(['jetson']);
+  });
+
   it('are said once each', () => {
     expect(sshConfigHosts('Host jetson\nHost jetson\n')).toEqual(['jetson']);
   });

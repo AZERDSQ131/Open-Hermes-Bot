@@ -167,6 +167,16 @@ describe('the setup', () => {
     ).toBeTruthy();
   });
 
+  it('goes back and forth between the two machines', async () => {
+    makeBridge();
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    expect(screen.queryByLabelText('SSH host')).toBeNull();
+    await chooseMode('ssh');
+    expect(screen.getByLabelText('SSH host')).toBeTruthy();
+  });
+
   it('asks for no host when Hermes runs on this machine', async () => {
     makeBridge();
     renderSetup();
@@ -179,34 +189,58 @@ describe('the setup', () => {
     expect(screen.getByText('The app is connected')).toBeTruthy();
   });
 
-  it('does not test without a key, even on this machine', async () => {
-    makeBridge();
-    renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
-    await chooseMode('local');
-    const test = screen.getByRole('button', { name: 'Test the connection' });
-    expect(test).toBeDisabled();
-    await userEvent.type(screen.getByLabelText('API key'), 'sk-secret');
-    expect(test).not.toBeDisabled();
-  });
-
-  it('shakes hands with a Hermes on this machine', async () => {
+  it('scans this Mac before asking anything else', async () => {
     const bridge = makeBridge();
     renderSetup();
     await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await chooseMode('local');
-    await userEvent.type(screen.getByLabelText('API key'), 'sk-secret');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Test the connection' }),
-    );
     await waitFor(() => expect(bridge.test).toHaveBeenCalled());
+    expect(bridge.importKey).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'local' }),
+    );
     expect(bridge.test).toHaveBeenCalledWith(
       expect.objectContaining({ mode: 'local', apiPort: 8642 }),
     );
     expect(bridge.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ mode: 'local' }),
     );
+    expect(bridge.connect).toHaveBeenCalled();
     expect(await screen.findByText(/Hermes 0\.21\.5/)).toBeTruthy();
+  });
+
+  it('says when nothing answers on this Mac, and asks what is running', async () => {
+    makeBridge({
+      test: vi.fn(async () => ({
+        state: 'error',
+        message: 'Nothing is listening on that port',
+      })),
+    });
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    expect(
+      await screen.findByText('No Hermes answered on 127.0.0.1:8642. Is it running?'),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Scan again' }),
+    ).toBeTruthy();
+  });
+
+  it('asks for the key when this Mac has none to read', async () => {
+    makeBridge({
+      importKey: vi.fn(async () => ({
+        ok: false,
+        error: 'API_SERVER_KEY not found in ~/.hermes/.env',
+      })),
+    });
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    expect(
+      await screen.findByText(/API_SERVER_KEY not found/),
+    ).toBeTruthy();
+    // The key can be pasted where the scan could not read one.
+    expect(screen.getByLabelText('API key')).toBeTruthy();
   });
 
   it('reads the key from this machine when the person asks it to', async () => {
@@ -214,6 +248,13 @@ describe('the setup', () => {
     renderSetup();
     await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await chooseMode('local');
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Continue' }),
+      ).not.toBeDisabled(),
+    );
+    // The scan already read one: doing it again asks the same place.
+    if (bridge.importKey.mock) bridge.importKey.mockClear();
     await userEvent.click(
       screen.getByRole('button', { name: /Read it from this Mac/ }),
     );
@@ -222,6 +263,31 @@ describe('the setup', () => {
       expect.objectContaining({ mode: 'local' }),
     );
     expect(await screen.findByText(/Read from this Mac/)).toBeTruthy();
+  });
+
+  it('scans again when the person asks for it', async () => {
+    const bridge = makeBridge({
+      test: vi
+        .fn()
+        .mockResolvedValueOnce({
+          state: 'error',
+          message: 'Nothing is listening on that port',
+        })
+        .mockResolvedValueOnce({
+          state: 'connected',
+          version: '0.21.5',
+          gateway: 'hermes-gateway',
+        }),
+    });
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    expect(
+      await screen.findByText(/No Hermes answered on 127\.0\.0\.1:8642/),
+    ).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Scan again' }));
+    await waitFor(() => expect(bridge.test).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/Hermes 0\.21\.5/)).toBeTruthy();
   });
 
   it('shows the port and no tunnel when Hermes runs on this machine', async () => {
@@ -252,11 +318,11 @@ describe('the setup', () => {
     renderSetup();
     await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await chooseMode('local');
-    await userEvent.type(screen.getByLabelText('API key'), 'sk-secret');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Test the connection' }),
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Continue' }),
+      ).not.toBeDisabled(),
     );
-    await waitFor(() => expect(bridge.test).toHaveBeenCalled());
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await screen.findByText(/What is it called\?/);
     await userEvent.click(screen.getByRole('button', { name: 'Not now' }));
@@ -306,7 +372,9 @@ describe('the setup', () => {
     renderSetup();
     await walkTo(bridge);
     expect(await screen.findByText(/port 22: refused/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+    // Saying it again is asking again: the words do not change the answer.
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(bridge.test).toHaveBeenCalledTimes(2));
   });
 
   it('says what went wrong when the host says nothing at all', async () => {

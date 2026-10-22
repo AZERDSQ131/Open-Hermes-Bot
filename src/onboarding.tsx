@@ -114,6 +114,19 @@ function another<T>(current: T, pool: readonly T[]): T {
   return others[Math.floor(Math.random() * others.length)] ?? current;
 }
 
+/**
+ * What the person is told when nothing answers on this Mac: where the scan
+ * looked, and the question to ask themselves.
+ */
+function scanSilence(message: string | undefined, port: string) {
+  const nothing =
+    message === 'Nothing is listening on that port' ||
+    message === 'No answer on the local port';
+  return nothing
+    ? `No Hermes answered on 127.0.0.1:${port}. Is it running?`
+    : (message ?? 'The host did not answer.');
+}
+
 type CheckState = 'waiting' | 'working' | 'done' | 'failed';
 
 type Check = {
@@ -194,6 +207,9 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   const [checks, setChecks] = useState<Check[]>(emptyChecks);
   const [connected, setConnected] = useState(false);
   const [failed, setFailed] = useState(false);
+  // The scan of this Mac runs itself once: the person chose it, and nothing
+  // more should be asked of them than that.
+  const [scanned, setScanned] = useState(false);
   const [madeBot, setMadeBot] = useState<MadeBot | null>(null);
   const [botName, setBotName] = useState('');
   const [botFace, setBotFace] = useState<BloubShape>('cercle');
@@ -254,125 +270,180 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     [stepIndex],
   );
 
-  const runHandshake = useCallback(async () => {
-    if (!bridge?.test) return;
-    setBusy('handshake');
-    setError('');
-    setFailed(false);
-    setChecks(emptyChecks());
-    setChecks((current) => markCheck(current, 'reach', 'working'));
-    const port = Number.parseInt(apiPort, 10) || 8642;
-    const key = apiKey.trim();
+  const runHandshake = useCallback(
+    async ({
+      mode: forMode,
+      host: forHost,
+      apiKey: forKey,
+    }: {
+      mode?: HermesConnectionMode;
+      host?: string;
+      apiKey?: string;
+    } = {}) => {
+      if (!bridge?.test) return;
+      const at = forMode ?? mode;
+      const where = forHost ?? host;
+      const key = (forKey ?? apiKey).trim();
+      const port = Number.parseInt(apiPort, 10) || 8642;
+      setBusy('handshake');
+      setError('');
+      setFailed(false);
+      setChecks(emptyChecks());
+      setChecks((current) => markCheck(current, 'reach', 'working'));
 
-    let result: HermesStatus;
-    try {
-      result = await bridge.test({
-        mode,
-        sshHost: mode === 'ssh' ? host : undefined,
-        apiPort: port,
-        apiKey: key || undefined,
-      });
-    } catch (reason) {
-      result = {
-        state: 'error',
-        message:
-          reason instanceof Error && reason.message
-            ? reason.message
-            : 'The host did not answer.',
-      };
-    }
+      let result: HermesStatus;
+      try {
+        result = await bridge.test({
+          mode: at,
+          sshHost: at === 'ssh' ? where : undefined,
+          apiPort: port,
+          apiKey: key || undefined,
+        });
+      } catch (reason) {
+        result = {
+          state: 'error',
+          message:
+            reason instanceof Error && reason.message
+              ? reason.message
+              : 'The host did not answer.',
+        };
+      }
 
-    if (result.state !== 'connected') {
-      setChecks((current) => markCheck(current, 'reach', 'failed'));
-      setError(result.message ?? 'The host did not answer.');
-      setFailed(true);
+      if (result.state !== 'connected') {
+        setChecks((current) => markCheck(current, 'reach', 'failed'));
+        setError(
+          at === 'local'
+            ? scanSilence(result.message, String(apiPort || '8642'))
+            : (result.message ?? 'The host did not answer.'),
+        );
+        setFailed(true);
+        setBusy('none');
+        return;
+      }
+
+      setChecks((current) =>
+        markCheck(
+          markCheck(current, 'reach', 'done', `Hermes ${result.version ?? '?'}`),
+          'key',
+          'done',
+          `gateway ${result.gateway ?? 'ok'}`,
+        ),
+      );
+      setChecks((current) => markCheck(current, 'link', 'working'));
+
+      // The key and the host are written down now: the link that follows is
+      // the one the app will use from here on.
+      const saved = await bridge
+        ?.saveSettings?.({
+          mode: at,
+          sshHost: where,
+          apiPort: port,
+          localPort: Number.parseInt(localPort, 10) || 18742,
+          apiKey: key || undefined,
+        })
+        .catch((reason: Error) => ({
+          ok: false,
+          error: reason.message,
+          settings: undefined,
+        }));
+
+      if (!saved?.ok) {
+        setChecks((current) => markCheck(current, 'link', 'failed'));
+        setError(saved?.error ?? 'The connection could not be saved.');
+        setFailed(true);
+        setBusy('none');
+        return;
+      }
+      if (saved.settings) setHasKey(Boolean(saved.settings.hasKey));
+
+      const status = await bridge
+        ?.connect?.()
+        .catch((reason: Error) => ({
+          state: 'error' as const,
+          message: reason.message,
+        }));
+
+      if (status?.state !== 'connected') {
+        setChecks((current) => markCheck(current, 'link', 'failed'));
+        setError(status?.message ?? 'The tunnel did not open.');
+        setFailed(true);
+        setBusy('none');
+        return;
+      }
+
+      setChecks((current) =>
+        markCheck(
+          current,
+          'link',
+          'done',
+          at === 'local'
+            ? `127.0.0.1:${apiPort || '8642'}`
+            : `127.0.0.1:${localPort}`,
+        ),
+      );
+      setConnected(true);
       setBusy('none');
-      return;
-    }
+    },
+    [apiKey, apiPort, bridge, host, localPort, mode],
+  );
 
-    setChecks((current) =>
-      markCheck(
-        markCheck(current, 'reach', 'done', `Hermes ${result.version ?? '?'}`),
-        'key',
-        'done',
-        `gateway ${result.gateway ?? 'ok'}`,
-      ),
-    );
-    setChecks((current) => markCheck(current, 'link', 'working'));
-
-    // The key and the host are written down now: the link that follows is
-    // the one the app will use from here on.
-    const saved = await bridge
-      ?.saveSettings?.({
-        mode,
-        sshHost: host,
-        apiPort: port,
-        localPort: Number.parseInt(localPort, 10) || 18742,
-        apiKey: key || undefined,
-      })
-      .catch((reason: Error) => ({
-        ok: false,
-        error: reason.message,
-        settings: undefined,
-      }));
-
-    if (!saved?.ok) {
-      setChecks((current) => markCheck(current, 'link', 'failed'));
-      setError(saved?.error ?? 'The connection could not be saved.');
-      setFailed(true);
-      setBusy('none');
-      return;
-    }
-    if (saved.settings) setHasKey(Boolean(saved.settings.hasKey));
-
-    const status = await bridge
-      ?.connect?.()
-      .catch((reason: Error) => ({
-        state: 'error' as const,
-        message: reason.message,
-      }));
-
-    if (status?.state !== 'connected') {
-      setChecks((current) => markCheck(current, 'link', 'failed'));
-      setError(status?.message ?? 'The tunnel did not open.');
-      setFailed(true);
-      setBusy('none');
-      return;
-    }
-
-    setChecks((current) =>
-      markCheck(
-        current,
-        'link',
-        'done',
-        mode === 'local' ? `127.0.0.1:${apiPort || '8642'}` : `127.0.0.1:${localPort}`,
-      ),
-    );
-    setConnected(true);
-    setBusy('none');
-  }, [apiKey, apiPort, bridge, host, localPort, mode]);
+  /**
+   * Reads the key from the machine that runs Hermes, in the mode given. The
+   * scan and the saved-host handshake both need it done for them; the
+   * button hands it over too.
+   */
+  const importFor = useCallback(
+    async (at: HermesConnectionMode, where: string): Promise<boolean> => {
+      if (!bridge?.importKey) return false;
+      const result = await bridge
+        .importKey({ mode: at, sshHost: where })
+        .catch((reason: Error) => ({ ok: false, error: reason.message }));
+      if (result.ok) {
+        setHasKey(true);
+        setApiKey('');
+        setNotice(
+          at === 'local'
+            ? 'Read from this Mac, and kept in the Keychain.'
+            : `Read from ${where}, and kept in the Keychain.`,
+        );
+        return true;
+      }
+      setError(result.error ?? 'The key could not be read from the server.');
+      return false;
+    },
+    [bridge],
+  );
 
   async function handleImport() {
-    if (!bridge?.importKey) return;
+    if (busy !== 'none') return;
     setBusy('import');
-    setError('');
-    setNotice('');
-    const result = await bridge
-      .importKey({ mode, sshHost: host })
-      .catch((reason: Error) => ({ ok: false, error: reason.message }));
-    if (result.ok) {
-      setHasKey(true);
-      setApiKey('');
-      setNotice(
-        mode === 'local'
-          ? 'Read from this Mac, and kept in the Keychain.'
-          : `Read from ${host}, and kept in the Keychain.`,
-      );
-    } else {
-      setError(result.error ?? 'The key could not be read from the server.');
-    }
+    await importFor(mode, host);
     setBusy('none');
   }
+
+  /**
+   * A Hermes on this machine: the scan reads the key where it lives if none
+   * is known yet, then the handshake opens the connection. One ask, and no
+   * form to fill in first.
+   */
+  const scanLocal = useCallback(async () => {
+    if (!bridge?.test || busy !== 'none') return;
+    if (!hasKey && !apiKey.trim()) {
+      const imported = await importFor('local', '');
+      if (!imported) return;
+    }
+    await runHandshake({ mode: 'local' });
+  }, [apiKey, bridge, busy, hasKey, importFor, runHandshake]);
+
+  // The scan is what being asked for this Mac costs: nothing. Once the
+  // connection page is on this Mac, the app looks at the port, reads the
+  // key where it lives, and says what it found.
+  useEffect(() => {
+    if (step !== 'setup' || mode !== 'local') return;
+    if (connected || busy !== 'none' || scanned) return;
+    setScanned(true);
+    void scanLocal();
+  }, [busy, connected, mode, scanLocal, scanned, step]);
 
   async function handleCreateBot(input: {
     shape: BloubShape;
@@ -440,10 +511,11 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   }
 
   // A host is only needed for a Hermes that runs somewhere else: on this
-  // machine, the port is enough.
+  // machine, the port is enough. And the scan needs no key written down
+  // first — reading it where it lives is what the scan does.
   const canTest =
     (mode === 'local' || host.trim() !== '') &&
-    (hasKey || apiKey.trim() !== '');
+    (mode === 'local' || hasKey || apiKey.trim() !== '');
   const canContinue = useMemo(() => {
     switch (step) {
       case 'setup':
@@ -505,7 +577,11 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     : step === 'welcome'
       ? 'Begin'
       : testing
-        ? 'Test the connection'
+        ? mode === 'local'
+          ? failed
+            ? 'Scan again'
+            : 'Scan this Mac'
+          : 'Test the connection'
         : step === 'colour' && !madeBot
           ? 'Make the bot'
           : 'Continue';
@@ -526,7 +602,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       return;
     }
     if (testing) {
-      await runHandshake();
+      await (mode === 'local' ? scanLocal() : runHandshake());
       return;
     }
     if (step === 'face') {
@@ -631,6 +707,8 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                     onChange={() => {
                       setMode('local');
                       setError('');
+                      // Coming back to this Mac is coming back to a scan.
+                      setScanned(false);
                     }}
                   />
                   <span className="onboarding-mode-copy">
@@ -805,7 +883,9 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                     type="button"
                     className="onboarding-button is-quiet"
                     disabled={busy !== 'none'}
-                    onClick={() => void runHandshake()}
+                    onClick={() =>
+                      void (mode === 'local' ? scanLocal() : runHandshake())
+                    }
                   >
                     Try again
                   </button>
@@ -948,7 +1028,11 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
               disabled={busy !== 'none' || (testing ? !canTest : !canContinue)}
               onClick={() => void handlePrimary()}
             >
-              {busy === 'handshake' ? 'Connecting…' : primaryLabel}
+              {busy === 'handshake'
+                ? mode === 'local'
+                  ? 'Scanning…'
+                  : 'Connecting…'
+                : primaryLabel}
             </button>
           )}
         </div>
