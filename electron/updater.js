@@ -35,6 +35,8 @@ function createUpdater({ app, autoUpdater, onEvent }) {
 
   /** The version that was found on the releases page. */
   let found = '';
+  /** When that version was published, as the page said it. */
+  let released = '';
   /** The new version is on the disk: it can take over the app. */
   let ready = false;
   /** The app is already leaving: the install happens once. */
@@ -51,6 +53,7 @@ function createUpdater({ app, autoUpdater, onEvent }) {
     onEvent({
       state,
       version: found,
+      released,
       percent: 0,
       message: '',
       ...extra,
@@ -73,6 +76,7 @@ function createUpdater({ app, autoUpdater, onEvent }) {
 
   autoUpdater.on('update-available', (info) => {
     found = info?.version ?? found;
+    released = info?.releaseDate ?? released;
     emit(AVAILABLE);
     // The download is ours to ask for: the person pressed the button, or the
     // app is getting ready for its next launch.
@@ -90,6 +94,7 @@ function createUpdater({ app, autoUpdater, onEvent }) {
 
   autoUpdater.on('update-downloaded', (info) => {
     found = info?.version ?? found;
+    released = info?.releaseDate ?? released;
     ready = true;
     emit(READY, { percent: 100 });
     answer({ ok: true, state: READY, version: found });

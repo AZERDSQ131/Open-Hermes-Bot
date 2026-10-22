@@ -171,6 +171,53 @@ describe('a check the person asked for', () => {
     await check;
   });
 
+  it('carries the day the release came out', async () => {
+    const { updater, autoUpdater, events } = harness();
+    const check = updater.check();
+    autoUpdater.emit('update-available', {
+      version: '1.1.0',
+      releaseDate: '2025-10-20T12:00:00.000Z',
+    });
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        state: 'available',
+        version: '1.1.0',
+        released: '2025-10-20T12:00:00.000Z',
+      }),
+    );
+    autoUpdater.emit('update-downloaded', { version: '1.1.0' });
+    await check;
+  });
+
+  it('keeps the day it had, when the download names none', async () => {
+    const { updater, autoUpdater, events } = harness();
+    const check = updater.check();
+    autoUpdater.emit('update-available', {
+      version: '1.1.0',
+      releaseDate: '2025-10-20T12:00:00.000Z',
+    });
+    autoUpdater.emit('update-downloaded', {});
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        state: 'ready',
+        version: '1.1.0',
+        released: '2025-10-20T12:00:00.000Z',
+      }),
+    );
+    await check;
+  });
+
+  it('stays silent about the day the feed did not say', async () => {
+    const { updater, autoUpdater, events } = harness();
+    const check = updater.check();
+    autoUpdater.emit('update-available', { version: '1.1.0' });
+    expect(events).toContainEqual(
+      expect.objectContaining({ state: 'available', released: '' }),
+    );
+    autoUpdater.emit('update-not-available');
+    await check;
+  });
+
   it('waits for the check that is already running', async () => {
     const { updater, autoUpdater } = harness();
     const first = updater.check();

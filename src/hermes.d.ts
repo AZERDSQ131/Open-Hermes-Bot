@@ -133,6 +133,8 @@ export type HermesUpdateInfo = {
 export type HermesUpdateEvent = {
   state: UpdateState;
   version?: string;
+  /** When the version that was found was published, the way Github wrote it. */
+  released?: string;
   percent?: number;
   message?: string;
 };
