@@ -2345,6 +2345,9 @@ function cleanProfiles(values) {
       title: String(raw.title ?? '').trim(),
       color: String(raw.color ?? '').trim(),
       shape: String(raw.shape ?? '').trim(),
+      // A disk-only profile the gateway does not serve yet warms up in the
+      // sidebar instead of vanishing until the next rescan.
+      ...(raw.served === false ? { served: false } : {}),
     });
   }
   return [...seen.values()].sort((left, right) =>
