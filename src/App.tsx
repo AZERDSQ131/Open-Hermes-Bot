@@ -2927,7 +2927,47 @@ export default function App() {
           }}
         >
           <div className="chat-inner">
-            {activeThread.messages.length === 0 ? (
+            {activeThread.pending ? (
+              <div className="warming-screen" role="status">
+                <AgentAvatar
+                  avatar={activeThread.avatar}
+                  size={62}
+                  className="empty-avatar is-warming"
+                  showBadge={false}
+                />
+                <span className="warming-dots" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <h2>
+                  {activeThread.serveFailed
+                    ? `${activeThread.name} could not connect`
+                    : `Connecting ${activeThread.name}…`}
+                </h2>
+                <p>
+                  {activeThread.serveFailed
+                    ? 'Hermes still does not serve this bot. It will be removed automatically if it never connects — retry now or remove it.'
+                    : 'The bot is created on the host. Hermes picks it up at its next scan — you can wait here, no need to create it again.'}
+                </p>
+                <div className="warming-actions">
+                  <button
+                    type="button"
+                    className="button-primary"
+                    onClick={() => retryWarmingBot(activeThread)}
+                  >
+                    Retry now
+                  </button>
+                  <button
+                    type="button"
+                    className="button-ghost"
+                    onClick={() => dismissWarmingBot(activeThread)}
+                  >
+                    Remove this bot
+                  </button>
+                </div>
+              </div>
+            ) : activeThread.messages.length === 0 ? (
               <div className="empty-state">
                 <AgentAvatar
                   avatar={activeThread.avatar}
