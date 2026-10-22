@@ -767,9 +767,11 @@ describe('the setup', () => {
     await userEvent.click(screen.getByLabelText('Hexagon'));
     await screen.findByText(/What colour\?/);
     await userEvent.click(screen.getByLabelText('Amber'));
-    // The page turns before the host answers: one wait, on the new page.
+    // The page turns before the host answers: the picked bot is already
+    // there, and the making state lives on the button alone.
     expect(await screen.findByText(/You're all set/)).toBeTruthy();
-    expect(screen.getByText('Making your bot…')).toBeTruthy();
+    expect(screen.getByText('Nova')).toBeTruthy();
+    expect(screen.queryByText(/Making your bot/)).toBeNull();
     expect(
       screen.getByRole('button', { name: 'Making the bot…' }),
     ).toBeDisabled();
