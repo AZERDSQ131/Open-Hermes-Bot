@@ -3286,12 +3286,17 @@ export default function App() {
                   className="composer-input"
                   rows={1}
                   value={draft}
+                  disabled={Boolean(activeThread.pending)}
                   placeholder={
-                    listening
-                      ? 'Listening...'
-                      : activeThread.members?.length
-                        ? 'Message the group — @ a bot to ask it directly'
-                        : `Message ${activeThread.name}`
+                    activeThread.pending
+                      ? activeThread.serveFailed
+                        ? 'This bot is not connected yet…'
+                        : 'Waiting for Hermes to connect this bot…'
+                      : listening
+                        ? 'Listening...'
+                        : activeThread.members?.length
+                          ? 'Message the group — @ a bot to ask it directly'
+                          : `Message ${activeThread.name}`
                   }
                   onChange={handleDraftChange}
                   onKeyDown={handleComposerKeyDown}
