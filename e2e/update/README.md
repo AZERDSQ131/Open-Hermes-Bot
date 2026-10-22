@@ -19,7 +19,7 @@ signing identity the release uses.
 
 ## What it does
 
-1. **Builds** the app twice: once as `1.0.0`, once as `1.0.1`.
+1. **Builds** the app twice: once as `1.0.0`, once as `1.1.0`.
 2. **Serves** the second build as a release feed, on `127.0.0.1:7788`.
 3. **Installs** the first build with `ditto`, the copier macOS uses for a
    bundle: it keeps the symlinks and the signature, and the signature is
@@ -29,7 +29,7 @@ signing identity the release uses.
 5. **Presses** the button: open the settings, open *Updates*, press *Check
    for updates*.
 6. **Waits** for the app to close, take the new version, and come back.
-7. **Checks** that the version on disk is now `1.0.1`.
+7. **Checks** that the version on disk is now `1.1.0`.
 
 ## The files
 

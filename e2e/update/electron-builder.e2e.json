@@ -5,6 +5,9 @@
   "directories": {
     "output": "e2e/out/v1"
   },
+  "extraMetadata": {
+    "version": "1.0.0"
+  },
   "files": [
     "dist/**/*",
     "electron/**/*",
