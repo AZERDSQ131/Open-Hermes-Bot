@@ -243,3 +243,70 @@ export function PlugIcon({ size = 16, className }: IconProps) {
     </svg>
   );
 }
+
+/** The brand marks of the services the dock shows. Inline SVG, no network:
+ * the renderer touches no vendor host, so the real logos ship with the app
+ * instead of arriving as bytes from the shell. */
+
+/** Notion: the black N on white. */
+export function NotionIcon({ size = 24, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden
+    >
+      <rect width="24" height="24" fill="#fff" />
+      <path
+        d="M6.5 5.2h2.9l5.4 9.6V5.2h2.7v13.6h-2.9l-5.4-9.6v9.6H6.5z"
+        fill="#111"
+      />
+    </svg>
+  );
+}
+
+/** Google Drive: the three-colour triangle on white. */
+export function GoogleDriveIcon({ size = 24, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden
+    >
+      <rect width="24" height="24" fill="#fff" />
+      <path d="M9 5h3l-5 10H4z" fill="#0F9D58" />
+      <path d="M15 5h-3l5 10h3z" fill="#FFCF40" />
+      <path d="M4 15h16l-3 5H7z" fill="#2684FC" />
+    </svg>
+  );
+}
+
+/** Google Calendar: the white 31 on blue. */
+export function GoogleCalendarIcon({ size = 24, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden
+    >
+      <rect width="24" height="24" fill="#2684FC" />
+      <text
+        x="12"
+        y="16.5"
+        textAnchor="middle"
+        fontSize="9"
+        fontWeight="700"
+        fill="#fff"
+        fontFamily="inherit"
+      >
+        31
+      </text>
+    </svg>
+  );
+}
