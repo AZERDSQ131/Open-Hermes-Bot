@@ -778,6 +778,55 @@ describe('the settings', () => {
     expect(await screen.findByText('nope')).toBeTruthy();
   });
 
+  it(
+    'open the browser and re-read after Nous approval',
+    async () => {
+      const closed = {
+        ok: true,
+        available: false,
+        catalog: [],
+        toolkit: [],
+        accounts: [],
+        messages: ['The catalogue of the services is closed: boom'],
+      };
+      const open = {
+        ok: true,
+        available: true,
+        catalog: [{ slug: 'notion', name: 'Notion' }],
+        toolkit: [{ connector: 'notion', enabled: true, connected: true }],
+        accounts: [],
+        messages: [],
+      };
+      const connectors = vi
+        .fn()
+        .mockResolvedValueOnce(closed)
+        .mockResolvedValue(open);
+      const openLink = vi.fn(async () => ({ ok: true }));
+      withBridge({
+        connectors,
+        nousLoginStart: vi.fn(async () => ({
+          ok: true,
+          url: 'https://portal.example/approve',
+          user_code: 'ABCD-EFGH',
+          device_code: 'device-1',
+          expires_in: 600,
+          interval: 2,
+        })),
+        nousLoginPoll: vi.fn(async () => ({ ok: true, pending: false })),
+        openLink,
+      });
+      renderSettings();
+      await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+      await userEvent.click(
+        await screen.findByRole('button', { name: 'Sign in with Nous' }),
+      );
+      expect(await screen.findByText('ABCD-EFGH')).toBeTruthy();
+      expect(openLink).toHaveBeenCalledWith('https://portal.example/approve');
+      expect(await screen.findByText('Notion', {}, { timeout: 8000 })).toBeTruthy();
+    },
+    15000,
+  );
+
   it('turn a skill off on the host, where the skill lives', async () => {
     const toggleSkill = vi.fn(async () => ({ ok: true }));
     withBridge({
