@@ -23,6 +23,10 @@ function withBridge(overrides: Record<string, unknown> = {}) {
     disconnect: vi.fn(async () => ({ state: 'disconnected' })),
     connect: vi.fn(async () => ({ state: 'connected' })),
     importKey: vi.fn(async () => ({ ok: true, keyLength: 64 })),
+    sshHosts: vi.fn(async () => ({
+      ok: true,
+      hosts: ['jetson', 'lab-box'],
+    })),
     status: vi.fn(async () => connected),
     models: vi.fn(async () => ({ ok: true, models: [] })),
     profiles: vi.fn(async () => ({ ok: true, profiles: [] })),
@@ -82,6 +86,136 @@ describe('the settings', () => {
     ).toBeTruthy();
     expect(
       screen.getByRole('radio', { name: /Another machine/ }),
+    ).toBeTruthy();
+  });
+
+  it('list the machines the SSH config names', async () => {
+    const bridge = {
+      getSettings: vi.fn(async () => ({
+        mode: 'ssh',
+        configured: true,
+        sshHost: 'my-host',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: true,
+      })),
+      sshHosts: vi.fn(async () => ({
+        ok: true,
+        hosts: ['jetson', 'lab-box'],
+      })),
+      saveSettings: vi.fn(async () => ({ ok: true })),
+      test: vi.fn(),
+      disconnect: vi.fn(),
+      connect: vi.fn(),
+      importKey: vi.fn(),
+    };
+    (window as unknown as { hermes: unknown }).hermes = bridge;
+    renderSettings();
+    expect(await screen.findByRole('button', { name: /jetson/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /lab-box/ })).toBeTruthy();
+    expect(bridge.sshHosts).toHaveBeenCalled();
+  });
+
+  it('connect to a saved host with one click', async () => {
+    const bridge = {
+      getSettings: vi.fn(async () => ({
+        mode: 'ssh',
+        configured: true,
+        sshHost: 'my-host',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: false,
+      })),
+      sshHosts: vi.fn(async () => ({ ok: true, hosts: ['jetson', 'lab-box'] })),
+      importKey: vi.fn(async () => ({ ok: true, keyLength: 64 })),
+      saveSettings: vi.fn(async () => ({ ok: true })),
+      test: vi.fn(),
+      disconnect: vi.fn(),
+      connect: vi.fn(async () => ({ state: 'connected' })),
+      models: vi.fn(async () => ({ ok: true, models: [] })),
+      profiles: vi.fn(async () => ({ ok: true, profiles: [] })),
+      prefs: vi.fn(async () => ({ ok: true, prefs: {} })),
+      savePrefs: vi.fn(async () => ({ ok: true })),
+    };
+    (window as unknown as { hermes: unknown }).hermes = bridge;
+    renderSettings();
+    await userEvent.click(
+      await screen.findByRole('button', { name: /jetson/ }),
+    );
+    // The key read from the machine, the connection written down and
+    // opened: all of it for the price of a click.
+    expect(bridge.importKey).toHaveBeenCalledWith({
+      mode: 'ssh',
+      sshHost: 'jetson',
+    });
+    await waitFor(() => expect(bridge.saveSettings).toHaveBeenCalled());
+    expect(bridge.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'ssh', sshHost: 'jetson' }),
+    );
+    expect(bridge.connect).toHaveBeenCalled();
+  });
+
+  it('ask for the key when the saved host has none to give', async () => {
+    const bridge = {
+      getSettings: vi.fn(async () => ({
+        mode: 'ssh',
+        configured: true,
+        sshHost: 'my-host',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: false,
+      })),
+      sshHosts: vi.fn(async () => ({ ok: true, hosts: ['jetson'] })),
+      importKey: vi.fn(async () => ({
+        ok: false,
+        error: 'API_SERVER_KEY not found in the remote ~/.hermes/.env',
+      })),
+      saveSettings: vi.fn(async () => ({ ok: true })),
+      test: vi.fn(),
+      disconnect: vi.fn(),
+      connect: vi.fn(),
+      models: vi.fn(async () => ({ ok: true, models: [] })),
+      profiles: vi.fn(async () => ({ ok: true, profiles: [] })),
+      prefs: vi.fn(async () => ({ ok: true, prefs: {} })),
+      savePrefs: vi.fn(async () => ({ ok: true })),
+    };
+    (window as unknown as { hermes: unknown }).hermes = bridge;
+    renderSettings();
+    await userEvent.click(
+      await screen.findByRole('button', { name: /jetson/ }),
+    );
+    expect(
+      await screen.findByText(/API_SERVER_KEY not found/),
+    ).toBeTruthy();
+    // Nothing was written down: the click only asked for the key.
+    expect(bridge.saveSettings).not.toHaveBeenCalled();
+  });
+
+  it('say when no host is saved', async () => {
+    const bridge = {
+      getSettings: vi.fn(async () => ({
+        mode: 'ssh',
+        configured: true,
+        sshHost: 'my-host',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: true,
+      })),
+      sshHosts: vi.fn(async () => ({ ok: true, hosts: [] })),
+      saveSettings: vi.fn(async () => ({ ok: true })),
+      test: vi.fn(),
+      disconnect: vi.fn(),
+      connect: vi.fn(),
+      importKey: vi.fn(),
+    };
+    (window as unknown as { hermes: unknown }).hermes = bridge;
+    renderSettings();
+    expect(
+      await screen.findByText(/No host saved in your SSH config/),
     ).toBeTruthy();
   });
 

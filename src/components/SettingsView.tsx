@@ -67,6 +67,9 @@ export function SettingsView({
   const [mode, setMode] = useState<HermesConnectionMode>('local');
   // No host is a name: the machine running Hermes is the person's to say.
   const [host, setHost] = useState('');
+  // The machines the person has already named in their SSH config: read
+  // once a Hermes elsewhere is being connected to, and only then.
+  const [savedHosts, setSavedHosts] = useState<string[] | null>(null);
   const [port, setPort] = useState('8642');
   const [localPort, setLocalPort] = useState('18742');
   const [autoConnect, setAutoConnect] = useState(false);
@@ -100,6 +103,27 @@ export function SettingsView({
       cancelled = true;
     };
   }, [bridge]);
+
+  // The names in the SSH config are for the connection page on a Hermes
+  // elsewhere: one click each, nothing more asked for.
+  useEffect(() => {
+    if (section !== 'connection' || mode !== 'ssh' || savedHosts !== null)
+      return;
+    let cancelled = false;
+    const fallback = { hosts: [] as string[] };
+    Promise.resolve(bridge?.sshHosts ? bridge.sshHosts() : fallback)
+      .then((result: { hosts?: string[] }) => {
+        if (cancelled) return;
+        setSavedHosts(Array.isArray(result.hosts) ? result.hosts : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSavedHosts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge, mode, savedHosts, section]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -178,19 +202,17 @@ export function SettingsView({
     setBusy(null);
   }
 
-  async function handleSave() {
+  /** Everything "save" means, in the connection the person just chose. */
+  async function persist(at: HermesConnectionMode, where: string) {
     if (!bridge) return;
-    start('save');
     // Scanning this Mac for the first time means reading the key where it
     // lives if none is known yet: the whole scan is one click.
-    if (mode === 'local' && !hasKey && !apiKey.trim()) {
-      const result = await bridge
-        .importKey({ mode: 'local' })
+    if (at === 'local' && !hasKey && !apiKey.trim()) {
+      const imported = await bridge
+        .importKey({ mode: at })
         .catch((reason: Error) => ({ ok: false, error: reason.message }));
-      if (!result.ok) {
-        setError(
-          result.error ?? 'Could not read the key from this Mac',
-        );
+      if (!imported.ok) {
+        setError(imported.error ?? 'Could not read the key from this Mac');
         setBusy(null);
         return;
       }
@@ -199,8 +221,8 @@ export function SettingsView({
     }
     const saved = await bridge
       .saveSettings({
-        mode,
-        sshHost: host,
+        mode: at,
+        sshHost: where,
         apiPort: Number.parseInt(port, 10),
         localPort: Number.parseInt(localPort, 10),
         autoConnect,
@@ -217,7 +239,7 @@ export function SettingsView({
       return;
     }
     if (saved.settings) {
-      setMode(saved.settings.mode ?? mode);
+      setMode(saved.settings.mode ?? at);
       setHasKey(saved.settings.hasKey);
       setHost(saved.settings.sshHost);
       setPort(String(saved.settings.apiPort));
@@ -226,11 +248,41 @@ export function SettingsView({
     }
     setApiKey('');
     const afterConnect = await bridge.connect();
-    if (afterConnect.state === 'error' && mode === 'local') {
+    if (afterConnect.state === 'error' && at === 'local') {
       setError(scanSilence(afterConnect.message, port || '8642'));
     }
     report(afterConnect);
     setBusy(null);
+  }
+
+  async function handleSave() {
+    if (!bridge) return;
+    start('save');
+    await persist(mode, host);
+  }
+
+  /**
+   * A saved host is one click. The host is named, the key is read from the
+   * machine itself — or the person is asked for it — and the connection is
+   * written down and opened.
+   */
+  async function handlePickHost(name: string) {
+    if (busy || !bridge) return;
+    start('save');
+    const at: HermesConnectionMode = 'ssh';
+    if (!hasKey && !apiKey.trim()) {
+      const imported = await bridge
+        .importKey({ mode: at, sshHost: name })
+        .catch((reason: Error) => ({ ok: false, error: reason.message }));
+      if (!imported.ok) {
+        setError(imported.error ?? `Could not read the key from ${name}`);
+        setBusy(null);
+        return;
+      }
+      setHasKey(true);
+      setApiKey('');
+    }
+    await persist(at, name);
   }
 
   async function handleImportKey() {
@@ -464,27 +516,59 @@ export function SettingsView({
                   </fieldset>
 
                   {mode === 'ssh' ? (
-                    <label className="settings-field">
-                      <span className="settings-field-label">SSH host</span>
-                      <input
-                        id="connection-host"
-                        type="text"
-                        value={host}
-                        spellCheck={false}
-                        autoComplete="off"
-                        placeholder="my-hermes-host"
-                        disabled={Boolean(busy)}
-                        onChange={(event) => {
-                          setHost(event.target.value);
-                          setError('');
-                          setNotice('');
-                        }}
-                      />
-                      <span className="settings-field-note">
-                        The machine running Hermes, reached with your existing SSH
-                        config.
-                      </span>
-                    </label>
+                    <>
+                      {savedHosts !== null && savedHosts.length > 0 ? (
+                        <div className="settings-hosts">
+                          {savedHosts.map((name) => (
+                            <button
+                              key={name}
+                              type="button"
+                              className={`settings-host ${
+                                host === name ? 'is-chosen' : ''
+                              }`}
+                              disabled={Boolean(busy)}
+                              onClick={() => void handlePickHost(name)}
+                            >
+                              <span className="settings-host-name">
+                                {name}
+                              </span>
+                              <span className="settings-host-cue">
+                                {status.state === 'connected' &&
+                                host === name
+                                  ? 'Connected'
+                                  : 'Connect'}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {savedHosts !== null && savedHosts.length === 0 ? (
+                        <p className="settings-hosts-hint">
+                          No host saved in your SSH config — write it below.
+                        </p>
+                      ) : null}
+                      <label className="settings-field">
+                        <span className="settings-field-label">SSH host</span>
+                        <input
+                          id="connection-host"
+                          type="text"
+                          value={host}
+                          spellCheck={false}
+                          autoComplete="off"
+                          placeholder="my-hermes-host"
+                          disabled={Boolean(busy)}
+                          onChange={(event) => {
+                            setHost(event.target.value);
+                            setError('');
+                            setNotice('');
+                          }}
+                        />
+                        <span className="settings-field-note">
+                          The machine running Hermes, reached with your existing
+                          SSH config.
+                        </span>
+                      </label>
+                    </>
                   ) : null}
 
                   <div className="settings-field">

@@ -2449,6 +2449,64 @@ button:focus-visible {
   border-top: 1px solid var(--divider);
 }
 
+/* The machines the SSH config already names: one click each. */
+.settings-hosts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0 4px;
+}
+
+.settings-hosts-hint {
+  margin: 8px 0 0;
+  color: #8d8d96;
+  font-size: 12px;
+}
+
+.settings-host {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 9px;
+  background: #1a1a1d;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.settings-host:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: #1f1f23;
+}
+
+.settings-host:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.settings-host.is-chosen {
+  border-color: rgba(139, 92, 246, 0.5);
+  background: rgba(139, 92, 246, 0.12);
+}
+
+.settings-host-name {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.settings-host-cue {
+  color: #8d8d96;
+  font-size: 10.5px;
+}
+
 .settings-field:first-child {
   padding-top: 2px;
   border-top: 0;
