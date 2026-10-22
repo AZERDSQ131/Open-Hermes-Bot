@@ -564,7 +564,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     shape: BloubShape;
     /** The colour the person chose; absent when they chose none. */
     color?: string;
-  }): Promise<{ made: boolean; notice?: string }> {
+  }): Promise<{ made: boolean; notice?: string; connectionError?: boolean }> {
     const title = botName.trim();
     if (!title) return { made: false };
     setBusy('bot');
@@ -596,6 +596,13 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
         served: false,
       }));
     if (!result.ok && !result.created) {
+      // The link dropped while the person was picking a face: there is no
+      // settings page to point at from the setup, so the setup goes back to
+      // the connection itself instead of quoting it.
+      if (/not connected/i.test(result.error ?? '')) {
+        setBusy('none');
+        return { made: false, connectionError: true };
+      }
       setError(result.error ?? 'The bot could not be created.');
       setBusy('none');
       return { made: false };
@@ -755,6 +762,16 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     color?: string;
   }): Promise<boolean> {
     const made = await handleCreateBot(input);
+    // The connection dropped mid-setup: back to the connection page, marked
+    // as a connection error — the person has no settings to open from here.
+    if (made.connectionError) {
+      setConnected(false);
+      setFailed(true);
+      setChecks(emptyChecks());
+      goTo(STEPS.indexOf('setup'));
+      setError('Not connected to Hermes — reconnect to continue.');
+      return false;
+    }
     if (!made.made) return false;
     goTo(stepIndex + 1);
     if (made.notice) {
