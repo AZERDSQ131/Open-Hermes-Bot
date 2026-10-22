@@ -1,12 +1,24 @@
 # Transport: how the app talks to Hermes
 
-Two channels, both of them over SSH: the Hermes API for the conversation, and
-plain commands on the host for the few things the API does not expose.
+Two channels: the Hermes API for the conversation, and plain commands on the
+machine that runs Hermes for the few things the API does not expose. One fact
+decides how they are reached — where Hermes runs. On this machine the app
+speaks to the API port itself and runs the commands here, with the same
+scripts it would have run over SSH. On another machine, both channels go
+through an SSH tunnel.
 
-## The tunnel
+## Where Hermes runs
 
-The Hermes host is the person's own machine, reached over SSH. The app opens
-a local forward and speaks to the API as if it were local:
+The connection record says it: `mode` is `local` when Hermes runs on the same
+machine as the app, `ssh` when it runs somewhere else. A record that predates
+the mode — a host written down with no mode — is read as `ssh`, and an empty
+record defaults to `local`. The rules that read it live in
+`electron/connection.js`, and they are tested to the line.
+
+## The tunnel, when Hermes is elsewhere
+
+This is the `ssh` mode. The app opens a local forward and speaks to the API
+as if it were local:
 
 ```
 ssh -N -L 127.0.0.1:<localPort>:<host>:<apiPort>
@@ -20,15 +32,18 @@ person did not ask to be offline, they only opened the app. An explicit
 disconnect keeps it offline, and keeps it that way until the person asks for
 the connection again.
 
+In `local` mode there is no tunnel to open and none to miss.
+
 ## The API
 
-Everything rides `http://127.0.0.1:<localPort>`, under the prefix of the
+Everything rides `http://127.0.0.1:<localPort>` in `ssh` mode and
+`http://127.0.0.1:<apiPort>` in `local` mode, under the prefix of the
 profile the call is about — `/p/<profile>` — so a bot's turn is served by that
 bot's own gateway and checked against that bot's own key.
 
 | Call | What it does |
 | --- | --- |
-| `GET /health/detailed` | The connection test, on a throwaway tunnel. |
+| `GET /health/detailed` | The connection test: a throwaway tunnel in `ssh` mode, the port itself in `local`. |
 | `GET /api/sessions` | The conversations a bot holds. |
 | `POST /api/sessions` | Opens a conversation. |
 | `GET /api/sessions/<id>/messages` | The transcript, oldest first. |
@@ -39,13 +54,16 @@ bot's own gateway and checked against that bot's own key.
 
 A profile mints its own `API_SERVER_KEY` when it is created, and the gateway
 checks `/p/<name>/` against that key: a bot's turn cannot ride the primary
-profile's key. The app reads the key over the SSH connection it already has,
-from `$HOME/.hermes/profiles/<profile>/.env`, and keeps it for the session.
+profile's key. The app reads that key from
+`$HOME/.hermes/profiles/<profile>/.env` — through the SSH connection it
+already has in `ssh` mode, straight off the disk in `local` mode — and keeps
+it for the session.
 
 ## The host commands
 
-Some of what the app needs is not on the API, and is done on the host over
-the same SSH connection.
+Some of what the app needs is not on the API, and is done on the machine that
+runs Hermes: over the SSH connection in `ssh` mode, right here on this
+machine in `local` mode — the same shell scripts, wherever Hermes is.
 
 | What | How |
 | --- | --- |
