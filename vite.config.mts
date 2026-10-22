@@ -12,7 +12,8 @@ const POLICY = [
   "script-src 'self'",
   // React writes styles in attributes; a policy without this drops them.
   "style-src 'self' 'unsafe-inline'",
-  // The attachment previews are object URLs.
+  // The attachment previews are object URLs, and the marks of the connectors
+  // are the bytes the shell fetched: both are pictures the app already has.
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
   "connect-src 'self'",

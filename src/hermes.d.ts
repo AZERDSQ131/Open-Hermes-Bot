@@ -339,6 +339,15 @@ export type HermesBridge = {
   }) => Promise<{ ok: boolean; error?: string }>;
   /** The connectors of the host: the services a bot can reach. */
   connectors: () => Promise<HermesConnectorList>;
+  /**
+   * The mark of a connector. The shell asks the vendor's service for it and
+   * hands the bytes: the window touches no network of its own.
+   */
+  connectorLogo: (payload: { url: string }) => Promise<{
+    ok: boolean;
+    /** The picture, as a data url the page may draw. */
+    logo?: string;
+  }>;
   /** The host starts a connection and answers with the link to open. */
   connectConnector: (payload: { slug: string }) => Promise<{
     ok: boolean;

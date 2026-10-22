@@ -81,6 +81,11 @@ Worth knowing, because it is the app's own doing and not Hermes':
 - **To the host you named**: the API key, what you write to a bot, the
   attachments you give it, and the recording you dictate. The host is the
   agent's own memory, and it is where the conversation is.
+- **To the vendor of the connectors**: the name of a service, and nothing
+  else. The marks of the services are drawn from that vendor's own picture
+  service, and the shell is the one that asks for them. The ask says which
+  service it wants and asks for a picture; it carries no token, no key, no
+  host name and no user name, and it is not authenticated.
 - **To GitHub**: your IP address, and three things about this copy of the app.
   - the history of the releases, asked for **Settings → Updates**, with
     `User-Agent: Hermes-Bot`;
@@ -91,7 +96,8 @@ Worth knowing, because it is the app's own doing and not Hermes':
 
 There is **no telemetry, no analytics, and no crash reporting**. The
 installation id is the one identifier the app keeps, and it says *this copy*,
-not *you*. No other service is contacted.
+not *you*. Apart from the host you named, GitHub and the vendor of the
+connectors, no other service is contacted.
 
 The update is looked for on every launch, and a build that is found is
 downloaded straight away — around 130 MB — without asking.
@@ -107,7 +113,10 @@ The renderer is locked down, and the lock is in the code:
   and nothing else: no inline script, no remote script, no connection but the
   app's own. The page is loaded from a file, so `'self'` is the file itself
   and the loopback port is out of reach of the window. The window makes **no
-  network call of its own** — every request is made by the shell.
+  network call of its own** — every request is made by the shell. The marks
+  of the connectors are the proof of it: the shell fetches them and hands
+  the window the bytes, so the policy needs no remote picture and the window
+  asks for nothing.
 - The permission handler grants the `media` permission — which Chromium
   treats as audio **or** video. The app only ever asks for audio. The bundle
   does carry Electron's default camera description, so macOS would ask you

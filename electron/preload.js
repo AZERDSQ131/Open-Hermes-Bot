@@ -34,6 +34,9 @@ contextBridge.exposeInMainWorld('hermes', {
   toggleToolset: (payload) => ipcRenderer.invoke('hermes:toolsets:toggle', payload),
   /** The connectors of the host: the services a bot can reach. */
   connectors: () => ipcRenderer.invoke('hermes:connectors'),
+  /** The mark of a connector: the shell asks for it, and hands the bytes. */
+  connectorLogo: (payload) =>
+    ipcRenderer.invoke('hermes:connectors:logo', payload),
   /** The host starts a connection and answers with the link to open. */
   connectConnector: (payload) =>
     ipcRenderer.invoke('hermes:connectors:connect', payload),

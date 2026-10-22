@@ -1,30 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { HermesConnectorList } from '../hermes';
 import { readConnectors, type Connector } from '../connectors';
-
-/**
- * The mark of a connector.
- *
- * The logos live on the vendor's own service, and the app draws them when
- * they come. When they do not, the first letter of the name stands in: a
- * tile with nothing in it says nothing.
- */
-function Mark({ row }: { row: Connector }) {
-  const [failed, setFailed] = useState(false);
-  const letter = row.name.slice(0, 1).toUpperCase() || '?';
-  if (!row.logo || failed) {
-    return (
-      <span className="capability-mark is-letter" aria-hidden="true">
-        {letter}
-      </span>
-    );
-  }
-  return (
-    <span className="capability-mark" aria-hidden="true">
-      <img src={row.logo} alt="" onError={() => setFailed(true)} />
-    </span>
-  );
-}
+import { ConnectorMark } from './ConnectorMark';
 
 /** Where a connector stands, in one word. */
 const STATE_WORD: Record<Connector['state'], string> = {
@@ -165,7 +142,7 @@ export function ConnectorsSettings() {
           <div className="capability-list">
             {rows.map((row) => (
               <div className="capability-row" key={row.slug}>
-                <Mark row={row} />
+                <ConnectorMark row={row} className="capability-mark" />
                 <span className="capability-copy">
                   <span className="capability-name">{row.name}</span>
                   {row.description ? (
