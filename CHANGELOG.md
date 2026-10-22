@@ -8,6 +8,11 @@ follow [semantic versioning](https://semver.org/).
 
 ### Added
 
+- **An update, on a button.** **Settings → Updates** says which version the
+  app is running, and one button looks for the next one. If there is one, it
+  is downloaded in front of the person — the bar shows how far it has come —
+  and the app restarts as the version that was found. The app still looks by
+  itself on launch, quietly, and takes the update when it closes.
 - **A setup, step by step.** The first time the app opens, it asks where
   Hermes lives, for the key that opens the door, and who answers on the other
   side. It shakes hands with the host, asks it for the first bot, and shows
@@ -38,6 +43,11 @@ follow [semantic versioning](https://semver.org/).
   read, and reading it anyway threw: the app answered with an exception
   instead of saying what went wrong. It shows up on a machine that has not been
   told where Hermes lives yet.
+- **A check that failed in silence.** The app listened for the version it
+  downloads, but not for the error of a check that went wrong: an error
+  nobody listens to is thrown, and it took the app down with it. A machine
+  without a network, or one whose releases page moved, now keeps the version
+  it has.
 
 ## [1.0.0] — 2026-10-21
 
