@@ -115,9 +115,15 @@ function stateOf(
     if (status === 'inactive') return 'off';
     return 'connected';
   }
-  if (!toolkit) return 'unknown';
-  if (toolkit.enabled === false) return 'off';
-  return 'available';
+  if (toolkit) {
+    // The toolkit knows whether the service is connected even when the
+    // accounts list is empty: without it a connected service reads as merely
+    // available and the page says "None connected" while the host is up.
+    if (toolkit.connected === true) return 'connected';
+    if (toolkit.enabled === false) return 'off';
+    return 'available';
+  }
+  return 'unknown';
 }
 
 /**
