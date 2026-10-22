@@ -1102,7 +1102,7 @@ def nous_login_poll():
     """One poll for the device code minted above.
 
     Pending approval answers {pending:true} so the page keeps waiting.
-    Approval persists the credential like `hermes auth add nous` and answers
+    Approval persists the credential like hermes auth add nous and answers
     {ok:true}. Anything else is a terminal error.
     """
     from datetime import datetime, timezone
