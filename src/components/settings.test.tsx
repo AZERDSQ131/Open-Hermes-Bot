@@ -684,6 +684,19 @@ describe('the settings', () => {
     expect(screen.getByText(/hermes auth add nous/)).toBeTruthy();
   });
 
+  it('read the host in the middle while the connectors load', async () => {
+    withBridge({
+      connectors: vi.fn(() => new Promise(() => undefined)),
+    });
+    renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Connectors' }),
+    ).toBeTruthy();
+    // The header meta and the centered body say the same thing.
+    expect(screen.getAllByText('Reading the host…').length).toBeGreaterThan(1);
+  });
+
   it('turn a skill off on the host, where the skill lives', async () => {
     const toggleSkill = vi.fn(async () => ({ ok: true }));
     withBridge({
