@@ -40,6 +40,7 @@ function makeBridge(
       primary: { title: 'Chief of Staff', color: '#8b5cf6', shape: 'cercle' },
     })),
     setOnboarding: vi.fn(async () => ({ ok: true })),
+    sshHosts: vi.fn(async () => ({ ok: true, hosts: ['jetson', 'lab-box'] })),
     ...overrides,
   };
   (window as unknown as { hermes: unknown }).hermes = bridge;
@@ -165,6 +166,69 @@ describe('the setup', () => {
     expect(
       screen.getByRole('radio', { name: /Another machine/ }),
     ).toBeTruthy();
+  });
+
+  it('lists the machines the SSH config names', async () => {
+    const bridge = makeBridge();
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    expect(await screen.findByRole('button', { name: /jetson/ })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /lab-box/ }),
+    ).toBeTruthy();
+    expect(bridge.sshHosts).toHaveBeenCalled();
+  });
+
+  it('connects to a saved host with one click', async () => {
+    const bridge = makeBridge();
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(await screen.findByRole('button', { name: /jetson/ }));
+    // The key is read from the machine, the connection is written down
+    // and opened: none of it asked for.
+    expect(bridge.importKey).toHaveBeenCalledWith({
+      mode: 'ssh',
+      sshHost: 'jetson',
+    });
+    expect(bridge.test).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'ssh', sshHost: 'jetson' }),
+    );
+    expect(bridge.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'ssh', sshHost: 'jetson' }),
+    );
+    expect(bridge.connect).toHaveBeenCalled();
+    expect(await screen.findByText(/Hermes 0\.21\.5/)).toBeTruthy();
+  });
+
+  it('asks for the key when the saved host has none to give', async () => {
+    makeBridge({
+      importKey: vi.fn(async () => ({
+        ok: false,
+        error: 'API_SERVER_KEY not found in the remote ~/.hermes/.env',
+      })),
+    });
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: /jetson/ }),
+    );
+    expect(
+      await screen.findByText(/API_SERVER_KEY not found/),
+    ).toBeTruthy();
+    // The field is the asking: the key goes there.
+    expect(screen.getByLabelText('API key')).toBeTruthy();
+  });
+
+  it('says when no host is saved, and keeps the one to type', async () => {
+    makeBridge({
+      sshHosts: vi.fn(async () => ({ ok: true, hosts: [] })),
+    });
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    expect(
+      await screen.findByText(/No host saved in your SSH config/),
+    ).toBeTruthy();
+    expect(screen.getByLabelText('SSH host')).toBeTruthy();
   });
 
   it('goes back and forth between the two machines', async () => {
@@ -314,7 +378,7 @@ describe('the setup', () => {
   });
 
   it('says on the last page where Hermes runs', async () => {
-    const bridge = makeBridge();
+    makeBridge();
     renderSetup();
     await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await chooseMode('local');

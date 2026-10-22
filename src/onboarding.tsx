@@ -210,6 +210,9 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   // The scan of this Mac runs itself once: the person chose it, and nothing
   // more should be asked of them than that.
   const [scanned, setScanned] = useState(false);
+  // The machines the person has already named in their SSH config: read
+  // when a Hermes elsewhere is being connected to, and only then.
+  const [savedHosts, setSavedHosts] = useState<string[] | null>(null);
   const [madeBot, setMadeBot] = useState<MadeBot | null>(null);
   const [botName, setBotName] = useState('');
   const [botFace, setBotFace] = useState<BloubShape>('cercle');
@@ -435,6 +438,26 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     await runHandshake({ mode: 'local' });
   }, [apiKey, bridge, busy, hasKey, importFor, runHandshake]);
 
+  /**
+   * A saved host is one click. The host is named, the key is read from the
+   * machine itself — or the person is asked for it — and the connection
+   * opens on its own. What used to be three fields and a button.
+   */
+  const pickSavedHost = useCallback(
+    async (name: string) => {
+      if (busy !== 'none') return;
+      setHost(name);
+      setError('');
+      setNotice('');
+      if (!hasKey && !apiKey.trim()) {
+        const imported = await importFor('ssh', name);
+        if (!imported) return;
+      }
+      await runHandshake({ mode: 'ssh', host: name });
+    },
+    [apiKey, busy, hasKey, importFor, runHandshake],
+  );
+
   // The scan is what being asked for this Mac costs: nothing. Once the
   // connection page is on this Mac, the app looks at the port, reads the
   // key where it lives, and says what it found.
@@ -444,6 +467,27 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     setScanned(true);
     void scanLocal();
   }, [busy, connected, mode, scanLocal, scanned, step]);
+
+  // The names in the SSH config are read once the person is looking at a
+  // Hermes that runs elsewhere: the list is there to be chosen from, not
+  // to be fetched for its own sake.
+  useEffect(() => {
+    if (step !== 'setup' || mode !== 'ssh' || savedHosts !== null) return;
+    let cancelled = false;
+    const fallback = { hosts: [] as string[] };
+    Promise.resolve(bridge?.sshHosts ? bridge.sshHosts() : fallback)
+      .then((result) => {
+        if (cancelled) return;
+        setSavedHosts(Array.isArray(result.hosts) ? result.hosts : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSavedHosts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge, mode, savedHosts, step]);
 
   async function handleCreateBot(input: {
     shape: BloubShape;
@@ -735,6 +779,37 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                   </span>
                 </label>
               </fieldset>
+
+              {mode === 'ssh' && savedHosts === null ? (
+                <p className="onboarding-hosts-hint">Reading the SSH config…</p>
+              ) : null}
+
+              {mode === 'ssh' && savedHosts !== null && savedHosts.length > 0 ? (
+                <div className="onboarding-hosts">
+                  {savedHosts.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      className={`onboarding-host ${
+                        host === name ? 'is-chosen' : ''
+                      }`}
+                      disabled={busy !== 'none'}
+                      onClick={() => void pickSavedHost(name)}
+                    >
+                      <span className="onboarding-host-name">{name}</span>
+                      <span className="onboarding-host-cue">
+                        {connected && host === name ? 'Connected' : 'Connect'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {mode === 'ssh' && savedHosts !== null && savedHosts.length === 0 ? (
+                <p className="onboarding-hosts-hint">
+                  No host saved in your SSH config — write it below.
+                </p>
+              ) : null}
 
               {mode === 'ssh' ? (
                 <div className="onboarding-field">

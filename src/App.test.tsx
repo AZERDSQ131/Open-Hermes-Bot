@@ -91,6 +91,7 @@ function makeBridge(overrides: Record<string, unknown> = {}) {
     })),
     saveSettings: vi.fn(async () => ({ ok: true })),
     setOnboarding: vi.fn(async () => ({ ok: true })),
+    sshHosts: vi.fn(async () => ({ ok: true, hosts: ['my-host'] })),
     importKey: vi.fn(async () => ({ ok: true, keyLength: 64 })),
     test: vi.fn(async () => ({ state: 'connected' })),
     connect: vi.fn(async () => ({ state: 'connected' })),

@@ -3908,6 +3908,67 @@ button:focus-visible {
   animation: onboarding-rise 620ms 240ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
+/* The machines the SSH config already names: one click each. */
+.onboarding-hosts {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.onboarding-hosts-hint {
+  width: 100%;
+  margin-top: 8px;
+  color: #8d8d96;
+  font-size: 12.5px;
+}
+
+.onboarding-host {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.045);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.onboarding-host:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.onboarding-host:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.onboarding-host.is-chosen {
+  border-color: rgba(167, 139, 250, 0.55);
+  background: rgba(139, 92, 246, 0.14);
+}
+
+.onboarding-host-name {
+  color: #f3f3f5;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  overflow-wrap: anywhere;
+}
+
+.onboarding-host-cue {
+  color: #8d8d96;
+  font-size: 11px;
+}
+
 .onboarding-mode {
   display: flex;
   align-items: flex-start;
