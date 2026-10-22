@@ -774,9 +774,9 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     shape: BloubShape;
     color?: string;
   }): Promise<boolean> {
-    if (busy !== 'none') return false;
     // Instant: the page turns on the click, and the bot is made behind it.
-    // The wait lives on the next page, never on the colour.
+    // The wait lives on the next page, never on the colour. A double click
+    // costs nothing: a name that is already there is adopted, not remade.
     goTo(stepIndex + 1);
     const made = await handleCreateBot(input);
     // The connection dropped mid-setup: back to the connection page, marked
