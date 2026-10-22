@@ -61,10 +61,17 @@ The app is the interface. It owns the room the conversation happens in.
   itself — and a row of that history opens only on a page of the project's
   own releases.
 - **The connectors.** The services a bot can reach besides Hermes itself
-  live on the host, behind the managed gateway: they are not on the API, so
-  they are read on the machine that runs Hermes, with the Python Hermes
-  itself uses. The rules of that reading are in `src/connectors.ts`, and the
-  marks of the services are the logos of the vendor, drawn by the app.
+  live on the host, behind the managed gateway. They are not on the API the
+  app talks to: that API answers the agent's own questions. So the shell runs
+  a script on the machine that runs Hermes, with the Python that runs Hermes
+  — the system one is too old for its modules and has none of their
+  dependencies, and the script is run through Hermes' own bootstrap, which is
+  what leases them. The rules of that reading are in `src/connectors.ts`, and
+  the marks of the services are the logos of the vendor, fetched by the shell
+  and handed over as bytes: the window touches no network of its own.
+- **The skills and the tools.** They live with a bot, on the host, and they
+  are read and turned on and off the same way the connectors are. The app
+  keeps nothing of them: it asks the host again every time.
 
 ## What the app does not keep
 
