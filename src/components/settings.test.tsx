@@ -689,6 +689,23 @@ describe('the settings', () => {
     ).toBeTruthy();
   });
 
+  it('say sign-in needed in the status while closed', async () => {
+    withBridge({
+      connectors: vi.fn(async () => ({
+        ok: true,
+        available: false,
+        catalog: [],
+        toolkit: [],
+        accounts: [],
+        messages: ['The catalogue of the services is closed: boom'],
+      })),
+    });
+    renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+    expect(await screen.findByText('Sign-in needed')).toBeTruthy();
+    expect(screen.queryByText('None connected')).toBeNull();
+  });
+
   it('read the host in the middle while the connectors load', async () => {
     withBridge({
       connectors: vi.fn(() => new Promise(() => undefined)),
