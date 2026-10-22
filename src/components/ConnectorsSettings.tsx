@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { HermesConnectorList } from '../hermes';
 import { readConnectors, type Connector } from '../connectors';
 import { ConnectorMark } from './ConnectorMark';
@@ -64,12 +64,16 @@ export function ConnectorsSettings() {
   // Why the host could not answer, in its own words.
   const closed = answer?.messages ?? [];
   const failed = Boolean(answer) && !answer?.ok;
-  const signedOut =
+  // No Nous account on the host: nothing is connected and the host says why.
+  // The list still stands on the local catalogue, so signing in stays a
+  // choice at the moment of connecting — never a wall before it.
+  const needsAuth =
     Boolean(answer) &&
     !failed &&
     !loading &&
-    rows.length === 0 &&
-    closed.length > 0;
+    closed.length > 0 &&
+    (answer?.accounts?.length ?? 0) === 0 &&
+    connected.length === 0;
   const empty =
     Boolean(answer) &&
     Boolean(answer?.available) &&
@@ -81,6 +85,12 @@ export function ConnectorsSettings() {
   /** The host starts the connection and answers with the link to open. */
   async function connect(row: Connector) {
     if (!bridge?.connectConnector) return;
+    // No account on the host yet: sign in first, with the same code flow,
+    // then carry on minting the service link — one click either way.
+    if (needsAuth && !loginBusy) {
+      const signedIn = await signInWithNous();
+      if (!signedIn) return;
+    }
     setBusy(row.slug);
     setNotice('');
     setError('');
@@ -123,10 +133,10 @@ export function ConnectorsSettings() {
   const [loginBusy, setLoginBusy] = useState(false);
 
   /** Sign in with Nous without the terminal: the page opens, approval lands. */
-  async function signInWithNous() {
+  async function signInWithNous(): Promise<boolean> {
     if (!bridge?.nousLoginStart || !bridge?.nousLoginPoll) {
       setError('Sign-in needs the desktop app.');
-      return;
+      return false;
     }
     setLoginBusy(true);
     setError('');
@@ -137,7 +147,7 @@ export function ConnectorsSettings() {
       const start = await bridge.nousLoginStart();
       if (!start.ok) {
         setError(start.error ?? 'The sign-in could not start.');
-        return;
+        return false;
       }
       deviceCode = String(start.device_code ?? '');
       intervalMs = Math.max(
@@ -152,7 +162,7 @@ export function ConnectorsSettings() {
       for (;;) {
         if (Date.now() > deadline) {
           setError('The sign-in expired. Start again.');
-          break;
+          return false;
         }
         await new Promise((resolve) => setTimeout(resolve, intervalMs));
         const poll = await bridge.nousLoginPoll({ device_code: deviceCode });
@@ -161,17 +171,18 @@ export function ConnectorsSettings() {
           setLoginCode('');
           setNotice('Signed in. Reading the services…');
           retry();
-          break;
+          return true;
         }
         if (!poll.pending) {
           setError(poll.error ?? 'The sign-in failed.');
-          break;
+          return false;
         }
       }
     } catch (reason) {
       setError(
         reason instanceof Error ? reason.message : 'The sign-in failed.',
       );
+      return false;
     } finally {
       setLoginBusy(false);
     }
@@ -181,23 +192,11 @@ export function ConnectorsSettings() {
     ? 'Reading the host…'
     : failed
       ? 'Host down'
-      : signedOut
-        ? 'Sign-in needed'
+      : needsAuth
+        ? 'Sign-in to connect'
         : connected.length
           ? `${connected.length} connected`
           : 'None connected';
-
-  // The sign-in starts by itself: landing here means the host is up but Nous
-  // is logged out, so there is nothing to read before signing in.
-  const autoStarted = useRef(false);
-  useEffect(() => {
-    if (!signedOut) return;
-    if (!bridge?.nousLoginStart) return;
-    if (loginBusy || loginCode || autoStarted.current) return;
-    autoStarted.current = true;
-    void signInWithNous();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signedOut]);
 
   return (
     <div className="settings-page">
@@ -214,8 +213,8 @@ export function ConnectorsSettings() {
         </div>
       </header>
 
-      {error && !signedOut ? <p className="models-error">{error}</p> : null}
-      {notice && !signedOut ? <p className="settings-hint">{notice}</p> : null}
+      {error ? <p className="models-error">{error}</p> : null}
+      {notice ? <p className="settings-hint">{notice}</p> : null}
 
       {loading && !answer ? (
         <div className="connectors-loading" role="status">
@@ -252,19 +251,18 @@ export function ConnectorsSettings() {
         </section>
       ) : null}
 
-      {signedOut ? (
+      {needsAuth ? (
         <section className="settings-card">
           <header className="settings-card-head">
             <div>
-              <h3>Sign in to open the services</h3>
+              <h3>Sign in to connect</h3>
               <p>
-                One approval in the browser, then the list appears here. Nothing
-                to type anywhere.
+                Browse freely — one approval when you connect your first
+                service, then everything opens.
               </p>
             </div>
           </header>
           <div className="settings-card-body">
-            {error ? <p className="models-error">{error}</p> : null}
             {loginCode ? (
               <>
                 <p className="connectors-code" aria-live="polite">
@@ -289,9 +287,7 @@ export function ConnectorsSettings() {
                     : 'Opening…'
                   : error
                     ? 'Start again'
-                    : loginUrl
-                      ? 'Sign in with Nous'
-                      : 'Sign in with Nous'}
+                    : 'Sign in with Nous'}
               </button>
               {loginUrl && loginBusy ? (
                 <button

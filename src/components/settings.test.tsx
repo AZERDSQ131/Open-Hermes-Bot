@@ -679,7 +679,7 @@ describe('the settings', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
     // One clean card, no long dump: the host words hide behind the fold.
     expect(
-      await screen.findByRole('heading', { name: 'Sign in to open the services' }),
+      await screen.findByRole('heading', { name: 'Sign in to connect' }),
     ).toBeTruthy();
     expect(
       screen.queryByRole('heading', { name: 'Closed on this host' }),
@@ -702,7 +702,7 @@ describe('the settings', () => {
     });
     renderSettings();
     await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
-    expect(await screen.findByText('Sign-in needed')).toBeTruthy();
+    expect(await screen.findByText('Sign-in to connect')).toBeTruthy();
     expect(screen.queryByText('None connected')).toBeNull();
   });
 
@@ -743,6 +743,9 @@ describe('the settings', () => {
       });
       renderSettings();
       await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+      await userEvent.click(
+        await screen.findByRole('button', { name: 'Sign in with Nous' }),
+      );
       expect(await screen.findByText('WXYZ-1234')).toBeTruthy();
       expect(
         await screen.findByRole('button', { name: 'Open the browser again' }),
@@ -829,7 +832,7 @@ describe('the settings', () => {
     ).toBeTruthy();
   });
 
-  it('start the Nous sign-in by itself and show the failure', async () => {
+  it('start the Nous sign-in on click and show the failure', async () => {
     withBridge({
       connectors: vi.fn(async () => ({
         ok: true,
@@ -845,7 +848,10 @@ describe('the settings', () => {
     });
     renderSettings();
     await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
-    // No click needed: the page mints the code on its own, fails, offers again.
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Sign in with Nous' }),
+    );
+    // The click mints the code itself; the failure offers a restart.
     expect(await screen.findByText('nope')).toBeTruthy();
     expect(
       await screen.findByRole('button', { name: 'Start again' }),
@@ -853,7 +859,7 @@ describe('the settings', () => {
   });
 
   it(
-    'sign in by itself, open the browser and re-read after approval',
+    'sign in on click, open the browser and re-read after approval',
     async () => {
       const closed = {
         ok: true,
@@ -891,8 +897,11 @@ describe('the settings', () => {
       });
       renderSettings();
       await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
-      // No click: the page starts the sign-in, opens the browser, then the
-      // services arrive on their own.
+      await userEvent.click(
+        await screen.findByRole('button', { name: 'Sign in with Nous' }),
+      );
+      // The click starts the sign-in, opens the browser, then the services
+      // arrive on their own.
       expect(openLink).toHaveBeenCalledWith('https://portal.example/approve');
       expect(await screen.findByText('Notion', {}, { timeout: 8000 })).toBeTruthy();
     },
