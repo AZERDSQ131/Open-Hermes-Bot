@@ -3,7 +3,8 @@
 A macOS Electron clone of the multi-agent chat interface: dark sidebar, Bloub agent
 avatars, cream user bubbles and a floating composer.
 
-It talks to a **Hermes host** — the agent runtime on your own machines — over SSH.
+It talks to a **Hermes host** — the agent runtime on your own machines: on
+this Mac directly, or on another machine through an SSH tunnel.
 The bots, the groups and the conversations live there, not on this machine.
 
 <img width="2678" height="1790" alt="image" src="https://github.com/user-attachments/assets/a1914026-a65b-4612-8bcb-0126694b0909" />
@@ -56,18 +57,23 @@ xattr -dr com.apple.quarantine "/Applications/Hermes Bot.app"
 
 ### First run
 
-The app opens on a setup that asks for two things, one at a time:
+The app opens on a setup that asks one question first: **where does Hermes
+run?**
 
-- **the SSH host** of the machine running Hermes — the name your `~/.ssh/config`
-  already uses, e.g. `jetson`;
-- **the API key** of that host. Press *Read it from \<host\>* and the app reads
-  `API_SERVER_KEY` from the host's `~/.hermes/.env` over the SSH it already
-  uses. The key stays in the login Keychain, under the app's own entry.
+- **On this Mac.** No host to name and no tunnel to open: the app asks for the
+  **API key** — press *Read it from this Mac* and it reads `API_SERVER_KEY`
+  from `~/.hermes/.env` here — and talks to the API port directly. The key
+  stays in the login Keychain, under the app's own entry.
+- **On another machine.** The setup asks for the **SSH host** — the name your
+  `~/.ssh/config` already uses, e.g. `jetson` — and for the **API key**. Press
+  *Read it from \<host\>* and the app reads `API_SERVER_KEY` from the host's
+  `~/.hermes/.env` over the SSH it already uses. The key stays in the login
+  Keychain, under the app's own entry.
 
-Then it shakes hands: the app opens a tunnel to the host, asks it which bots
-exist, and shows them. Nothing else is needed: no account, no cloud, no key
-typed by hand. The setup can be run again from **Settings → Setup**, whenever
-Hermes moves to another machine.
+Then it shakes hands: the app reaches Hermes, asks it which bots exist, and
+shows them. Nothing else is needed: no account, no cloud, no key typed by
+hand. The setup can be run again from **Settings → Setup**, whenever Hermes
+moves to another machine.
 
 ### Updates
 
@@ -193,8 +199,9 @@ Conversations survive a restart: reopening a thread recreates its session by tit
 and if Hermes already has a session under that title the app resumes it instead of
 failing with “Title already in use”.
 
-A file the person attaches is copied to the server, where the bot can read it: the
-app sends it over the SSH it already uses, and the message carries its path. The
+A file the person attaches is copied to the machine that runs Hermes, where the bot
+can read it: the app sends it over the connection it already has, and the message
+carries its path. The
 microphone dictates: the app records what the person says and Hermes transcribes
 it on the server — the browser's own speech service is not used, because the key
 Chromium carries for it is refused by the service, which looks exactly like a
