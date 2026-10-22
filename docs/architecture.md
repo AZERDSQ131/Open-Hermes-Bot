@@ -52,14 +52,19 @@ The app is the interface. It owns the room the conversation happens in.
   answers on the other side — one question at a time. It reads the bots from
   the host like everything else, and it can be run again by hand.
 - **The next version.** The app looks for its next version on the releases
-  page, by itself on launch, or when the person asks for it from the mark
-  beside the settings or from **Settings → Updates**. The rules of that live
+  page, by itself on launch, or when the person asks for it from the face at
+  the foot of the sidebar or from **Settings → Updates**. The rules of that live
   in `electron/updater.js`, and the words the person reads live in
   `src/updates.ts`. Neither of them talks to Hermes: the releases page is the
   app's own business. The history of what GitHub has published is asked by
   the shell, though — the renderer is not allowed to touch the network
   itself — and a row of that history opens only on a page of the project's
   own releases.
+- **The connectors.** The services a bot can reach besides Hermes itself
+  live on the host, behind the managed gateway: they are not on the API, so
+  they are read on the machine that runs Hermes, with the Python Hermes
+  itself uses. The rules of that reading are in `src/connectors.ts`, and the
+  marks of the services are the logos of the vendor, drawn by the app.
 
 ## What the app does not keep
 
