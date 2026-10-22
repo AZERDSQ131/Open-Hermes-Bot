@@ -638,7 +638,14 @@ ipcMain.handle('hermes:update:history', async () => {
     if (!answer.ok) {
       throw new Error(`GitHub answered ${answer.status} to the ask for the history.`);
     }
-    return { ok: true, rows: await answer.json() };
+    return {
+      ok: true,
+      rows: await answer.json(),
+      page:
+        PAGE && PAGE.owner && PAGE.repo
+          ? `https://github.com/${PAGE.owner}/${PAGE.repo}/releases`
+          : '',
+    };
   } catch (error) {
     return { ok: false, rows: [], message: error?.message ?? String(error) };
   }

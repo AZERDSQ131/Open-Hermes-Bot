@@ -151,6 +151,8 @@ export type HermesUpdateResult = {
 export type HermesUpdateHistory = {
   ok: boolean;
   rows?: unknown[];
+  /** Where the page of the releases lives, the way the shell found it. */
+  page?: string;
   message?: string;
 };
 
