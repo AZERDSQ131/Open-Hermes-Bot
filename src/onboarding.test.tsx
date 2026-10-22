@@ -774,7 +774,7 @@ describe('the setup', () => {
           }),
       ),
     });
-    renderSetup();
+    const { container } = renderSetup();
     await walkToBot(bridge);
     await userEvent.type(screen.getByLabelText('Its name'), 'Nova');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -783,9 +783,15 @@ describe('the setup', () => {
     await screen.findByText(/What colour\?/);
     await userEvent.click(screen.getByLabelText('Amber'));
     // The page turns before the host answers: the picked bot is already
-    // there, and the making state lives on the button alone.
+    // there — Nova in Amber, not the colour from before the click — and the
+    // making state lives on the button alone.
     expect(await screen.findByText(/You're all set/)).toBeTruthy();
     expect(screen.getByText('Nova')).toBeTruthy();
+    expect(
+      (container.querySelector('.onboarding') as HTMLElement).style.getPropertyValue(
+        '--actor-color',
+      ),
+    ).toBe('#e0b34e');
     expect(screen.queryByText(/Making your bot/)).toBeNull();
     expect(
       screen.getByRole('button', { name: 'Making the bot…' }),
