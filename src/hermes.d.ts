@@ -4,6 +4,8 @@ export type HermesConnectionState =
   | 'connected'
   | 'error';
 
+import type { UpdateState } from './updates';
+
 export type HermesStatus = {
   state: HermesConnectionState;
   version?: string;
@@ -119,6 +121,30 @@ export type HermesChatResult = {
 export type HermesChatDelta = { requestId: string; text: string };
 export type HermesChatTool = { requestId: string; tool: string };
 
+/** What the app knows about its own next version. */
+export type HermesUpdateInfo = {
+  /** The version the app is running. */
+  version: string;
+  /** Whether the app has a way of finding the next one. */
+  supported: boolean;
+};
+
+/** What the shell says happened while looking for an update. */
+export type HermesUpdateEvent = {
+  state: UpdateState;
+  version?: string;
+  percent?: number;
+  message?: string;
+};
+
+/** How a check ended: ready, current, unsupported, or an error. */
+export type HermesUpdateResult = {
+  ok: boolean;
+  state: UpdateState;
+  version?: string;
+  message?: string;
+};
+
 export type HermesBridge = {
   createSession: (payload: {
     profile?: string;
@@ -232,6 +258,14 @@ export type HermesBridge = {
   disconnect: () => Promise<HermesStatus>;
   status: () => Promise<HermesStatus>;
   onStatus: (callback: (status: HermesStatus) => void) => () => void;
+  /** The version the app is running, and whether it can find the next one. */
+  updateInfo: () => Promise<HermesUpdateInfo>;
+  /** Looks for an update, and downloads it if there is one. */
+  checkForUpdates: () => Promise<HermesUpdateResult>;
+  /** Lets the new version take over: the app comes back as itself. */
+  installUpdate: () => Promise<{ ok: boolean }>;
+  /** Says what happened while looking for an update. */
+  onUpdate: (callback: (event: HermesUpdateEvent) => void) => () => void;
 };
 
 declare global {
