@@ -519,14 +519,18 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     if (!listener?.onBotReady) return;
     return listener.onBotReady((event) => {
       if (!warmingBot.current || event.name !== warmingBot.current) return;
-      setNoticeWarn(!event.served);
-      setNotice(
-        event.served
-          ? 'Hermes is serving it now.'
-          : 'Hermes is not serving it yet — it will come up at the next scan of the host.',
-      );
       setWarming(event.served ? 'ready' : 'failed');
-      if (event.served) warmingBot.current = '';
+      if (event.served) {
+        // Served: the wait is over, and so is what the page said about it.
+        warmingBot.current = '';
+        setNotice('');
+        setNoticeWarn(false);
+      } else {
+        setNoticeWarn(true);
+        setNotice(
+          'Hermes is not serving it yet — it will come up at the next scan of the host.',
+        );
+      }
     });
   }, []);
 
@@ -564,7 +568,12 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     shape: BloubShape;
     /** The colour the person chose; absent when they chose none. */
     color?: string;
-  }): Promise<{ made: boolean; notice?: string; connectionError?: boolean }> {
+  }): Promise<{
+    made: boolean;
+    notice?: string;
+    connectionError?: boolean;
+    error?: string;
+  }> {
     const title = botName.trim();
     if (!title) return { made: false };
     setBusy('bot');
@@ -603,9 +612,11 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
         setBusy('none');
         return { made: false, connectionError: true };
       }
-      setError(result.error ?? 'The bot could not be created.');
       setBusy('none');
-      return { made: false };
+      return {
+        made: false,
+        error: result.error ?? 'The bot could not be created.',
+      };
     }
     const name = result.name || toProfileId(title);
     setMadeBot({
@@ -742,9 +753,11 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   const connecting = step === 'ready' && warming === 'pending';
 
   const primaryLabel = isLast
-    ? connecting
-      ? 'Start talking anyway'
-      : 'Start talking'
+    ? busy === 'bot'
+      ? 'Making the bot…'
+      : connecting
+        ? 'Start talking anyway'
+        : 'Start talking'
     : step === 'welcome'
       ? 'Begin'
       : testing
@@ -761,6 +774,10 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     shape: BloubShape;
     color?: string;
   }): Promise<boolean> {
+    if (busy !== 'none') return false;
+    // Instant: the page turns on the click, and the bot is made behind it.
+    // The wait lives on the next page, never on the colour.
+    goTo(stepIndex + 1);
     const made = await handleCreateBot(input);
     // The connection dropped mid-setup: back to the connection page, marked
     // as a connection error — the person has no settings to open from here.
@@ -772,8 +789,12 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       setError('Not connected to Hermes — reconnect to continue.');
       return false;
     }
-    if (!made.made) return false;
-    goTo(stepIndex + 1);
+    if (!made.made) {
+      // Nothing was made: back to the colour with the reason.
+      goTo(STEPS.indexOf('colour'));
+      setError(made.error ?? 'The bot could not be created.');
+      return false;
+    }
     if (made.notice) {
       setNoticeWarn(true);
       setNotice(made.notice);
@@ -880,28 +901,11 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
             </div>
           )}
 
-          <p className="onboarding-eyebrow">
-            {connecting ? 'Almost' : scene.eyebrow}
-          </p>
-          {connecting ? (
-            <div className="onboarding-waiting" id="onboarding-title" role="status">
-              <span className="onboarding-waiting-dots" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-              </span>
-              <h1 className="onboarding-title is-waiting">
-                Connecting to your machine…
-              </h1>
-            </div>
-          ) : (
-            <>
-              <h1 id="onboarding-title" className="onboarding-title">
-                {scene.title}
-              </h1>
-              <p className="onboarding-line">{scene.line}</p>
-            </>
-          )}
+          <p className="onboarding-eyebrow">{scene.eyebrow}</p>
+          <h1 id="onboarding-title" className="onboarding-title">
+            {scene.title}
+          </h1>
+          <p className="onboarding-line">{scene.line}</p>
 
           {step === 'setup' ? (
             <>
@@ -1214,19 +1218,6 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
 
           {step === 'ready' ? (
             <>
-              {connecting ? (
-                <div className="onboarding-waiting" role="status">
-                  <span className="onboarding-waiting-dots" aria-hidden="true">
-                    <i />
-                    <i />
-                    <i />
-                  </span>
-                  <span className="onboarding-waiting-word">
-                    Connecting your bot… you can start talking, it will answer
-                    in a moment.
-                  </span>
-                </div>
-              ) : null}
               <ul className="onboarding-facts">
                 <li>
                   <span>Hermes runs</span>
@@ -1243,6 +1234,20 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                   </li>
                 ) : null}
               </ul>
+              {busy === 'bot' || warming === 'pending' ? (
+                <div className="onboarding-waiting" role="status">
+                  <span className="onboarding-waiting-dots" aria-hidden="true">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                  <span className="onboarding-waiting-word">
+                    {busy === 'bot'
+                      ? 'Making your bot…'
+                      : 'Connecting your bot… it will answer in a moment.'}
+                  </span>
+                </div>
+              ) : null}
             </>
           ) : null}
 
