@@ -782,7 +782,9 @@ describe('the settings', () => {
     expect(
       screen.getByRole('heading', { name: 'The host did not answer' }),
     ).toBeTruthy();
+    // Exactly one action: the header carries no button anymore.
     const tries = screen.getAllByRole('button', { name: 'Try again' });
+    expect(tries).toHaveLength(1);
     await userEvent.click(tries[0]);
     await waitFor(() => expect(connectors).toHaveBeenCalledTimes(2));
   });
