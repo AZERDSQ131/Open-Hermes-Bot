@@ -85,8 +85,17 @@ export default defineConfig({
           branches: 70,
           statements: 100,
         },
+        // The rules of the two connections: where Hermes runs decides how
+        // the app reaches it, and the bridge cannot be checked by hand.
+        'electron/connection.js': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
       },
       include: ['src/**/*.{ts,tsx}', 'electron/updater.js'],
+      include: ['src/**/*.{ts,tsx}', 'electron/connection.js'],
       exclude: [
         'src/vendor/**',
         'src/main.tsx',

@@ -49,6 +49,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "!electron/**/*.test.js",
       "build/**/*",
       "package.json"
     ],
