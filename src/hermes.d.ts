@@ -355,6 +355,22 @@ export type HermesBridge = {
     url?: string;
     error?: string;
   }>;
+  /** Mint a Nous device code so the person signs in without the terminal. */
+  nousLoginStart: () => Promise<{
+    ok: boolean;
+    url?: string;
+    user_code?: string;
+    device_code?: string;
+    expires_in?: number;
+    interval?: number;
+    error?: string;
+  }>;
+  /** One poll for the device code above: pending waits, approval signs in. */
+  nousLoginPoll: (payload: { device_code: string }) => Promise<{
+    ok: boolean;
+    pending: boolean;
+    error?: string;
+  }>;
   /** Opens a link in the browser. */
   openLink: (url: string) => Promise<{ ok: boolean }>;
   sendChat: (payload: {
