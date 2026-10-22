@@ -247,7 +247,6 @@ describe('the setup', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await chooseMode('local');
     expect(screen.queryByLabelText('SSH host')).toBeNull();
-    expect(screen.getByLabelText('API key')).toBeTruthy();
     // The checks say what happens, not what a tunnel does.
     expect(screen.getByText('Hermes is running')).toBeTruthy();
     expect(screen.getByText('The app is connected')).toBeTruthy();
@@ -270,6 +269,8 @@ describe('the setup', () => {
     );
     expect(bridge.connect).toHaveBeenCalled();
     expect(await screen.findByText(/Hermes 0\.21\.5/)).toBeTruthy();
+    // The key the scan read is only reported, not shown.
+    expect(await screen.findByText('In the Keychain')).toBeTruthy();
   });
 
   it('says when nothing answers on this Mac, and asks what is running', async () => {
@@ -303,30 +304,12 @@ describe('the setup', () => {
     expect(
       await screen.findByText(/API_SERVER_KEY not found/),
     ).toBeTruthy();
-    // The key can be pasted where the scan could not read one.
-    expect(screen.getByLabelText('API key')).toBeTruthy();
-  });
-
-  it('reads the key from this machine when the person asks it to', async () => {
-    const bridge = makeBridge();
-    renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
-    await chooseMode('local');
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Continue' }),
-      ).not.toBeDisabled(),
-    );
-    // The scan already read one: doing it again asks the same place.
-    if (bridge.importKey.mock) bridge.importKey.mockClear();
-    await userEvent.click(
-      screen.getByRole('button', { name: /Read it from this Mac/ }),
-    );
-    await waitFor(() => expect(bridge.importKey).toHaveBeenCalled());
-    expect(bridge.importKey).toHaveBeenCalledWith(
-      expect.objectContaining({ mode: 'local' }),
-    );
-    expect(await screen.findByText(/Read from this Mac/)).toBeTruthy();
+    // Nothing is asked to be pasted: the words only say where the app
+    // will find a key once Hermes is set up.
+    expect(screen.queryByLabelText('API key')).toBeNull();
+    expect(
+      await screen.findByText(/API_SERVER_KEY from ~\/\.hermes\/\.env/),
+    ).toBeTruthy();
   });
 
   it('scans again when the person asks for it', async () => {

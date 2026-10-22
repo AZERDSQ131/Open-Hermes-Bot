@@ -834,47 +834,58 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                 </div>
               ) : null}
 
-              <div className="onboarding-field">
-                <label
-                  className="onboarding-field-label"
-                  htmlFor="setup-key"
-                >
-                  API key
-                </label>
-                <input
-                  id="setup-key"
-                  type="password"
-                  value={apiKey}
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder="API_SERVER_KEY"
-                  onChange={(event) => {
-                    setApiKey(event.target.value);
-                    setError('');
-                    setNotice('');
-                  }}
-                />
-              </div>
+              {mode === 'local' ? (
+                hasKey ? null : (
+                  <p className="onboarding-key-guide">
+                    No key to paste — the app reads API_SERVER_KEY from
+                    ~/.hermes/.env on its own.
+                  </p>
+                )
+              ) : (
+                <div className="onboarding-field">
+                  <label
+                    className="onboarding-field-label"
+                    htmlFor="setup-key"
+                  >
+                    API key
+                  </label>
+                  <input
+                    id="setup-key"
+                    type="password"
+                    value={apiKey}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="API_SERVER_KEY"
+                    onChange={(event) => {
+                      setApiKey(event.target.value);
+                      setError('');
+                      setNotice('');
+                    }}
+                  />
+                </div>
+              )}
 
-              <div className="onboarding-actions">
-                <button
-                  type="button"
-                  className="onboarding-button is-quiet"
-                  disabled={
-                    busy !== 'none' || (mode === 'ssh' && !host.trim())
-                  }
-                  onClick={() => void handleImport()}
-                >
-                  {busy === 'import'
-                    ? 'Reading…'
-                    : mode === 'local'
-                      ? 'Read it from this Mac'
+              {mode === 'ssh' ? (
+                <div className="onboarding-actions">
+                  <button
+                    type="button"
+                    className="onboarding-button is-quiet"
+                    disabled={busy !== 'none' || !host.trim()}
+                    onClick={() => void handleImport()}
+                  >
+                    {busy === 'import'
+                      ? 'Reading…'
                       : `Read it from ${host}`}
-                </button>
-                {hasKey ? (
+                  </button>
+                  {hasKey ? (
+                    <span className="onboarding-stamp">In the Keychain</span>
+                  ) : null}
+                </div>
+              ) : hasKey ? (
+                <div className="onboarding-actions">
                   <span className="onboarding-stamp">In the Keychain</span>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
 
               <button
                 type="button"

@@ -4021,6 +4021,16 @@ button:focus-visible {
   font-size: 12.5px;
 }
 
+/* Where the key would be, on this Mac there is no key to fill in: only
+   the word of where the app will find one. */
+.onboarding-key-guide {
+  width: 100%;
+  margin: 2px 0 0;
+  color: #8d8d96;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
 .onboarding-host {
   display: flex;
   align-items: center;
