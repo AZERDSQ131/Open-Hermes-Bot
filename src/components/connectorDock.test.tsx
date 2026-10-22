@@ -76,4 +76,25 @@ describe('the dock of the connectors', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
+
+  it('holds three marks side by side in one wide pill', async () => {
+    withShell({ ok: false, logo: '' });
+    const three: Connector[] = [
+      ...ROWS,
+      {
+        slug: 'google_calendar',
+        name: 'Google Calendar',
+        description: '',
+        category: 'Calendar',
+        logo: '',
+        state: 'connected',
+        enabled: true,
+        account: '',
+      },
+    ];
+    render(<ConnectorDock rows={three} onOpen={vi.fn()} />);
+    const dock = screen.getByRole('button', { name: 'Connectors' });
+    expect(dock.classList.contains('footer-dock')).toBe(true);
+    expect(dock.querySelectorAll('.dock-mark')).toHaveLength(3);
+  });
 });
