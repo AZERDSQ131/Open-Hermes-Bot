@@ -115,6 +115,17 @@ describe('the connectors of the host', () => {
     }
   });
 
+  it('read the toolkit status as broken', () => {
+    for (const status of ['expired', 'revoked', 'failed', 'error', 'broken']) {
+      const rows = readConnectors({
+        ...LIST,
+        toolkit: [{ connector: 'notion', enabled: true, status }],
+        accounts: [],
+      });
+      expect(rows.find((row) => row.slug === 'notion')?.state).toBe('broken');
+    }
+  });
+
   it('say when an account is there and broken', () => {
     const rows = readConnectors({
       ...LIST,
