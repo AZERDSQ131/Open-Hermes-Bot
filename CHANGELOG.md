@@ -31,6 +31,12 @@ follow [semantic versioning](https://semver.org/).
 - **An actor that changes its mind.** Every two seconds it takes another
   colour and another shape, and the light of the window takes the colour with
   it.
+- **Hermes on this machine.** The app talks to a Hermes that runs on the same
+  machine, on the API port itself: no SSH, no tunnel, no host to name. The
+  setup and the settings ask first where Hermes runs — this Mac, or another
+  machine reached by the tunnel as before — and the key is read from the
+  Hermes home right here. A connection stored by an older version keeps
+  meaning `ssh`.
 
 ### Changed
 
