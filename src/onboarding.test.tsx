@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Onboarding } from './onboarding';
+import { profileColor } from './profileColor';
 
 /** A bridge that answers everything the setup asks, and remembers it. */
 function makeBridge(
@@ -549,6 +550,20 @@ describe('the setup', () => {
     await userEvent.click(screen.getByLabelText('Pebble'));
     expect(await screen.findByText(/What colour\?/)).toBeTruthy();
     expect(screen.getByLabelText('Red')).toBeTruthy();
+  });
+
+  it('paints the big shape with the bot colour', async () => {
+    const bridge = makeBridge();
+    const { container } = renderSetup();
+    await walkToBot(bridge);
+    await userEvent.type(screen.getByLabelText('Its name'), 'Nova');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await screen.findByText(/What shape\?/);
+    // The preview above the grid is the bot already: its colour, big.
+    const light = (
+      container.querySelector('.onboarding') as HTMLElement
+    ).style.getPropertyValue('--actor-color');
+    expect(light).toBe(profileColor('nova'));
   });
 
   it('shows the actor wearing the shape that is being picked', async () => {
