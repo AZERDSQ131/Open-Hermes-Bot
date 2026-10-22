@@ -1369,3 +1369,115 @@ describe('the setup', () => {
     expect(await screen.findByText('Bob')).toBeTruthy();
   });
 });
+
+describe('a bot that is still connecting', () => {
+  it('shows an unserved profile at once with a warming state', async () => {
+    const bridge = makeBridge({
+      profiles: vi.fn(async () => ({
+        ok: true,
+        source: 'gateway',
+        profiles: [
+          { name: 'bob', title: 'Bob', color: '#e8483f', shape: 'galet' },
+          { name: 'nova', title: 'Nova', color: '#e8483f', shape: 'cercle', served: false },
+        ],
+        primary: { title: 'Chief of Staff', color: '#8b5cf6', shape: 'cercle' },
+      })),
+    });
+    await renderApp(bridge);
+    expect(await screen.findByText('Nova')).toBeTruthy();
+    expect(await screen.findByText('Connecting…')).toBeTruthy();
+  });
+
+  it('opens a loading screen with retry and remove actions', async () => {
+    const bridge = makeBridge({
+      profiles: vi.fn(async () => ({
+        ok: true,
+        source: 'gateway',
+        profiles: [
+          { name: 'bob', title: 'Bob', color: '#e8483f', shape: 'galet' },
+          { name: 'nova', title: 'Nova', color: '#e8483f', shape: 'cercle', served: false },
+        ],
+        primary: { title: 'Chief of Staff', color: '#8b5cf6', shape: 'cercle' },
+      })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Nova'));
+    expect(await screen.findByText(/Connecting Nova/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Retry now' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove this bot' })).toBeTruthy();
+    expect(bridge.sendChat).not.toHaveBeenCalled();
+  });
+
+  it('marks the bot as failed when the gateway cannot serve it', async () => {
+    let ready: ((event: { name: string; served: boolean }) => void) | undefined;
+    const bridge = makeBridge({
+      profiles: vi.fn(async () => ({
+        ok: true,
+        source: 'gateway',
+        profiles: [
+          { name: 'bob', title: 'Bob', color: '#e8483f', shape: 'galet' },
+          { name: 'nova', title: 'Nova', color: '#e8483f', shape: 'cercle', served: false },
+        ],
+        primary: { title: 'Chief of Staff', color: '#8b5cf6', shape: 'cercle' },
+      })),
+      onBotReady: vi.fn((callback) => {
+        ready = callback;
+        return () => undefined;
+      }),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Nova'));
+    await act(async () => {
+      ready?.({ name: 'nova', served: false });
+    });
+    expect(await screen.findByText(/could not connect/)).toBeTruthy();
+  });
+
+  it('removes the bot when it is dismissed', async () => {
+    const bridge = makeBridge({
+      profiles: vi.fn(async () => ({
+        ok: true,
+        source: 'gateway',
+        profiles: [
+          { name: 'bob', title: 'Bob', color: '#e8483f', shape: 'galet' },
+          { name: 'nova', title: 'Nova', color: '#e8483f', shape: 'cercle', served: false },
+        ],
+        primary: { title: 'Chief of Staff', color: '#8b5cf6', shape: 'cercle' },
+      })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Nova'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove this bot' }));
+    await waitFor(() => expect(screen.queryByText(/Connecting Nova/)).toBeNull());
+    expect(bridge.deleteBot).toHaveBeenCalledWith({ name: 'nova' });
+  });
+});
+
+describe('a warming bot past its delay', () => {
+  it('drops an expired waiting bot on the next refresh', async () => {
+    const { mergeBots, PENDING_BOT_TIMEOUT_MS } = await import('./App');
+    const old = Date.now() - PENDING_BOT_TIMEOUT_MS - 1000;
+    const current = [
+      {
+        id: 'agent-old',
+        name: 'Old',
+        profile: 'old',
+        avatar: { color: '#fff', shape: 'cercle', variant: 'neutral' },
+        preview: 'Starting…',
+        time: '…',
+        chatTime: 'Now',
+        messages: [],
+        pending: true,
+        pendingSince: old,
+      },
+    ];
+    const next = mergeBots(
+      current,
+      [{ name: 'bob', title: 'Bob' }],
+      new Map([['old', old]]),
+      undefined,
+      Date.now(),
+    );
+    expect(next.some((thread) => thread.profile === 'old')).toBe(false);
+  });
+});
