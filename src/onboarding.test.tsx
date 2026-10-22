@@ -4,15 +4,21 @@ import userEvent from '@testing-library/user-event';
 import { Onboarding } from './onboarding';
 
 /** A bridge that answers everything the setup asks, and remembers it. */
-function makeBridge(overrides: Record<string, unknown> = {}) {
+function makeBridge(
+  overrides: Record<string, unknown> = {},
+  settings: Record<string, unknown> = {},
+) {
   const bridge = {
     getSettings: vi.fn(async () => ({
+      mode: 'ssh',
+      configured: false,
       sshHost: '',
       apiPort: 8642,
       localPort: 18742,
       autoConnect: true,
       hasKey: false,
       onboardingCompleted: false,
+      ...settings,
     })),
     saveSettings: vi.fn(async () => ({ ok: true })),
     importKey: vi.fn(async () => ({ ok: true, keyLength: 64 })),
@@ -49,13 +55,24 @@ function renderSetup() {
   return { onFinish, onDismiss, container: view.container };
 }
 
+/** Puts the person on the machine they said their Hermes runs on. */
+async function chooseMode(mode: 'local' | 'ssh') {
+  await userEvent.click(
+    screen.getByRole('radio', {
+      name: mode === 'local' ? /This Mac/ : /Another machine/,
+    }),
+  );
+}
+
 /** Walks the person to the handshake, host and key given. */
 async function walkTo(
   bridge: Record<string, unknown>,
-  { host = 'hermes-box.local', key = 'sk-secret' } = {},
+  { host = 'hermes-box.local', key = 'sk-secret', mode = 'ssh' } = {},
 ) {
   await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
-  await userEvent.type(screen.getByLabelText('SSH host'), host);
+  if (mode === 'ssh') {
+    await userEvent.type(screen.getByLabelText('SSH host'), host);
+  }
   await userEvent.type(screen.getByLabelText('API key'), key);
   await userEvent.click(
     screen.getByRole('button', { name: 'Test the connection' }),
@@ -137,6 +154,115 @@ describe('the setup', () => {
     expect(screen.getByText('The tunnel is open')).toBeTruthy();
   });
 
+  it('asks where Hermes runs before anything else', async () => {
+    makeBridge();
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    expect(screen.getByText('Where does Hermes run?')).toBeTruthy();
+    expect(
+      screen.getByRole('radio', { name: /This Mac/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('radio', { name: /Another machine/ }),
+    ).toBeTruthy();
+  });
+
+  it('asks for no host when Hermes runs on this machine', async () => {
+    makeBridge();
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    expect(screen.queryByLabelText('SSH host')).toBeNull();
+    expect(screen.getByLabelText('API key')).toBeTruthy();
+    // The checks say what happens, not what a tunnel does.
+    expect(screen.getByText('Hermes is running')).toBeTruthy();
+    expect(screen.getByText('The app is connected')).toBeTruthy();
+  });
+
+  it('does not test without a key, even on this machine', async () => {
+    makeBridge();
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    const test = screen.getByRole('button', { name: 'Test the connection' });
+    expect(test).toBeDisabled();
+    await userEvent.type(screen.getByLabelText('API key'), 'sk-secret');
+    expect(test).not.toBeDisabled();
+  });
+
+  it('shakes hands with a Hermes on this machine', async () => {
+    const bridge = makeBridge();
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    await userEvent.type(screen.getByLabelText('API key'), 'sk-secret');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Test the connection' }),
+    );
+    await waitFor(() => expect(bridge.test).toHaveBeenCalled());
+    expect(bridge.test).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'local', apiPort: 8642 }),
+    );
+    expect(bridge.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'local' }),
+    );
+    expect(await screen.findByText(/Hermes 0\.21\.5/)).toBeTruthy();
+  });
+
+  it('reads the key from this machine when the person asks it to', async () => {
+    const bridge = makeBridge();
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    await userEvent.click(
+      screen.getByRole('button', { name: /Read it from this Mac/ }),
+    );
+    await waitFor(() => expect(bridge.importKey).toHaveBeenCalled());
+    expect(bridge.importKey).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'local' }),
+    );
+    expect(await screen.findByText(/Read from this Mac/)).toBeTruthy();
+  });
+
+  it('shows the port and no tunnel when Hermes runs on this machine', async () => {
+    makeBridge();
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    await userEvent.click(screen.getByRole('button', { name: /The ports/ }));
+    expect(screen.getByLabelText('API port')).toBeTruthy();
+    expect(screen.queryByLabelText('Local tunnel port')).toBeNull();
+    expect(
+      screen.getByText('127.0.0.1:8642 — no tunnel, no SSH.'),
+    ).toBeTruthy();
+  });
+
+  it('keeps the mode the app already knew', async () => {
+    makeBridge({}, { mode: 'local' });
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    expect(
+      screen.getByRole('radio', { name: /This Mac/ }),
+    ).toBeChecked();
+    expect(screen.queryByLabelText('SSH host')).toBeNull();
+  });
+
+  it('says on the last page where Hermes runs', async () => {
+    const bridge = makeBridge();
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    await userEvent.type(screen.getByLabelText('API key'), 'sk-secret');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Test the connection' }),
+    );
+    await waitFor(() => expect(bridge.test).toHaveBeenCalled());
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await screen.findByText(/What is it called\?/);
+    await userEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    expect(await screen.findByText('on this Mac')).toBeTruthy();
+  });
+
   it('reads the key from the server when the person asks it to', async () => {
     const bridge = makeBridge();
     renderSetup();
@@ -146,7 +272,10 @@ describe('the setup', () => {
       screen.getByRole('button', { name: /Read it from hermes-box.local/ }),
     );
     await waitFor(() => expect(bridge.importKey).toHaveBeenCalled());
-    expect(bridge.importKey).toHaveBeenCalledWith({ sshHost: 'hermes-box.local' });
+    expect(bridge.importKey).toHaveBeenCalledWith({
+      mode: 'ssh',
+      sshHost: 'hermes-box.local',
+    });
     expect(await screen.findByText(/In the Keychain/)).toBeTruthy();
   });
 
@@ -158,6 +287,7 @@ describe('the setup', () => {
     expect(screen.getByText(/gateway hermes-gateway/)).toBeTruthy();
     expect(bridge.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
+        mode: 'ssh',
         sshHost: 'hermes-box.local',
         apiPort: 8642,
         apiKey: 'sk-secret',
