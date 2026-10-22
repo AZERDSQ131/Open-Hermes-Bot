@@ -4,6 +4,8 @@ export type HermesConnectionState =
   | 'connected'
   | 'error';
 
+import type { UpdateState } from './updates';
+
 export type HermesStatus = {
   state: HermesConnectionState;
   version?: string;
@@ -119,6 +121,41 @@ export type HermesChatResult = {
 export type HermesChatDelta = { requestId: string; text: string };
 export type HermesChatTool = { requestId: string; tool: string };
 
+/** What the app knows about its own next version. */
+export type HermesUpdateInfo = {
+  /** The version the app is running. */
+  version: string;
+  /** Whether the app has a way of finding the next one. */
+  supported: boolean;
+};
+
+/** What the shell says happened while looking for an update. */
+export type HermesUpdateEvent = {
+  state: UpdateState;
+  version?: string;
+  /** When the version that was found was published, the way Github wrote it. */
+  released?: string;
+  percent?: number;
+  message?: string;
+};
+
+/** How a check ended: ready, current, unsupported, or an error. */
+export type HermesUpdateResult = {
+  ok: boolean;
+  state: UpdateState;
+  version?: string;
+  message?: string;
+};
+
+/** What GitHub put on the page of the project, before the words trim it. */
+export type HermesUpdateHistory = {
+  ok: boolean;
+  rows?: unknown[];
+  /** Where the page of the releases lives, the way the shell found it. */
+  page?: string;
+  message?: string;
+};
+
 export type HermesBridge = {
   createSession: (payload: {
     profile?: string;
@@ -232,6 +269,18 @@ export type HermesBridge = {
   disconnect: () => Promise<HermesStatus>;
   status: () => Promise<HermesStatus>;
   onStatus: (callback: (status: HermesStatus) => void) => () => void;
+  /** The version the app is running, and whether it can find the next one. */
+  updateInfo: () => Promise<HermesUpdateInfo>;
+  /** Looks for an update, and downloads it if there is one. */
+  checkForUpdates: () => Promise<HermesUpdateResult>;
+  /** Lets the new version take over: the app comes back as itself. */
+  installUpdate: () => Promise<{ ok: boolean }>;
+  /** What GitHub has put on the page of the project, row by row. */
+  updateHistory: () => Promise<HermesUpdateHistory>;
+  /** A row of the history opens where its release lives. */
+  openRelease: (url: string) => Promise<{ ok: boolean }>;
+  /** Says what happened while looking for an update. */
+  onUpdate: (callback: (event: HermesUpdateEvent) => void) => () => void;
 };
 
 declare global {

@@ -1,0 +1,35 @@
+{
+  "appId": "app.hermesbot.desktop.e2e",
+  "productName": "Hermes Bot",
+  "copyright": "Copyright © 2026 Jules Yzerd",
+  "directories": {
+    "output": "e2e/out/v1"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "build/**/*",
+    "package.json"
+  ],
+  "mac": {
+    "category": "public.app-category.productivity",
+    "icon": "build/icon.icns",
+    "target": [
+      {
+        "target": "zip",
+        "arch": [
+          "arm64"
+        ]
+      }
+    ],
+    "extendInfo": {
+      "NSMicrophoneUsageDescription": "Hermes Bot listens only while you are dictating, and the words are transcribed by your own Hermes host — nothing is sent anywhere else."
+    }
+  },
+  "publish": [
+    {
+      "provider": "generic",
+      "url": "http://127.0.0.1:7788"
+    }
+  ]
+}

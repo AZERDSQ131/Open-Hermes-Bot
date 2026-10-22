@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import type { HermesSettings, HermesStatus } from '../hermes';
 import { ChevronLeftIcon } from './Icons';
 import { ModelsSettings } from './ModelsSettings';
+import { UpdatesSettings } from './UpdatesSettings';
 
-type Section = 'connection' | 'models' | 'setup';
+type Section = 'connection' | 'models' | 'updates' | 'setup';
 
 type SettingsViewProps = {
   status: HermesStatus;
@@ -273,6 +274,16 @@ export function SettingsView({
             onClick={() => setSection('models')}
           >
             Models
+          </button>
+          <button
+            type="button"
+            className={`settings-nav-item ${
+              section === 'updates' ? 'is-active' : ''
+            }`}
+            aria-current={section === 'updates' ? 'page' : undefined}
+            onClick={() => setSection('updates')}
+          >
+            Updates
           </button>
           <button
             type="button"
@@ -589,7 +600,6 @@ export function SettingsView({
                   <p>Walk through the door again, step by step.</p>
                 </div>
               </header>
-
               <section className="settings-card">
                 <header className="settings-card-head">
                   <div>
@@ -618,6 +628,8 @@ export function SettingsView({
                 </div>
               </section>
             </div>
+          ) : section === 'updates' ? (
+            <UpdatesSettings />
           ) : (
             <ModelsSettings connected={status.state === 'connected'} />
           )}

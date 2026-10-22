@@ -14,6 +14,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { spawn, spawnSync, execFileSync } = require('node:child_process');
 const { autoUpdater } = require('electron-updater');
+const { createUpdater } = require('./updater');
 
 app.setName('Hermes Bot');
 
@@ -21,21 +22,18 @@ const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 
 // The app finds its own next version on the releases page, the way every
 // other app does. The update waits for the person to close the app: a
-// conversation is not something to interrupt.
-let updateReady = false;
-
-function lookForUpdates() {
-  if (!app.isPackaged) return;
-  try {
-    autoUpdater.autoDownload = true;
-    autoUpdater.on('update-downloaded', () => {
-      updateReady = true;
-    });
-    autoUpdater.checkForUpdatesAndNotify();
-  } catch {
-    // No release feed yet, or no network: the app runs the version it has.
-  }
-}
+// conversation is not something to interrupt. A person who asks for it gets
+// it there and then: looked for, downloaded, and the app comes back as the
+// version that was found.
+const updater = createUpdater({
+  app,
+  autoUpdater,
+  onEvent: (event) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send('hermes:update:event', event);
+    }
+  },
+});
 
 // The live tunnel forwards a configurable local port; a connection test uses
 // a neighbouring port on a throwaway tunnel that is never persisted.
@@ -596,6 +594,84 @@ ipcMain.handle('hermes:disconnect', () => {
 });
 
 ipcMain.handle('hermes:status', () => connectionStatus);
+
+// ----------------------------------------------------------------- update
+
+// The version the app is running, and whether it has a way of finding the
+// next one: a copy running from the sources has no releases page.
+ipcMain.handle('hermes:update:info', () => updater.info());
+
+// A person asks for an update: it is looked for, downloaded, and the app
+// comes back as the version that was found.
+ipcMain.handle('hermes:update:check', () => updater.check());
+
+// The new version takes over: the app closes and comes back as itself.
+ipcMain.handle('hermes:update:install', () => ({ ok: updater.install() }));
+
+// Where the releases live, the way the record of the app says it: the same
+// record the updater reads for its feed (app-update.yml, beside the
+// bundle's own resources). A copy that runs from the sources has no such
+// record, and then the person reads why instead of a list.
+const GITHUB = (() => {
+  try {
+    const note = fs.readFileSync(
+      path.join(process.resourcesPath, 'app-update.yml'),
+      'utf8',
+    );
+    const owner = /^owner:\s*(\S+)/m.exec(note)?.[1];
+    const repo = /^repo:\s*(\S+)/m.exec(note)?.[1];
+    if (!owner || !repo) return null;
+    return { owner, repo };
+  } catch {
+    return null;
+  }
+})();
+const RELEASES_URL = GITHUB
+  ? `https://api.github.com/repos/${GITHUB.owner}/${GITHUB.repo}/releases?per_page=12`
+  : '';
+
+// What GitHub has put on the page of the project: the history the look for
+// an update reads its latest line from. The shell asks, because the screen
+// touches no network of its own. A page that says nothing, or says no, is
+// not an error the person carries: the app still works.
+ipcMain.handle('hermes:update:history', async () => {
+  if (!RELEASES_URL) {
+    return {
+      ok: false,
+      rows: [],
+      message: 'Where the releases live is not something the package says.',
+    };
+  }
+  try {
+    const answer = await fetch(RELEASES_URL, {
+      headers: { 'User-Agent': 'Hermes-Bot', Accept: 'application/vnd.github+json' },
+    });
+    if (!answer.ok) {
+      throw new Error(`GitHub answered ${answer.status} to the ask for the history.`);
+    }
+    return {
+      ok: true,
+      rows: await answer.json(),
+      page: GITHUB
+        ? `https://github.com/${GITHUB.owner}/${GITHUB.repo}/releases`
+        : '',
+    };
+  } catch (error) {
+    return { ok: false, rows: [], message: error?.message ?? String(error) };
+  }
+});
+
+// A row of the history opens where its release lives. The shell is the one
+// allowed to hand an address to the Mac, and only to a page of this
+// project's own releases.
+ipcMain.handle('hermes:update:open-release', (_event, url) => {
+  if (typeof url !== 'string' || !url.startsWith('https://github.com/')) {
+    return Promise.resolve({ ok: false });
+  }
+  return shell
+    .openExternal(url)
+    .then(() => ({ ok: true }), () => ({ ok: false }));
+});
 
 // ------------------------------------------------------------------ chat
 
@@ -2165,7 +2241,9 @@ app.whenReady().then(() => {
   if (storedConnection().autoConnect && storedApiKey()) {
     connectNow().catch(() => undefined);
   }
-  lookForUpdates();
+  // The update test presses the button itself: it asks the launch to leave
+  // the looking for the update to that hand alone.
+  if (!process.argv.includes('--no-update-on-launch')) updater.checkInBackground();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -2176,13 +2254,7 @@ app.on('before-quit', stopTunnel);
 // The new version waits for the app to close: quitting is the moment the
 // update takes over.
 app.on('before-quit', () => {
-  if (!updateReady) return;
-  updateReady = false;
-  try {
-    autoUpdater.quitAndInstall();
-  } catch {
-    // The update stays on the disk for the next launch.
-  }
+  updater.installOnQuit();
 });
 
 app.on('window-all-closed', () => {

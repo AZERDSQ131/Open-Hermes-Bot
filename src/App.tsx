@@ -83,6 +83,7 @@ import {
   type ReactionGroup,
 } from './components/ReactionDetails';
 import { ThreadContextMenu } from './components/ThreadContextMenu';
+import { UpdateButton } from './components/UpdateButton';
 import {
   type AvatarSpec,
   type GroupMember,
@@ -2591,6 +2592,7 @@ export default function App() {
             <GearIcon size={16} />
             <span className="settings-entry-label">Settings</span>
           </button>
+          <UpdateButton />
         </div>
       </aside>
 
