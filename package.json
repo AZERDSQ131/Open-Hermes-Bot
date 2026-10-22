@@ -11,6 +11,7 @@
     "start": "npm run build && electron .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:update": "node e2e/update/run.js",
     "preview": "vite preview",
     "dist": "npm run build && electron-builder --mac --publish never",
     "dist:dir": "npm run build && electron-builder --mac --dir --publish never",

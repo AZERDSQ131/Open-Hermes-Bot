@@ -5,3 +5,12 @@ coverage/
 .DS_Store
 preview*.png
 electron-preview.png
+
+# The update test builds real apps and serves a real feed: none of it is
+# part of the source.
+e2e/out/
+e2e/feed/
+e2e/apps/
+e2e/home/
+e2e/*.log
+e2e/*.png
