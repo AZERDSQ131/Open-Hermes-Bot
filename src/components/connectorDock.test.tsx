@@ -99,4 +99,13 @@ describe('the dock of the connectors', () => {
     expect(dock.classList.contains('footer-dock')).toBe(true);
     expect(dock.querySelectorAll('.dock-mark')).toHaveLength(3);
   });
+
+  it('previews the real service marks when the host offers none', () => {
+    withShell({ ok: false, logo: '' });
+    render(<ConnectorDock rows={[]} onOpen={vi.fn()} />);
+    const dock = screen.getByRole('button', { name: 'Connectors' });
+    expect(dock.querySelectorAll('.dock-mark')).toHaveLength(3);
+    expect(dock.querySelectorAll('.dock-mark svg')).toHaveLength(3);
+    expect(dock.querySelector('.dock-mark.is-letter')).toBeNull();
+  });
 });

@@ -309,12 +309,6 @@ button:focus-visible {
   line-height: 1;
 }
 
-/* No service yet: a plug, waiting to be plugged in. */
-.dock-mark.is-plug {
-  background: #33333a;
-  color: #9a9aa2;
-}
-
 /* The capabilities of the host: the skills, the tools, the connectors. */
 
 .capability-list {
