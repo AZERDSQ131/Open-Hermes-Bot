@@ -141,6 +141,16 @@ function stateOf(
     ) {
       return 'broken';
     }
+    if (
+      status === 'pending' ||
+      status === 'waiting' ||
+      status === 'authorizing'
+    ) {
+      return 'unknown';
+    }
+    if (status === 'inactive' || status === 'disabled' || status === 'off') {
+      return 'off';
+    }
     if (toolkit.enabled === false) return 'off';
     return 'available';
   }
