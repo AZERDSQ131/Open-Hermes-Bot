@@ -2305,6 +2305,46 @@ except Exception as exc:
     print(json.dumps({"ok": False, "error": str(exc)}))
 `;
 
+// Disk profiles with their bot metadata, tombstones excluded. Warming bots
+// live here before the gateway serves them, so the list can union them with
+// the served ones instead of hiding them until the next rescan.
+const LIST_DISK_PROFILES_PY = `
+import json
+from pathlib import Path
+
+home = Path.home() / ".hermes"
+root = home / "profiles"
+deleted = root / ".deleted"
+out = []
+try:
+    if root.is_dir():
+        for child in sorted(root.iterdir()):
+            if not child.is_dir():
+                continue
+            name = child.name.strip()
+            if not name or name.startswith("."):
+                continue
+            if (deleted / name).exists():
+                continue
+            title = ""
+            color = ""
+            shape = ""
+            try:
+                import yaml
+                data = yaml.safe_load((child / "profile.yaml").read_text()) or {}
+                bots = (data.get("ui_meta") or {}).get("hermes-bots") or {}
+                title = str(bots.get("title") or "")
+                color = str(bots.get("color") or "")
+                shape = str(bots.get("shape") or "")
+            except Exception:
+                pass
+            out.append({"name": name, "title": title, "color": color, "shape": shape})
+except Exception as exc:
+    print(json.dumps({"ok": False, "error": str(exc)}))
+    raise SystemExit(0)
+print(json.dumps({"ok": True, "profiles": out}))
+`;
+
 // Only used when the gateway cannot answer: the profile directories minus the
 // tombstoned names, which is the closest offline guess at the bot list.
 const LIST_PROFILES_SH = `
