@@ -54,6 +54,22 @@ export default defineConfig({
           branches: 100,
           statements: 98,
         },
+        // The setup is a path, not a rule: every step of it is walked
+        // through by a test, and the floor keeps it that way.
+        'src/onboarding.tsx': {
+          lines: 95,
+          functions: 85,
+          branches: 85,
+          statements: 95,
+        },
+        // The actor is a character, not a face: it is drawn, it changes its
+        // shape, it shouts, and it holds still when asked to.
+        'src/components/StageBloub.tsx': {
+          lines: 100,
+          functions: 100,
+          branches: 70,
+          statements: 100,
+        },
       },
       include: ['src/**/*.{ts,tsx}'],
       exclude: [

@@ -85,8 +85,10 @@ function makeBridge(overrides: Record<string, unknown> = {}) {
       localPort: 18742,
       autoConnect: true,
       hasKey: true,
+      onboardingCompleted: false,
     })),
     saveSettings: vi.fn(async () => ({ ok: true })),
+    setOnboarding: vi.fn(async () => ({ ok: true })),
     importKey: vi.fn(async () => ({ ok: true, keyLength: 64 })),
     test: vi.fn(async () => ({ state: 'connected' })),
     connect: vi.fn(async () => ({ state: 'connected' })),
@@ -1157,5 +1159,129 @@ describe('the rest of the conversation', () => {
     await userEvent.pointer({ keys: '[MouseRight]', target: row as Element });
     await userEvent.click(await screen.findByText('Delete group'));
     await waitFor(() => expect(bridge.deleteSession).toHaveBeenCalled());
+  });
+});
+
+describe('the setup', () => {
+  it('opens on a machine that has never been told where Hermes lives', async () => {
+    const bridge = makeBridge({
+      getSettings: vi.fn(async () => ({
+        sshHost: '',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: false,
+        onboardingCompleted: false,
+      })),
+    });
+    await renderApp(bridge);
+    expect(
+      await screen.findByText(/A window onto your agents/),
+    ).toBeTruthy();
+  });
+
+  it('stays closed on a machine that already knows its host', async () => {
+    const bridge = makeBridge({
+      getSettings: vi.fn(async () => ({
+        sshHost: 'my-host',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: true,
+        onboardingCompleted: false,
+      })),
+    });
+    await renderApp(bridge);
+    expect(screen.getByText('Bob')).toBeTruthy();
+    expect(screen.queryByText(/A window onto your agents/)).toBeNull();
+  });
+
+  it('stays closed once the setup has been walked through', async () => {
+    const bridge = makeBridge({
+      getSettings: vi.fn(async () => ({
+        sshHost: '',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: false,
+        onboardingCompleted: true,
+      })),
+    });
+    await renderApp(bridge);
+    expect(screen.getByText('Bob')).toBeTruthy();
+    expect(screen.queryByText(/A window onto your agents/)).toBeNull();
+  });
+
+  it('runs again from the settings', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    await userEvent.click(screen.getByLabelText('Settings'));
+    await userEvent.click(await screen.findByText('Setup'));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Run the setup again' }),
+    );
+    expect(
+      await screen.findByText(/A window onto your agents/),
+    ).toBeTruthy();
+  });
+
+  it('gives the window back when the person walks away', async () => {
+    const bridge = makeBridge({
+      getSettings: vi.fn(async () => ({
+        sshHost: '',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: false,
+        onboardingCompleted: false,
+      })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Skip' }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText(/A window onto your agents/)).toBeNull(),
+    );
+    expect(bridge.setOnboarding).toHaveBeenCalledWith({ completed: true });
+  });
+
+  it('gives the window back when the setup is finished', async () => {
+    const bridge = makeBridge({
+      getSettings: vi.fn(async () => ({
+        sshHost: '',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: false,
+        onboardingCompleted: false,
+      })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Begin' }),
+    );
+    await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
+    await userEvent.type(screen.getByLabelText('API key'), 'sk-secret');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Test the connection' }),
+    );
+    await waitFor(() => expect(bridge.connect).toHaveBeenCalled());
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await userEvent.type(await screen.findByLabelText('Its name'), 'Nova');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await screen.findByText(/What shape/);
+    await userEvent.click(screen.getByLabelText('Hexagon'));
+    await screen.findByText(/What colour/);
+    await userEvent.click(screen.getByLabelText('Amber'));
+    await waitFor(() => expect(bridge.createBot).toHaveBeenCalled());
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Start talking' }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText(/A window onto your agents/)).toBeNull(),
+    );
+    // The setup may have opened the connection: the sidebar is read again.
+    expect(await screen.findByText('Bob')).toBeTruthy();
   });
 });

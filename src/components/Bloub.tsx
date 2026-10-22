@@ -1,11 +1,21 @@
 import { useId } from 'react';
 import {
   BLOUB_FRAMES,
+  BLOUB_SHAPES,
   type BloubShape,
   type BloubVariant,
 } from './bloubFrames';
 
 export const EYE_PAPER = '#f6f3e9';
+
+/**
+ * The face a bot wears, read from what Hermes keeps for it. A shape the
+ * server does not know falls back to the circle: a bot is still a bot.
+ */
+export function botShape(shape?: string): BloubShape {
+  const wanted = String(shape ?? '').trim() as BloubShape;
+  return BLOUB_SHAPES.includes(wanted) ? wanted : 'cercle';
+}
 
 export const BLOUB_SHAPE_OPTIONS: { id: BloubShape; label: string }[] = [
   { id: 'cercle', label: 'Circle' },

@@ -9,7 +9,8 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { AgentAvatar } from './components/AgentAvatar';
-import { BLOUB_SHAPES, type BloubShape } from './components/bloubFrames';
+import { botShape } from './components/Bloub';
+import { type BloubShape } from './components/bloubFrames';
 import {
   CreateAgentDialog,
   toProfileId,
@@ -73,6 +74,7 @@ import {
   stripSilentMarkers,
 } from './group';
 import { avatarColor } from './profileColor';
+import { Onboarding } from './onboarding';
 import { SettingsView } from './components/SettingsView';
 import { LogoEditor } from './components/LogoEditor';
 import {
@@ -209,10 +211,6 @@ function threadForBot(profile: HermesProfile): Thread {
 
 // The face a bot wears is kept with the bot, on the server: a bot that came
 // back after a restart must be the same bot.
-function botShape(shape?: string): BloubShape {
-  const wanted = String(shape ?? '').trim() as BloubShape;
-  return BLOUB_SHAPES.includes(wanted) ? wanted : 'cercle';
-}
 
 // Real bots only: anything the gateway no longer serves leaves the sidebar, and
 // threads without a profile (groups) stay where they are.
@@ -411,6 +409,12 @@ export default function App() {
   } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // The setup: shown once, on a machine that has never been told where
+  // Hermes lives. `unknown` until the app's own record has answered.
+  const [setup, setSetup] = useState<'unknown' | 'ready'>('unknown');
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  // Bumped when the setup touched the server, so the sidebar is read again.
+  const [refreshToken, setRefreshToken] = useState(0);
   const [hermesStatus, setHermesStatus] = useState<HermesStatus>({
     state: 'disconnected',
   });
@@ -479,6 +483,34 @@ export default function App() {
     setThreads((current) => withConversations(current, perProfile));
   }
 
+  // The setup is asked for once. The app's own record says whether the door
+  // was already walked through; a host that is already written down means the
+  // person knows what they are doing, and the app does not ask them again.
+  useEffect(() => {
+    const bridge = window.hermes;
+    if (!bridge?.getSettings) {
+      setSetup('ready');
+      return;
+    }
+    let cancelled = false;
+    bridge
+      .getSettings()
+      .then((settings) => {
+        if (cancelled) return;
+        const already =
+          Boolean(settings.onboardingCompleted) ||
+          Boolean(settings.sshHost.trim());
+        if (!already) setOnboardingOpen(true);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setSetup('ready');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // The sidebar is the real inventory: bots come from the gateway, never from
   // seed data. Refetched when the connection settles, so a reconnect picks up
   // bots created or removed on the machine meanwhile.
@@ -518,7 +550,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [hermesStatus.state]);
+  }, [hermesStatus.state, refreshToken]);
 
   // A deleted bot can take the open conversation with it; land on the first
   // one that still exists instead of showing an empty window.
@@ -825,6 +857,8 @@ export default function App() {
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (!event.metaKey) return;
+      // The setup owns the window while it is open: nothing behind it answers.
+      if (onboardingOpen) return;
       if (event.key.toLowerCase() === 'k') {
         event.preventDefault();
         searchRef.current?.focus();
@@ -848,7 +882,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [onboardingOpen]);
 
   useEffect(() => {
     const bridge = window.hermes;
@@ -2424,7 +2458,11 @@ export default function App() {
   }
 
   return (
-    <div className={`app ${sidebarOpen ? 'is-sidebar-open' : ''}`}>
+    <div
+      className={`app ${sidebarOpen ? 'is-sidebar-open' : ''} ${
+        setup === 'ready' ? '' : 'is-waiting'
+      }`}
+    >
       <aside className={`sidebar ${sidebarOpen ? 'is-open' : ''}`}>
         <div className="sidebar-topbar">
           <button
@@ -3078,9 +3116,24 @@ export default function App() {
           status={hermesStatus}
           onClose={() => setSettingsOpen(false)}
           onStatusChange={setHermesStatus}
+          onRunSetup={() => {
+            setSettingsOpen(false);
+            setOnboardingOpen(true);
+          }}
         />
       ) : null}
 
+      {onboardingOpen ? (
+        <Onboarding
+          onFinish={() => {
+            setOnboardingOpen(false);
+            // The setup may have created a bot, or opened the connection for
+            // the first time: the sidebar is read again either way.
+            setRefreshToken((count) => count + 1);
+          }}
+          onDismiss={() => setOnboardingOpen(false)}
+        />
+      ) : null}
       {createOpen ? (
         <CreateAgentDialog
           candidates={createCandidates}

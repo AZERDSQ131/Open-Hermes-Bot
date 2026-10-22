@@ -40,6 +40,7 @@ The day-to-day commands:
 electron/main.js        the shell and the bridge to Hermes
 src/App.tsx             the window: sidebar, conversation, composer
 src/components/         the faces, the dialogs, the pickers
+src/onboarding.tsx      the setup: the first run, step by step
 src/group.ts            the protocol of a group: silence, tapbacks, mentions
 src/conversations.ts    reading a conversation back out of the sessions
 src/turns.ts            the rules of a turn: tapbacks, quota, a server installing
@@ -117,6 +118,10 @@ was published.
 
 - **The renderer keeps nothing.** `localStorage` is empty on purpose, and the
   tests say so. A preference belongs to Hermes, with the bot it is about.
+- **One fact the app keeps.** Whether the setup has been walked through lives
+  in the app's own record, next to the connection: the app has to know it
+  before Hermes is reachable. Everything else the setup learns stays on the
+  host.
 - **The content security policy is strict** (`vite.config.mts`): no inline
   script, no remote anything. If you need a new kind of resource, say why in
   the policy rather than loosening it.

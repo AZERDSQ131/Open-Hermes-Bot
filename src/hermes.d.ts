@@ -19,6 +19,8 @@ export type HermesSettings = {
   localPort: number;
   autoConnect: boolean;
   hasKey: boolean;
+  /** Whether the person has already been through the setup. */
+  onboardingCompleted: boolean;
 };
 
 export type HermesBotCreateResult = {
@@ -196,6 +198,10 @@ export type HermesBridge = {
   importKey: (payload: {
     sshHost: string;
   }) => Promise<{ ok: boolean; error?: string; keyLength?: number }>;
+  /** Remembers that the person has been through the setup. */
+  setOnboarding: (payload: {
+    completed: boolean;
+  }) => Promise<{ ok: boolean; settings?: HermesSettings }>;
   test: (payload: {
     sshHost: string;
     apiPort: number;

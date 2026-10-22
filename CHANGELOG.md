@@ -6,7 +6,38 @@ follow [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **A setup, step by step.** The first time the app opens, it asks where
+  Hermes lives, for the key that opens the door, and who answers on the other
+  side. It shakes hands with the host, asks it for the first bot, and shows
+  that bot on the last page. The setup can be run again from
+  **Settings → Setup**, whenever Hermes moves to another machine.
+- **An actor for the setup.** The setup is not a page of forms: it is a scene
+  with one character in it, that breathes, blinks, thinks while the tunnel
+  opens, and celebrates when the host answers.
+- **An actor that changes its mind.** Every two seconds it takes another
+  colour and another shape, and the light of the window takes the colour with
+  it.
+
+### Changed
+
+- **The connection is one page.** Where Hermes lives, the key, and the
+  handshake that says whether the two of them are talking: all three on the
+  same page, tested by the button at the bottom.
+- **The first bot is asked for, in three pages.** What is it called, what
+  shape, what colour — one question at a time, and the actor is the bot while
+  the bot is being made: it wears the shape that is being picked, and the
+  colour. The bots the host already serves are not shown: an app that has
+  just been installed has no agents, and the bot is not the point of the
+  setup — there is a way to leave it for later.
+
+### Fixed
+
+- **An error the person can read.** A command that never ran has no stderr to
+  read, and reading it anyway threw: the app answered with an exception
+  instead of saying what went wrong. It shows up on a machine that has not been
+  told where Hermes lives yet.
 
 ## [1.0.0] — 2026-10-21
 

@@ -41,25 +41,33 @@ we use for all of it in [docs/vocabulary.md](docs/vocabulary.md).
 Grab the `.dmg` from the [releases](https://github.com/AZERDSQ131/Open-Hermes-Bot/releases),
 drag **Hermes Bot** into *Applications*, and open it.
 
+Two files are published: `-arm64` for Apple silicon, `-x64` for Intel.
+
 The app is not signed with a Developer ID, so macOS greets it like it greets any
 program it has never seen: *“Hermes Bot cannot be opened because the developer
 cannot be verified.”* Open it with a right click → **Open** → **Open**, once. From
-then on it opens like any other app. (Or from a terminal:
-`xattr -dr com.apple.quarantine "/Applications/Hermes Bot.app"`.)
+then on it opens like any other app.
+
+Or, from a terminal, once:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Hermes Bot.app"
+```
 
 ### First run
 
-The app needs two things, both in **Settings**:
+The app opens on a setup that asks for two things, one at a time:
 
 - **the SSH host** of the machine running Hermes — the name your `~/.ssh/config`
   already uses, e.g. `jetson`;
-- **the API key** of that host. Press *Import from \<host\>* and the app reads
+- **the API key** of that host. Press *Read it from \<host\>* and the app reads
   `API_SERVER_KEY` from the host's `~/.hermes/.env` over the SSH it already
   uses. The key stays in the login Keychain, under the app's own entry.
 
-Then press **Connect**. The app opens a tunnel to the host, asks it which bots
+Then it shakes hands: the app opens a tunnel to the host, asks it which bots
 exist, and shows them. Nothing else is needed: no account, no cloud, no key
-typed by hand.
+typed by hand. The setup can be run again from **Settings → Setup**, whenever
+Hermes moves to another machine.
 
 ## Run it from the sources
 

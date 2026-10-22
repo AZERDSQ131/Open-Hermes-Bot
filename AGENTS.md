@@ -38,6 +38,7 @@ it, which is the normal state of a fresh install.
 | `electron/preload.js` | the only bridge the renderer is allowed to use |
 | `src/App.tsx` | the window: sidebar, conversation, composer, groups |
 | `src/components/` | the faces, the dialogs, the pickers, the panels |
+| `src/onboarding.tsx` | the setup: the first run, step by step |
 | `src/group.ts` | the protocol of a group: silence, tapbacks, mentions, waves |
 | `src/conversations.ts` | reading a conversation back out of the sessions |
 | `src/turns.ts` | the rules of a turn: tapbacks, quota, a server still installing |
@@ -62,7 +63,8 @@ tapback, a silence.
   strict one. If you need a new kind of resource, say why in the policy
   rather than loosening it.
 - **The empty `localStorage`.** The conversations, the faces and the
-  preferences are on the host.
+  preferences are on the host. The app's own record — the host, the ports and
+  the fact that the setup was walked through — is the one thing it keeps.
 - **The name.** `Hermes Bot` everywhere: the window, the bundle, the
   prompts the models read, the settings, the Keychain service. A rename is
   a rename everywhere, with the old names read once as a fallback.

@@ -55,8 +55,20 @@
       "category": "public.app-category.productivity",
       "icon": "build/icon.icns",
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ],
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Hermes Bot listens only while you are dictating, and the words are transcribed by your own Hermes host — nothing is sent anywhere else."

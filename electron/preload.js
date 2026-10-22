@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('hermes', {
   getSettings: () => ipcRenderer.invoke('hermes:settings:get'),
   saveSettings: (payload) => ipcRenderer.invoke('hermes:settings:save', payload),
   importKey: (payload) => ipcRenderer.invoke('hermes:key:import', payload),
+  setOnboarding: (payload) =>
+    ipcRenderer.invoke('hermes:onboarding:set', payload),
   test: (payload) => ipcRenderer.invoke('hermes:test', payload),
   createBot: (payload) => ipcRenderer.invoke('hermes:bot:create', payload),
   updateBot: (payload) => ipcRenderer.invoke('hermes:bot:update', payload),

@@ -88,6 +88,18 @@ function storedConnection() {
   return { ...DEFAULT_CONNECTION, ...connection };
 }
 
+// The setup is a door the person walks through once. The app remembers that
+// they did — that is not a conversation, and it does not belong to Hermes:
+// the host may not even be reachable yet when the answer is needed.
+function storedOnboarding() {
+  const store = readStore();
+  const onboarding = store.onboarding || {};
+  return {
+    completed: Boolean(onboarding.completed),
+    completedAt: onboarding.completedAt ?? null,
+  };
+}
+
 // The Hermes API key lives in the login Keychain, under this app's own
 // service. safeStorage would name the item after the app, which turns every
 // read into a Keychain prompt. The `security` tool writes an item it can read
@@ -164,6 +176,7 @@ function publicSettings() {
     localPort: connection.localPort,
     autoConnect: Boolean(connection.autoConnect),
     hasKey: Boolean(storedApiKey()),
+    onboardingCompleted: storedOnboarding().completed,
   };
 }
 
@@ -339,7 +352,7 @@ async function waitForTunnel(state, apiKey) {
         status: 0,
         error:
           state?.error ||
-          state?.stderr.trim() ||
+          String(state?.stderr ?? '').trim() ||
           tunnelError ||
           'SSH tunnel closed',
       };
@@ -423,6 +436,16 @@ function runSsh(host, command, timeoutMs = 20000, input) {
   });
 }
 
+/**
+ * The stderr of a command that never ran is nothing: the host may not even be
+ * known yet, and the tunnel may have died before writing a word. Reading it
+ * must not throw — an error the person can read is worth more than an
+ * exception nobody sees.
+ */
+function stderrOf(result) {
+  return String(result?.stderr ?? '').trim();
+}
+
 function parseEnvValue(raw) {
   let value = String(raw ?? '').split('\n')[0].trim();
   const quoted =
@@ -459,8 +482,27 @@ ipcMain.handle('hermes:settings:save', (_event, payload) => {
     storeSecret(payload.apiKey.trim());
   }
 
+  // The store holds more than the connection: what the person already went
+  // through stays where it is.
   writeStore({
+    ...readStore(),
     connection: { sshHost: host, apiPort: port, localPort, autoConnect },
+  });
+  return { ok: true, settings: publicSettings() };
+});
+
+// The setup is remembered so the app stops asking. It can be opened again by
+// hand, from the settings, and then this flag is the only thing that changes.
+ipcMain.handle('hermes:onboarding:set', (_event, payload) => {
+  const completed = Boolean(payload?.completed);
+  const store = readStore();
+  writeStore({
+    ...store,
+    onboarding: {
+      ...(store.onboarding || {}),
+      completed,
+      completedAt: completed ? new Date().toISOString() : null,
+    },
   });
   return { ok: true, settings: publicSettings() };
 });
@@ -476,7 +518,7 @@ ipcMain.handle('hermes:key:import', async (_event, payload) => {
       ok: false,
       error:
         result.error ||
-        result.stderr.trim() ||
+        stderrOf(result) ||
         'API_SERVER_KEY not found in the remote ~/.hermes/.env',
     };
   }
@@ -902,7 +944,7 @@ ipcMain.handle('hermes:bot:update', async (_event, payload) => {
   if (!result.ok) {
     return {
       ok: false,
-      error: result.stderr.trim() || result.error || 'Could not update the bot',
+      error: stderrOf(result) || result.error || 'Could not update the bot',
     };
   }
   let meta = { title: '', color: '', shape: '' };
@@ -1001,7 +1043,7 @@ ipcMain.handle('hermes:bot:delete', async (_event, payload) => {
     return {
       ok: false,
       error:
-        result.stderr.trim() ||
+        stderrOf(result) ||
         result.error ||
         'Could not delete the bot on the server',
     };
@@ -1046,7 +1088,7 @@ ipcMain.handle('hermes:attachment:upload', async (_event, payload) => {
     return {
       ok: false,
       error:
-        result.stderr.trim() ||
+        stderrOf(result) ||
         result.error ||
         `Could not copy ${name} to ${connection.sshHost}`,
     };
@@ -1110,7 +1152,7 @@ ipcMain.handle('hermes:voice:transcribe', async (_event, payload) => {
     return {
       ok: false,
       error:
-        result.stderr.trim() ||
+        stderrOf(result) ||
         result.error ||
         'The recording could not be transcribed on the server',
     };
@@ -1120,7 +1162,7 @@ ipcMain.handle('hermes:voice:transcribe', async (_event, payload) => {
     return {
       ok: false,
       error:
-        result.stderr.trim() ||
+        stderrOf(result) ||
         'The server did not answer with a transcription',
     };
   }
@@ -1202,7 +1244,7 @@ ipcMain.handle('hermes:prefs', async () => {
     return {
       ok: false,
       error:
-        result.stderr.trim() ||
+        stderrOf(result) ||
         result.error ||
         'The preferences could not be read from the server',
     };
@@ -1222,7 +1264,7 @@ ipcMain.handle('hermes:prefs:save', async (_event, payload) => {
     return {
       ok: false,
       error:
-        result.stderr.trim() ||
+        stderrOf(result) ||
         result.error ||
         'The preferences could not be saved on the server',
     };
@@ -2038,7 +2080,7 @@ ipcMain.handle('hermes:bot:create', async (_event, payload) => {
     ok: false,
     error:
       result.error ||
-      result.stderr.trim() ||
+      stderrOf(result) ||
       `Could not create the bot on ${connection.sshHost}`,
   };
 });
