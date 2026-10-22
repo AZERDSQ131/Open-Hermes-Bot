@@ -2746,13 +2746,16 @@ export default function App() {
         <nav className="thread-list" aria-label="Agents">
           {filteredThreads.map((thread) => {
             const isActive = thread.id === activeThread?.id;
+            const warming = Boolean(thread.pending);
             return (
               <button
                 type="button"
                 key={thread.id}
                 className={`thread-row ${isActive ? 'is-active' : ''} ${
                   thread.unread ? 'is-unread' : ''
-                } ${contextMenu?.threadId === thread.id ? 'is-context' : ''}`}
+                } ${contextMenu?.threadId === thread.id ? 'is-context' : ''} ${
+                  warming ? 'is-pending' : ''
+                }`}
                 onClick={() => selectThread(thread.id)}
                 onContextMenu={(event) => {
                   event.preventDefault();
@@ -2769,11 +2772,28 @@ export default function App() {
                 <span className="thread-copy">
                   <span className="thread-heading">
                     <span className="thread-name">{thread.name}</span>
-                    <span className="thread-time">{thread.time}</span>
+                    <span className="thread-time">
+                      {warming ? '…' : thread.time}
+                    </span>
                   </span>
                   <span className={`thread-preview ${thread.thinking ? 'is-typing' : ''}`}>
-                    {thread.thinking ? 'Typing...' : thread.preview}
+                    {thread.thinking
+                      ? 'Typing...'
+                      : warming
+                        ? (thread.serveFailed
+                            ? 'Could not connect — retry or remove'
+                            : 'Starting… Hermes is connecting')
+                        : thread.preview}
                   </span>
+                  {warming ? (
+                    <span
+                      className={`thread-status ${thread.serveFailed ? 'is-failed' : 'is-warming'}`}
+                      role="status"
+                    >
+                      <span className="thread-status-dot" aria-hidden="true" />
+                      {thread.serveFailed ? 'Not connected' : 'Connecting…'}
+                    </span>
+                  ) : null}
                 </span>
               </button>
             );
