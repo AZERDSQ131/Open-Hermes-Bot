@@ -13,6 +13,13 @@ follow [semantic versioning](https://semver.org/).
   is downloaded in front of the person — the bar shows how far it has come —
   and the app restarts as the version that was found. The app still looks by
   itself on launch, quietly, and takes the update when it closes.
+- **The mark beside the settings.** An icon in the sidebar, without a word:
+  it turns while it looks, a ring walks with the download, a dot pulses when
+  a version was seen, and pings when the new version is on the disk.
+- **What GitHub has published.** **Settings → Updates** reads the page of the
+  project too: the versions before this one, row by row, with their dates,
+  and each row opens where its release lives. The shell asks GitHub — the
+  screen touches no network of its own.
 - **A setup, step by step.** The first time the app opens, it asks where
   Hermes lives, for the key that opens the door, and who answers on the other
   side. It shakes hands with the host, asks it for the first bot, and shows

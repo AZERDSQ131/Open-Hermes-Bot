@@ -44,6 +44,7 @@ it, which is the normal state of a fresh install.
 | `src/conversations.ts` | reading a conversation back out of the sessions |
 | `src/turns.ts` | the rules of a turn: tapbacks, quota, a server still installing |
 | `src/updates.ts` | what an update means, in words |
+| `src/components/UpdateButton.tsx` | the next version, in icon only, beside the settings |
 | `src/modelPrefs.tsx` | what the person chose, and where it is kept |
 | `src/recording.ts` | the microphone, and the bytes it produces |
 | `docs/` | how the app is put together — read these before changing it |
