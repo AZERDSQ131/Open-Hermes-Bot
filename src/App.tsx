@@ -1394,8 +1394,7 @@ export default function App() {
   // The deletion happens where the conversation is kept. A bot is a Hermes
   // profile: deleting the profile deletes the bot, with everything it
   // remembers. A group is a set of conversations: they go one by one.
-  async function removeOnServer(target: Thread | undefined) {
-    const bridge = window.hermes;
+  async function removeOnServer(target: Thread | undefined) {    const bridge = window.hermes;
     if (!target || !bridge) return;
     if (target.avatar.kind === 'group') {
       for (const member of target.members ?? []) {
@@ -1440,6 +1439,36 @@ export default function App() {
       // Nothing to report: the bot is gone from the app either way.
     }
     await refreshConversations();
+  }
+
+  // A warming bot that never gets served is removed, on the server too so no
+  // orphan profile stays on the host behind an empty row.
+  function dismissWarmingBot(thread: Thread) {
+    if (thread.profile) {
+      pendingBots.current.delete(thread.profile);
+      void window.hermes?.deleteBot?.({ name: thread.profile }).catch(() => undefined);
+    }
+    setThreads((current) => current.filter((item) => item.id !== thread.id));
+    if (activeId === thread.id) {
+      const fallback = threads.find((item) => item.id !== thread.id) ?? null;
+      if (fallback) setActiveId(fallback.id);
+    }
+  }
+
+  // Ask Hermes again for a warming bot: refresh the list now instead of
+  // waiting for the next rescan.
+  function retryWarmingBot(thread: Thread) {
+    if (thread.profile) {
+      setThreads((current) =>
+        current.map((item) =>
+          item.id === thread.id
+            ? { ...item, serveFailed: false, pendingSince: Date.now() }
+            : item,
+        ),
+      );
+      pendingBots.current.set(thread.profile, Date.now());
+    }
+    setRefreshToken((count) => count + 1);
   }
 
   function startEditingThread(id: string) {
