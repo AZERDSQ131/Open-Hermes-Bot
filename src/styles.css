@@ -273,6 +273,7 @@ button:focus-visible {
   height: 24px;
   place-items: center;
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 7px;
   background: #33333a;
 }
