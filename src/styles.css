@@ -2376,20 +2376,29 @@ button:focus-visible {
   flex-direction: column;
 }
 
+/* The two ways of connecting, as two panels: the choice is where Hermes
+   runs, and each panel says everything that follows from it. */
 .settings-modes {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  align-items: stretch;
   margin: 0;
   padding: 0 0 4px;
   border: none;
+}
+
+@media (max-width: 420px) {
+  .settings-modes {
+    grid-template-columns: 1fr;
+  }
 }
 
 .settings-mode {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 11px 12px;
+  padding: 13px 14px;
   border: 1px solid rgba(255, 255, 255, 0.075);
   border-radius: 10px;
   background: #1a1a1d;
@@ -2416,12 +2425,12 @@ button:focus-visible {
 .settings-mode-copy {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .settings-mode-copy strong {
   color: var(--text);
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 600;
 }
 
@@ -2429,7 +2438,7 @@ button:focus-visible {
   color: #8d8d96;
   font-size: 11.5px;
   font-style: normal;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .settings-field {
@@ -3896,16 +3905,25 @@ button:focus-visible {
   font-weight: 600;
 }
 
+/* The choice of where Hermes runs is two panels, not a line of options:
+   each says a whole way of connecting, and its own text is the answer. */
 .onboarding-modes {
-  display: flex;
+  display: grid;
   width: 100%;
-  flex-direction: column;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  align-items: stretch;
   margin: 26px 0 0;
   padding: 0;
   border: none;
   text-align: left;
   animation: onboarding-rise 620ms 240ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@media (max-width: 540px) {
+  .onboarding-modes {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* The machines the SSH config already names: one click each. */
@@ -3972,8 +3990,8 @@ button:focus-visible {
 .onboarding-mode {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 13px 15px;
+  gap: 11px;
+  padding: 15px 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.045);
@@ -4002,21 +4020,21 @@ button:focus-visible {
 .onboarding-mode-copy {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .onboarding-mode-copy strong {
   color: #f3f3f5;
-  font-size: 14.5px;
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: -0.008em;
+  letter-spacing: -0.01em;
 }
 
 .onboarding-mode-copy em {
   color: #8d8d96;
-  font-size: 12.5px;
+  font-size: 12px;
   font-style: normal;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .onboarding-field {
