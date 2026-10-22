@@ -508,8 +508,9 @@ export default function App() {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const logoRef = useRef<HTMLDivElement>(null);
   const renameCancelled = useRef(false);
-  // Profiles created here but not yet reported by the gateway.
-  const pendingBots = useRef(new Set<string>());
+  // Profiles created here but not yet reported by the gateway, with the time
+  // they started warming. Shown at once, removed after the timeout.
+  const pendingBots = useRef(new Map<string, number>());
   // The conversations already read back, so none is loaded twice.
   const transcriptState = useRef(new Map<string, 'loading' | 'loaded'>());
   // A read that failed is tried again.
