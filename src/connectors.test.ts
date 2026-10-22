@@ -204,6 +204,15 @@ describe('the connectors of the host', () => {
     expect(rows[0]?.state).toBe('connected');
   });
 
+  it('prefer connected over turned off in the toolkit', () => {
+    const rows = readConnectors({
+      ...LIST,
+      toolkit: [{ connector: 'notion', enabled: false, connected: true }],
+      accounts: [],
+    });
+    expect(rows.find((row) => row.slug === 'notion')?.state).toBe('connected');
+  });
+
   it('say nothing is known about a service the host did not mention', () => {
     const rows = readConnectors({
       ...LIST,
