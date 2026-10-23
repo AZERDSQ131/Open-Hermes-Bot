@@ -8,6 +8,15 @@ follow [semantic versioning](https://semver.org/).
 
 ### Added
 
+- **The phone.** `mobile/` is the same interface one screen wide: an Expo app
+  that lists the bots, reads a conversation back from the host, and sends a
+  turn that streams as it is written. A phone cannot open an SSH tunnel, so
+  it is paired with a small service on the Hermes host — `bridge/` — minted
+  from a code and published to the tailnet by `tailscale serve`. The Hermes
+  key never leaves the host; the phone keeps the bridge's address and a
+  device token of its own, in the Keychain, and a device is revoked from the
+  app. The model picker, the attachments, the dictation and the preferences
+  are still the desktop's, and [docs/mobile.md](docs/mobile.md) says so.
 - **The capabilities of the host.** **Settings → Connectors**, **→ Skills**
   and **→ Tools** are the three pages of what your bots can reach. The
   connectors are the services of Hermes itself — a notebook, a calendar, a
