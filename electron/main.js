@@ -314,6 +314,13 @@ function spawnTunnel(connection, localPort) {
   const args = [
     '-o',
     'BatchMode=yes',
+    // The forward belongs to this process: a shared SSH connection would keep
+    // the port listening after the app that opened it is gone, and the next
+    // launch would find its own port taken by a link to nothing.
+    '-o',
+    'ControlMaster=no',
+    '-o',
+    'ControlPath=none',
     '-o',
     'ExitOnForwardFailure=yes',
     '-o',
