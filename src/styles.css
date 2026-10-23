@@ -162,6 +162,18 @@ button:focus-visible {
   flex: 0 0 auto;
 }
 
+/* The face a scene allows the hand to touch: it answers a click, and the
+   keyboard reaches it the same way any other button is reached. */
+.mood-bloub[role='button'] {
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.mood-bloub[role='button']:focus-visible {
+  outline: 2px solid var(--focus, #3f6fd1);
+  outline-offset: 4px;
+}
+
 .sidebar-topbar {
   position: relative;
   flex: 0 0 auto;
