@@ -76,6 +76,32 @@ machine in `local` mode — the same shell scripts, wherever Hermes is.
 The bytes of a file never go through a command line: they are piped into the
 remote file.
 
+## The phone: a bridge on the host, published on the tailnet
+
+The desktop app can open a tunnel because it can run `ssh`. A phone cannot,
+and it must not carry the API key of every profile. So the machine that runs
+Hermes runs one more small process — `bridge/` — that answers on loopback and
+is published to the tailnet by `tailscale serve`:
+
+```
+phone ──HTTPS──> tailscale serve ──> 127.0.0.1:8765 (bridge) ──> 127.0.0.1:8642 (Hermes)
+```
+
+No port is opened: `tailscale serve` terminates TLS with the tailnet's own
+certificate, and only devices on the tailnet reach it. The bridge reads a
+profile's `API_SERVER_KEY` when it needs one, on the machine where the key
+already is, and never puts it in an answer. The phone holds a device token
+instead, minted once from a pairing code: it opens the bridge and nothing else,
+and revoking it leaves the keys where they were.
+
+The bridge keeps no conversation. The sessions, the transcripts and the
+preferences stay Hermes'; the bridge reads them and streams a turn through.
+What it exposes is the mobile app's surface, not Hermes': the bots that are
+profiles, their sessions, a transcript, one streamed turn, an attached file, a
+recording, the preferences, the devices. `bridge/README.md` is the contract,
+and a bot made there is laid out as a real Hermes profile, with a key of its
+own.
+
 ## Why not a general protocol
 
 Other apps in this space speak a general agent protocol — AG-UI, for
