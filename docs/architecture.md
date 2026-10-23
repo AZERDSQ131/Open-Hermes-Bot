@@ -83,6 +83,24 @@ The app is the interface. It owns the room the conversation happens in.
   are read and turned on and off the same way the connectors are. The app
   keeps nothing of them: it asks the host again every time.
 
+## The phone, and its door
+
+The phone is a second interface onto the same harness, not an app of its own.
+`mobile/` draws the same bots, the same faces and the same sessions, and it
+holds none of the conversation.
+
+What it cannot do is what the desktop window does with `ssh`: a phone runs no
+shell on the host. So the phone speaks to a small service next to Hermes —
+`bridge/` — bound to loopback and published to the tailnet by `tailscale
+serve`, which terminates HTTPS. The bridge holds the Hermes key; the phone
+holds a device token, minted once from a pairing code and named, so a device
+can be revoked from the app.
+
+The boundary does not move. The bridge reads and writes the same Hermes API
+the desktop window uses, so the phone keeps nothing of the conversation
+either: what survives a restart is the bridge's address and the token, in the
+phone's Keychain.
+
 ## What the app does not keep
 
 Nothing of the conversation. No file, no Keychain entry, no `localStorage`, no
