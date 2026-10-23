@@ -3,6 +3,8 @@ dist/
 release/
 coverage/
 .DS_Store
+__pycache__/
+*.pyc
 
 # The maquettes: standalone pages drawn to try a look out. They are not the
 # app, they are not built by it, and they are not part of what is released.
