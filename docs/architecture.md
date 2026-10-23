@@ -69,6 +69,16 @@ The app is the interface. It owns the room the conversation happens in.
   what leases them. The rules of that reading are in `src/connectors.ts`, and
   the marks of the services are the logos of the vendor, fetched by the shell
   and handed over as bytes: the window touches no network of its own.
+
+  Two kinds of service are on that page, and they are connected in two ways.
+  A service of the Nous portal takes an account, and the host mints the link
+  the portal wants. A service of the host's own MCP catalogue takes none: the
+  host installs it there, the provider runs its own browser flow, and the
+  shell holds the loopback port the provider comes back to for the length of
+  that flow — so the account is the provider's, and the app never asks for a
+  Nous one. `electron/mcp.js` reads the link and the port out of what the
+  host prints; `electron/connectors.js` makes sure the slow read of the page
+  is asked once, not once per caller.
 - **The skills and the tools.** They live with a bot, on the host, and they
   are read and turned on and off the same way the connectors are. The app
   keeps nothing of them: it asks the host again every time.

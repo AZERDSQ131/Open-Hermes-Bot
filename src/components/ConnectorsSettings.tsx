@@ -13,6 +13,20 @@ const STATE_WORD: Record<Connector['state'], string> = {
 };
 
 /**
+ * How long the page says it is reading before it stops.
+ *
+ * The read is a shell on the host, and a shell can be stuck: a link that
+ * died, a machine asleep, a process that never comes back. The page has to
+ * stop saying the same thing forever — past this, it says it took too long
+ * and offers to ask again. It sits above the shell's own timeout, so the
+ * host's reason is the one shown when the host has one.
+ */
+const READING_DEADLINE_MS = 70000;
+
+/** How long a person has to approve a service in their own browser. */
+const APPROVAL_WINDOW_MS = 320000;
+
+/**
  * The connectors: the services a bot can reach besides Hermes itself.
  *
  * They live on the host, behind the managed gateway. The app asks the host
@@ -24,8 +38,11 @@ export function ConnectorsSettings() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState('');
-  const [reloadToken, setReloadToken] = useState(0);
+  // Every ask is a token, and the retry asks past the answer the shell keeps:
+  // after a service was connected, the list read a minute ago is a lie.
+  const [reload, setReload] = useState({ token: 0, fresh: false });
   const [loading, setLoading] = useState(true);
+  const [timedOut, setTimedOut] = useState(false);
 
   // The list is read when the page opens, and again when asked: it is the
   // host's, not ours. A failed read stays readable: the page says what the
@@ -39,7 +56,16 @@ export function ConnectorsSettings() {
     }
     let cancelled = false;
     setLoading(true);
-    reader()
+    setTimedOut(false);
+    // A shell can hang, and nothing says the answer will ever come: the page
+    // does not say "Reading the host…" forever.
+    const deadline = window.setTimeout(() => {
+      if (cancelled) return;
+      setLoading(false);
+      setTimedOut(true);
+      setError('The host took too long to answer.');
+    }, READING_DEADLINE_MS);
+    reader({ fresh: reload.fresh })
       .then((next: HermesConnectorList) => {
         if (cancelled) return;
         setAnswer(next);
@@ -52,26 +78,35 @@ export function ConnectorsSettings() {
         );
       })
       .finally(() => {
+        window.clearTimeout(deadline);
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
+      window.clearTimeout(deadline);
     };
-  }, [bridge, reloadToken]);
+  }, [bridge, reload]);
 
   const rows = answer ? readConnectors(answer) : [];
   const connected = rows.filter((row) => row.state === 'connected');
+  // The services the portal holds: the only ones a Nous account unlocks. The
+  // ones the host connects by itself are not on that list, so an empty
+  // portal never turns into a wall in front of them.
+  const managed = rows.filter((row) => !row.mcp);
   // Why the host could not answer, in its own words.
   const closed = answer?.messages ?? [];
   const failed = Boolean(answer) && !answer?.ok;
-  // No Nous account on the host: nothing is connected and the host says why.
-  // The list still stands on the local catalogue, so signing in stays a
-  // choice at the moment of connecting — never a wall before it.
+  // No Nous account on the host, and portal services on offer: signing in
+  // stays a choice at the moment of connecting those — never a wall before
+  // the ones that never needed it. A host with no catalogue at all still
+  // asks for the account: it is the only way to get a service there.
+  const portalNeeded = rows.length === 0 || managed.length > 0;
   const needsAuth =
     Boolean(answer) &&
     !failed &&
     !loading &&
     closed.length > 0 &&
+    portalNeeded &&
     (answer?.accounts?.length ?? 0) === 0 &&
     connected.length === 0;
   const empty =
@@ -84,6 +119,7 @@ export function ConnectorsSettings() {
 
   /** The host starts the connection and answers with the link to open. */
   async function connect(row: Connector) {
+    if (row.mcp) return connectLocal(row);
     if (!bridge?.connectConnector) return;
     // No account on the host yet: sign in first, with the same code flow,
     // then carry on minting the service link — one click either way.
@@ -122,10 +158,72 @@ export function ConnectorsSettings() {
     }
   }
 
+  /**
+   * A service the host connects by itself: installed there, then the
+   * provider runs its own browser flow. No Nous account is asked for.
+   *
+   * The approval happens in the browser, so the page waits: it asks where
+   * the flow stands until it is done, the person cancels, or the window for
+   * approving is gone.
+   */
+  async function connectLocal(row: Connector) {
+    if (!bridge?.mcpConnect || !bridge?.mcpConnectStatus) {
+      setError('Connecting a service needs the desktop app.');
+      return;
+    }
+    setBusy(row.slug);
+    setNotice('');
+    setError('');
+    try {
+      const started = await bridge.mcpConnect({
+        name: row.slug,
+        installed: row.installed,
+      });
+      if (!started.ok) {
+        setError(started.error ?? 'The connection could not be started.');
+        return;
+      }
+      setNotice(
+        started.url
+          ? `${row.name} is waiting for you in the browser.`
+          : `${row.name} is being installed on the host.`,
+      );
+      const deadline = Date.now() + APPROVAL_WINDOW_MS;
+      for (;;) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const state = await bridge.mcpConnectStatus({ name: row.slug });
+        if (state.done) {
+          if (!state.ok) {
+            setError(state.error ?? 'The authorization did not complete.');
+            return;
+          }
+          // The read comes after the word, so the page says what happened
+          // while it asks the host again.
+          retry();
+          setNotice(`${row.name} is connected.`);
+          return;
+        }
+        if (Date.now() > deadline) {
+          setError('The approval did not come. Try again when you are ready.');
+          return;
+        }
+      }
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : 'The connection could not be started.',
+      );
+    } finally {
+      setBusy('');
+    }
+  }
+
   function retry() {
     setNotice('');
     setError('');
-    setReloadToken((token) => token + 1);
+    setTimedOut(false);
+    setReload((next) => ({ token: next.token + 1, fresh: true }));
   }
 
   const [loginUrl, setLoginUrl] = useState('');
@@ -190,7 +288,7 @@ export function ConnectorsSettings() {
 
   const statusWord = loading
     ? 'Reading the host…'
-    : failed
+    : failed || timedOut
       ? 'Host down'
       : needsAuth
         ? 'Sign-in to connect'
@@ -223,7 +321,7 @@ export function ConnectorsSettings() {
         </div>
       ) : null}
 
-      {failed && !loading ? (
+      {(failed || timedOut) && !loading ? (
         <section className="settings-card">
           <header className="settings-card-head">
             <div>
@@ -365,7 +463,18 @@ export function ConnectorsSettings() {
                 <span className={`capability-state is-${row.state}`}>
                   {STATE_WORD[row.state]}
                 </span>
-                {row.state === 'connected' ? null : (
+                {row.state === 'connected' ? null : row.mcp &&
+                  busy === row.slug ? (
+                  <button
+                    type="button"
+                    className="settings-text-button"
+                    onClick={() =>
+                      void bridge?.mcpConnectCancel?.({ name: row.slug })
+                    }
+                  >
+                    Cancel
+                  </button>
+                ) : (
                   <button
                     type="button"
                     className="settings-action is-small"

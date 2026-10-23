@@ -45,6 +45,13 @@ export type Connector = {
   enabled: boolean;
   /** The account that is connected, when there is one. */
   account: string;
+  /**
+   * A service the host connects by itself — its own install, its own browser
+   * flow — rather than through the Nous portal.
+   */
+  mcp: boolean;
+  /** Whether the service is already present on the host. */
+  installed: boolean;
 };
 
 /**
@@ -202,6 +209,10 @@ export function readConnectors(list: HermesConnectorList): Connector[] {
       state: stateOf(known, account),
       enabled: known?.enabled !== false,
       account: String(account?.label ?? ''),
+      // The service the host connects by itself is the local one, and it is
+      // the toolkit that says so: a portal row is never one of those.
+      mcp: Boolean(known?.mcp ?? described?.mcp),
+      installed: Boolean(known?.installed),
     });
   }
   return rows;

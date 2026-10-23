@@ -16,6 +16,8 @@ const PREVIEW_ROWS: Connector[] = [
     state: 'available',
     enabled: true,
     account: '',
+    mcp: true,
+    installed: false,
   },
   {
     slug: 'googledrive',
@@ -26,6 +28,8 @@ const PREVIEW_ROWS: Connector[] = [
     state: 'available',
     enabled: true,
     account: '',
+    mcp: true,
+    installed: false,
   },
   {
     slug: 'googlecalendar',
@@ -36,6 +40,8 @@ const PREVIEW_ROWS: Connector[] = [
     state: 'available',
     enabled: true,
     account: '',
+    mcp: true,
+    installed: false,
   },
 ];
 

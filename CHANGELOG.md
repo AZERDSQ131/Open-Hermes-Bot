@@ -14,6 +14,20 @@ follow [semantic versioning](https://semver.org/).
   map — with their real marks, and connected from the host: the app asks the
   host, the host mints the link, and the link opens in the browser. The
   skills and the tools are the host's own lists, turned on and off there.
+  A service of the host's own catalogue is connected without a Nous account:
+  the host installs it, the provider signs itself in through your browser,
+  and the shell holds the port that comes back for as long as the flow runs.
+
+### Fixed
+
+- **The connectors that never finished loading.** The page asked the host
+  once per page that wanted it — the dock at launch, the page when it opened,
+  and twice more while a dev build settles — and each ask booted Python on the
+  host. Three at once outlasted the timeout, so the page sat on "Reading the
+  host…" while the host was asked the same question again. The read is now
+  asked once and an answer from a moment ago is given again, the page stops
+  saying it is reading when nothing answers, and a Keychain that asks a
+  question can no longer hold every call to the host behind it.
 
 ### Changed
 

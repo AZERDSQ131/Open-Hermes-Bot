@@ -14,6 +14,8 @@ const ROWS: Connector[] = [
     state: 'connected',
     enabled: true,
     account: 'jules@acme.com',
+    mcp: false,
+    installed: false,
   },
   {
     slug: 'google_maps',
@@ -24,6 +26,8 @@ const ROWS: Connector[] = [
     state: 'available',
     enabled: true,
     account: '',
+    mcp: false,
+    installed: false,
   },
 ];
 
@@ -92,6 +96,8 @@ describe('the dock of the connectors', () => {
         state: 'connected',
         enabled: true,
         account: '',
+    mcp: false,
+    installed: false,
       },
     ];
     render(<ConnectorDock rows={three} onOpen={vi.fn()} />);
