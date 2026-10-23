@@ -5,6 +5,9 @@ the tour; these are the details.
 
 - [Vocabulary](vocabulary.md) — what a harness is, what an interface is, and
   the words this project uses for a bot, a session, a group, a wave.
+- [Moods](moods.md) — the theatres the faces play, ported from
+  dsh-bloub-mood: the five moods, where each is read, and the rules that
+  hold everywhere.
 - [Architecture](architecture.md) — the boundary between the app and Hermes:
   what each side owns, and what the app does not keep.
 - [Transport](transport.md) — the SSH tunnel, the Hermes API calls, and why
