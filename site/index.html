@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Hermes Bot - an interface for Hermes</title>
     <meta
-      name="description"
-      content="Hermes Bot is an interface for Hermes, the harness that runs your bots. A native Mac window onto the conversations you already have: no API to write, no account, no cloud."
+      name="description"        content="Hermes Bot is an interface for Hermes, the harness that runs your bots. A native Mac window onto the conversations you already have, and the same room on the phone: no API to write, no account, no cloud."
     />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#0e0e10" />
@@ -14,7 +13,7 @@
     <meta property="og:title" content="Hermes Bot" />
     <meta
       property="og:description"
-      content="An interface for Hermes. Your agents, on your Mac."
+      content="An interface for Hermes. Your agents, on your Mac, and on your phone."
     />
     <meta property="og:image" content="https://azerdsq131.github.io/Open-Hermes-Bot/assets/og.png" />
     <meta property="og:image:width" content="1200" />
@@ -62,6 +61,7 @@
           <a href="#window">The window</a>
           <a href="#crew">Groups</a>
           <a href="#faces">Faces</a>
+          <a href="#phone">Phone</a>
         </nav>
 
         <div class="nav-actions">
@@ -406,6 +406,104 @@
         </div>
       </section>
 
+      <!-- ------------------------------------------------------------ phone -->
+      <section class="section" id="phone">
+        <div class="container phone-grid">
+          <div class="phone-copy">
+            <p class="eyebrow" data-reveal>The phone</p>
+            <h2 data-reveal data-reveal-delay="1">The same room, in your pocket.</h2>
+            <p class="phone-lede" data-reveal data-reveal-delay="2">
+              One screen wide, the same interface: the bots, the faces they wear, and the
+              conversations Hermes keeps. It is an Expo app in this repository, paired with
+              a small bridge on the host.
+            </p>
+
+            <ul class="phone-points" data-reveal data-reveal-delay="3">
+              <li>
+                <strong>Paired once, with a code.</strong>
+                Mint it on the host, type it on the phone. What stays afterwards is the
+                bridge's address and a token of its own, in the Keychain.
+              </li>
+              <li>
+                <strong>No key on the phone.</strong>
+                The Hermes key stays on the host. The bridge answers on loopback alone and
+                is published to your tailnet, and a device is revoked from the app.
+              </li>
+              <li>
+                <strong>Nothing kept either.</strong>
+                The threads are read back from Hermes, and a message sent there is a real
+                turn, streamed as it is written.
+              </li>
+            </ul>
+
+            <p class="phone-run" data-reveal data-reveal-delay="4">
+              <span>In the repository</span>
+              <code>cd mobile &amp;&amp; npx expo start</code>
+            </p>
+          </div>
+
+          <div class="phone-stage" data-reveal data-reveal-delay="1">
+            <div
+              class="phone"
+              role="img"
+              aria-label="The phone app: a conversation with one bot, and a message being written"
+            >
+              <div class="phone-screen">
+                <div class="phone-status">
+                  <span>9:41</span>
+                  <span class="phone-notch" aria-hidden="true"></span>
+                  <span class="phone-meter" aria-hidden="true"><i></i><i></i><i></i></span>
+                </div>
+
+                <header class="phone-head">
+                  <span class="bloub" data-shape="capsule" data-color="#4f9d8f" data-size="30"></span>
+                  <span class="phone-head-copy">
+                    <span class="phone-head-name">Research assistant</span>
+                    <span class="phone-head-status">Connected · bridge 1.0.0</span>
+                  </span>
+                </header>
+
+                <div class="phone-thread">
+                  <div class="app-message is-user">
+                    <div class="app-bubble-wrap">
+                      <div class="app-bubble is-user">What shipped this week?</div>
+                    </div>
+                  </div>
+
+                  <div class="phone-message">
+                    <span class="bloub" data-shape="capsule" data-color="#4f9d8f" data-size="24"></span>
+                    <div class="app-bubble is-assistant">
+                      Three things: the window, the groups, and the phone. All three read
+                      their conversations from the host.
+                    </div>
+                  </div>
+
+                  <p class="app-event">Read from Hermes, not from the phone.</p>
+                </div>
+
+                <div class="phone-composer">
+                  <span class="phone-composer-text">Message</span>
+                  <span class="phone-send" aria-hidden="true">
+                    <svg viewBox="0 0 16 16">
+                      <path
+                        d="M8 12.4V4M4.4 7.6 8 4l3.6 3.6"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        fill="none"
+                      />
+                    </svg>
+                  </span>
+                </div>
+
+                <span class="phone-home" aria-hidden="true"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </main>
 
     <footer class="footer">
@@ -440,6 +538,11 @@
             <li>
               <a href="https://github.com/AZERDSQ131/Open-Hermes-Bot/blob/main/docs/vocabulary.md" rel="noreferrer noopener" target="_blank"
                 >Vocabulary</a
+              >
+            </li>
+            <li>
+              <a href="https://github.com/AZERDSQ131/Open-Hermes-Bot/blob/main/docs/mobile.md" rel="noreferrer noopener" target="_blank"
+                >The phone</a
               >
             </li>
             <li>
