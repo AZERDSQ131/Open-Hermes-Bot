@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { AgentAvatar } from './components/AgentAvatar';
+import { threadMood } from './moods';
 import { botShape } from './components/Bloub';
 import { type BloubShape } from './components/bloubFrames';
 import {
@@ -2736,6 +2737,7 @@ export default function App() {
                         avatar={thread.avatar}
                         size={68}
                         unread={thread.unread}
+                        mood={threadMood(thread)}
                       />
                     </span>
                     <span className="pinned-name">{thread.name}</span>
@@ -2771,6 +2773,7 @@ export default function App() {
                   size={40}
                   className="thread-avatar"
                   unread={thread.unread}
+                  mood={threadMood(thread)}
                 />
                 <span className="thread-copy">
                   <span className="thread-heading">
