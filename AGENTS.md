@@ -25,6 +25,9 @@ npm run build            # typecheck + production renderer build
 npm test                 # the tests
 npm run test:coverage    # the tests, and the coverage thresholds
 npm run dist             # the .app and the .dmg, in release/
+
+cd bridge && python3 -m unittest discover -s tests   # the phone's door
+cd mobile && npx tsc --noEmit                        # the phone's typecheck
 ```
 
 Node 24. A Hermes host to talk to; without one the app says it cannot reach
@@ -37,6 +40,8 @@ it, which is the normal state of a fresh install.
 | `electron/main.js` | the shell, and every call to Hermes (SSH, tunnel, sessions, files, voice) |
 | `electron/preload.js` | the only bridge the renderer is allowed to use |
 | `electron/updater.js` | the rules of the update: what is looked for, and what happens to it |
+| `bridge/` | the door a phone uses: a loopback service on the Hermes host, published by `tailscale serve` |
+| `mobile/` | the phone: an Expo app that draws Hermes' bots and conversations once it is paired |
 | `src/App.tsx` | the window: sidebar, conversation, composer, groups |
 | `src/components/` | the faces, the dialogs, the pickers, the panels |
 | `src/onboarding.tsx` | the setup: the first run, step by step |
@@ -71,6 +76,9 @@ tapback, a silence.
 - **The empty `localStorage`.** The conversations, the faces and the
   preferences are on the host. The app's own record — the host, the ports and
   the fact that the setup was walked through — is the one thing it keeps.
+- **The bridge listens on loopback only.** It is published by `tailscale
+  serve`, never bound to a public address, and it never hands out a Hermes
+  key: a device token opens the bridge and nothing else.
 - **The name.** `Hermes Bot` everywhere: the window, the bundle, the
   prompts the models read, the settings, the Keychain service. A rename is
   a rename everywhere, with the old names read once as a fallback.

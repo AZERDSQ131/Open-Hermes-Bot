@@ -35,6 +35,10 @@ The day-to-day commands:
 | `npm run dist` | the `.app` and the `.dmg`, in `release/` |
 | `npm start` | the built app, without packaging it |
 
+The phone's door is a separate service, in `bridge/`, with its own suite:
+`cd bridge && python3 -m unittest discover -s tests`. The phone itself lives in
+`mobile/`, an Expo app whose gate is `cd mobile && npx tsc --noEmit`.
+
 ## Where things live
 
 ```
@@ -49,6 +53,8 @@ src/turns.ts            the rules of a turn: tapbacks, quota, a server installin
 src/modelPrefs.tsx      what the person chose, and where it is kept
 src/recording.ts        the microphone, and the bytes it produces
 src/updates.ts          what an update means, in words
+bridge/                 the door a phone uses: loopback only, published by tailscale serve
+mobile/                 the phone: Expo, the same screens, Hermes once paired
 electron/preload.js     the bridge the renderer is allowed to use
 docs/                   how the app is put together
 site/                   the page that presents the project
