@@ -8,7 +8,8 @@ import {
   updateProgress,
   type UpdateStatus,
 } from '../updates';
-import { UpdateIcon } from './Icons';
+import { updateMood } from '../moods';
+import { MoodBloub } from './MoodBloub';
 
 /** The walk of the ring that follows the download, around its circle. */
 const CIRCLE = 2 * Math.PI * 9;
@@ -17,10 +18,11 @@ const CIRCLE = 2 * Math.PI * 9;
  * The round face at the foot of the sidebar, where the next version lives.
  *
  * Icon only: it listens to the shell for what is happening with the update,
- * and says it with a mark instead of a word — nothing while nothing is
- * known, a turning look while it checks, a ring while the download walks, a
- * pulsing dot when a version was seen, a ping when it is on the disk. The
- * words are for the ear that reads before pressing.
+ * and says it with a mood instead of a word — still while nothing is known,
+ * the comet while the app looks or the download runs, the asking stare when
+ * a version was seen, the burst of celebration when it is on the disk. The
+ * words are for the ear that reads before pressing; the ring walks on top
+ * while the download has a progress to carry.
  *
  * The app looks by itself: the scan the shell starts on launch is read here,
  * so the face shows the search going on without anybody asking for it. What
@@ -117,7 +119,12 @@ export function UpdateButton() {
           />
         </svg>
       ) : (
-        <UpdateIcon size={16} />
+        <MoodBloub
+          color="currentColor"
+          shape="cercle"
+          mood={updateMood(status)}
+          size={16}
+        />
       )}
       <span className="update-entry-dot" aria-hidden="true" />
     </button>
