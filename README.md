@@ -7,7 +7,7 @@ It talks to a **Hermes host** — the agent runtime on your own machines: on
 this Mac directly, or on another machine through an SSH tunnel.
 The bots, the groups and the conversations live there, not on this machine.
 
-<img width="2678" height="1790" alt="image" src="https://github.com/user-attachments/assets/a1914026-a65b-4612-8bcb-0126694b0909" />
+<img width="1983" height="996" alt="image" src="https://github.com/user-attachments/assets/3ff583b5-e02f-49ef-938d-ada7310bc33c" />
 
 MIT licensed — see [LICENSE](LICENSE).
 
