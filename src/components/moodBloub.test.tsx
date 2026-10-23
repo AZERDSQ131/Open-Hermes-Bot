@@ -2,9 +2,9 @@
 // quiet, and when a click loans it another face. What is asserted is the
 // attribute the story is written with — the mood, the face, nothing else.
 
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MOOD_QUIET_MS, moodExpression } from '../moods';
+import { moodExpression } from '../moods';
 import { MoodBloub } from './MoodBloub';
 
 type MoodProps = Parameters<typeof MoodBloub>[0];
@@ -36,8 +36,14 @@ function stage(mood: MoodProps['mood'], props: Partial<MoodProps> = {}) {
 }
 
 afterEach(() => {
-  vi.useRealTimers();
+  vi.restoreAllMocks();
 });
+
+/** A quiet that fits a test: the two minutes of the plugin, shrunk. */
+const DREAM_MS = 40;
+
+/** How long wake-ups take when nobody pushes the clock. */
+const WAKE_TIMEOUT = 1000;
 
 describe('MoodBloub', () => {
   it('plays the mood it is given, and wears the mood face', () => {
@@ -55,32 +61,33 @@ describe('MoodBloub', () => {
     }
   });
 
-  it('the quiet face dozes off after the two minutes of the plugin', async () => {
-    vi.useFakeTimers();
-    const view = stage('idle');
+  it('the quiet face dozes off after the quiet it is given', async () => {
+    const view = stage('idle', { quietMs: DREAM_MS });
     expect(view.face()?.dataset.mood).toBe('idle');
-    await vi.advanceTimersByTimeAsync(MOOD_QUIET_MS);
-    expect(view.face()?.dataset.mood).toBe('sleepy');
+    await waitFor(() => expect(view.face()?.dataset.mood).toBe('sleepy'), {
+      timeout: WAKE_TIMEOUT,
+    });
   });
 
   it('a working mood never dozes, however long the quiet', async () => {
-    vi.useFakeTimers();
-    const view = stage('running');
-    await vi.advanceTimersByTimeAsync(MOOD_QUIET_MS * 3);
+    const view = stage('running', { quietMs: DREAM_MS });
+    expect(view.face()?.dataset.mood).toBe('running');
+    await new Promise((resolve) => setTimeout(resolve, 60));
     expect(view.face()?.dataset.mood).toBe('running');
   });
 
   it('the doze is left behind with the mood, and earned again', async () => {
-    vi.useFakeTimers();
-    const view = stage('idle');
-    await vi.advanceTimersByTimeAsync(MOOD_QUIET_MS);
-    expect(view.face()?.dataset.mood).toBe('sleepy');
+    const view = stage('idle', { quietMs: DREAM_MS });
+    await waitFor(() => expect(view.face()?.dataset.mood).toBe('sleepy'), {
+      timeout: WAKE_TIMEOUT,
+    });
     view.rerender('running');
     expect(view.face()?.dataset.mood).toBe('running');
     view.rerender('idle');
     expect(view.face()?.dataset.mood).toBe('idle');
-    await vi.advanceTimersByTimeAsync(MOOD_QUIET_MS);
-    expect(view.face()?.dataset.mood).toBe('sleepy');
+    await waitFor(() => expect(view.face()?.dataset.mood).toBe('sleepy'), {
+      timeout: WAKE_TIMEOUT,
+    });
   });
 
   it('a click loans another face, and the next mood takes it back', () => {
