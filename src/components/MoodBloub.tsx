@@ -136,7 +136,8 @@ export function MoodBloub({
       style={{ width: size, height: size }}
       data-mood={played}
       data-face={worn}
-      aria-hidden="true"
+      aria-hidden={interactive ? undefined : true}
+      aria-label={interactive ? 'Change its face' : undefined}
       onClick={interactive ? swapFace : undefined}
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}

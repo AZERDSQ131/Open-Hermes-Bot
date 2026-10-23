@@ -2,7 +2,7 @@
 // quiet, and when a click loans it another face. What is asserted is the
 // attribute the story is written with — the mood, the face, nothing else.
 
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { moodExpression } from '../moods';
 import { MoodBloub } from './MoodBloub';
@@ -92,6 +92,10 @@ describe('MoodBloub', () => {
 
   it('a click loans another face, and the next mood takes it back', () => {
     const view = stage('idle', { interactive: true });
+    // A face for touching is a button, and says so to a keyboard.
+    expect(
+      screen.getByRole('button', { name: 'Change its face' }),
+    ).toBeTruthy();
     const worn = view.face()?.dataset.face;
     const touched = view.face();
     if (touched) fireEvent.click(touched);
