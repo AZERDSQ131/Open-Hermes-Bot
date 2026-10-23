@@ -574,7 +574,7 @@ describe('the setup', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await screen.findByText(/What shape\?/);
     const shapeOf = () =>
-      container.querySelector('.stage-bloub mask path')?.getAttribute('d');
+      container.querySelector('.mood-bloub mask path')?.getAttribute('d');
     const before = shapeOf();
     await userEvent.click(screen.getByLabelText('Drop'));
     await waitFor(() => expect(shapeOf()).not.toBe(before));
@@ -595,6 +595,20 @@ describe('the setup', () => {
     await walkToReady(bridge);
     expect(await screen.findByText(/You're all set/)).toBeTruthy();
     expect(screen.getByText('Nova')).toBeTruthy();
+  });
+
+  it('lets the arrival celebrate, in the colour of the bot it made', async () => {
+    const bridge = makeBridge();
+    const { container } = renderSetup();
+    await walkToReady(bridge);
+    await screen.findByText(/You're all set/);
+    const face = container.querySelector<HTMLElement>('.onboarding-actor .mood-bloub');
+    expect(face?.dataset.mood).toBe('completed');
+    // The celebration wears the colour the app paints with from here on.
+    const light = (
+      container.querySelector('.onboarding') as HTMLElement
+    ).style.getPropertyValue('--actor-color');
+    expect(face?.querySelector('rect')?.getAttribute('fill')).toBe(light);
   });
 
   it('lets the person leave the bot for later', async () => {
@@ -992,7 +1006,7 @@ describe('the setup', () => {
         container.querySelector('.onboarding') as HTMLElement
       ).style.getPropertyValue('--actor-color');
     const body = () =>
-      container.querySelector('.stage-bloub mask path')?.getAttribute('d');
+      container.querySelector('.mood-bloub mask path')?.getAttribute('d');
 
     // The actor draws its first frame.
     await act(async () => {

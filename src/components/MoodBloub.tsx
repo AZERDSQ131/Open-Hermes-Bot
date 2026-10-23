@@ -96,6 +96,9 @@ export function MoodBloub({
       return;
     }
 
+    // The first frame is drawn at once: no empty face while the clock starts.
+    setFrame(engine.sample(0.4));
+
     const tick = (now: number) => {
       if (stopped) return;
       const elapsed = (now - startedAt) / 1000;
