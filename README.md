@@ -175,6 +175,8 @@ src/updates.ts          What an update means, in words
 src/styles.css          Design system and layout
 build/                  App icon (.icns + .png) and icon source
 site/                   The project site (static, no build step)
+mobile/                 The phone: the same screens, as an Expo app
+bridge/                 The door the phone uses: loopback on the host, published on the tailnet
 e2e/update/             The update, tested for real: two builds, a feed, a button
 ```
 
