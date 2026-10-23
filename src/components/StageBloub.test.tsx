@@ -108,6 +108,47 @@ describe('the actor', () => {
     expect(point).toBeTruthy();
   });
 
+  it('draws the confetti behind the body it bursts out of', async () => {
+    withMotion(false);
+    const { container } = render(
+      <StageBloub
+        color="#8b5cf6"
+        shape="cercle"
+        state="burst"
+        expression="neutre"
+      />,
+    );
+    await waitFor(() => expect(container.querySelector('svg')).toBeTruthy());
+    await frames(12);
+    // The dots of a burst come before the body: they pass behind it.
+    expect(container.querySelectorAll('circle').length).toBeGreaterThan(1);
+    expect(container.querySelector('rect')).toBeTruthy();
+  });
+
+  it('changes the face with the expression the scene gives it', async () => {
+    withMotion(false);
+    const { container, rerender } = render(
+      <StageBloub
+        color="#8b5cf6"
+        shape="cercle"
+        state="idle"
+        expression="neutre"
+      />,
+    );
+    await waitFor(() => expect(container.querySelector('svg')).toBeTruthy());
+    const before = container.querySelector('mask')?.outerHTML;
+    rerender(
+      <StageBloub
+        color="#8b5cf6"
+        shape="cercle"
+        state="idle"
+        expression="hilare"
+      />,
+    );
+    await frames(8);
+    expect(container.querySelector('mask')?.outerHTML).not.toBe(before);
+  });
+
   it('holds still when the person asked for less movement', () => {
     withMotion(true);
     const { container } = render(
