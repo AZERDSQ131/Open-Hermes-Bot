@@ -1,0 +1,25 @@
+[Unit]
+Description=Hermes Bridge — the phone's door to Hermes
+Documentation=https://github.com/AZERDSQ131/Open-Hermes-Bot/tree/main/bridge
+After=network-online.target hermes-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@HOME@/hermes-bridge
+Environment=HERMES_BRIDGE_HOME=@HOME@/.hermes-bridge
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m hermes_bridge serve
+Restart=always
+RestartSec=2
+# The bridge reads Hermes' keys and writes attachments under the home; it needs
+# nothing else, and no new privilege.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target
