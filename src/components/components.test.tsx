@@ -50,6 +50,31 @@ describe('the avatar of a bot', () => {
     expect(container.querySelector('svg')).toBeTruthy();
   });
 
+  it('plays the theatre when a mood travels with the call', () => {
+    const { container } = render(
+      <AgentAvatar
+        avatar={{ color: '#e8483f', shape: 'cercle' }}
+        mood="running"
+      />,
+    );
+    expect(container.querySelector('.mood-bloub')?.getAttribute('data-mood')).toBe(
+      'running',
+    );
+  });
+
+  it('a group has faces, not theatres: the mood does not divide per member', () => {
+    const { container } = render(
+      <AgentAvatar
+        avatar={{
+          kind: 'group',
+          members: [bob, bob],
+        }}
+        mood="running"
+      />,
+    );
+    expect(container.querySelector('.mood-bloub')).toBeNull();
+  });
+
   it('shows the faces of a group', () => {
     const { container } = render(
       <AgentAvatar
