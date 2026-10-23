@@ -40,6 +40,8 @@ it, which is the normal state of a fresh install.
 | `src/App.tsx` | the window: sidebar, conversation, composer, groups |
 | `src/components/` | the faces, the dialogs, the pickers, the panels |
 | `src/onboarding.tsx` | the setup: the first run, step by step |
+| `src/moods.ts` | the theatres of state, ported from dsh-bloub-mood: the scores, and what a thread or an update reads as |
+| `src/components/MoodBloub.tsx` | the actor that walks a mood around the clock, and dozes with the quiet |
 | `src/group.ts` | the protocol of a group: silence, tapbacks, mentions, waves |
 | `src/conversations.ts` | reading a conversation back out of the sessions |
 | `src/turns.ts` | the rules of a turn: tapbacks, quota, a server still installing |
