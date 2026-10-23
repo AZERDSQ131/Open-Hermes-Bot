@@ -102,6 +102,22 @@ export default defineConfig({
           branches: 100,
           statements: 100,
         },
+        // The read of the connectors: one shell for everyone who asks, and
+        // an answer from a moment ago given again instead of waking the host.
+        'electron/connectors.js': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
+        // The link and the reason the host prints when a service signs in:
+        // the only two things the shell reads out of a login.
+        'electron/mcp.js': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
       },
       // One list, not two: a second "include" key replaces the first one
       // whole, and the file that fell out of it was the updater — the one
@@ -111,6 +127,8 @@ export default defineConfig({
         'electron/updater.js',
         'electron/connection.js',
         'electron/logos.js',
+        'electron/connectors.js',
+        'electron/mcp.js',
       ],
       exclude: [
         'src/vendor/**',

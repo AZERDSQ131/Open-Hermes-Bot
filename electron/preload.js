@@ -33,13 +33,21 @@ contextBridge.exposeInMainWorld('hermes', {
   /** A tool is turned on or off, on the host. */
   toggleToolset: (payload) => ipcRenderer.invoke('hermes:toolsets:toggle', payload),
   /** The connectors of the host: the services a bot can reach. */
-  connectors: () => ipcRenderer.invoke('hermes:connectors'),
+  connectors: (payload) => ipcRenderer.invoke('hermes:connectors', payload),
   /** The mark of a connector: the shell asks for it, and hands the bytes. */
   connectorLogo: (payload) =>
     ipcRenderer.invoke('hermes:connectors:logo', payload),
   /** The host starts a connection and answers with the link to open. */
   connectConnector: (payload) =>
     ipcRenderer.invoke('hermes:connectors:connect', payload),
+  /** A local service: installed on the host, signed in with the provider itself. */
+  mcpConnect: (payload) => ipcRenderer.invoke('hermes:mcp:connect', payload),
+  /** Where that connection stands: the page waits for the browser. */
+  mcpConnectStatus: (payload) =>
+    ipcRenderer.invoke('hermes:mcp:connect-status', payload),
+  /** The person gives up on the browser: the flow is stopped. */
+  mcpConnectCancel: (payload) =>
+    ipcRenderer.invoke('hermes:mcp:connect-cancel', payload),
   /** Mint a Nous device code so the person signs in without the terminal. */
   nousLoginStart: () => ipcRenderer.invoke('hermes:nous:login-start'),
   /** One poll for the device code above: pending waits, approval signs in. */

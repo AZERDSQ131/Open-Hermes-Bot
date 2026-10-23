@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SettingsView } from './SettingsView';
 import { ModelPrefsProvider } from '../modelPrefs';
@@ -755,6 +755,76 @@ describe('the settings', () => {
     15000,
   );
 
+  it('connect a service of the host without a Nous account', async () => {
+    const local = {
+      ok: true,
+      available: true,
+      catalog: [{ slug: 'notion', name: 'Notion', mcp: true }],
+      toolkit: [{ connector: 'notion', enabled: true, mcp: true }],
+      accounts: [],
+      messages: [],
+    };
+    const connected = {
+      ...local,
+      toolkit: [
+        { connector: 'notion', enabled: true, mcp: true, installed: true, connected: true },
+      ],
+    };
+    const connectors = vi.fn().mockResolvedValueOnce(local).mockResolvedValue(connected);
+    const connectConnector = vi.fn(async () => ({ ok: false }));
+    const mcpConnect = vi.fn(async () => ({
+      ok: true,
+      url: 'https://mcp.notion.com/authorize?redirect_uri=http%3A%2F%2F127.0.0.1%3A27890%2Fcallback',
+      port: 27890,
+    }));
+    const mcpConnectStatus = vi.fn(async () => ({ done: true, ok: true }));
+    withBridge({ connectors, connectConnector, mcpConnect, mcpConnectStatus });
+    renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+    expect(await screen.findByText('Notion')).toBeTruthy();
+    // The services of the host ask for no account at all.
+    expect(screen.queryByText('Sign-in to connect')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }));
+    expect(await screen.findByText('Notion is connected.', {}, { timeout: 8000 })).toBeTruthy();
+    expect(mcpConnect).toHaveBeenCalledWith({ name: 'notion', installed: false });
+    expect(mcpConnectStatus).toHaveBeenCalledWith({ name: 'notion' });
+    expect(connectConnector).not.toHaveBeenCalled();
+    // And the list is read again, past the answer the shell kept.
+    await waitFor(() => expect(connectors).toHaveBeenLastCalledWith({ fresh: true }));
+    expect(await screen.findByText('Connected')).toBeTruthy();
+  }, 15000);
+
+  it('stops waiting when the service asks for a browser nobody finishes', async () => {
+    const local = {
+      ok: true,
+      available: true,
+      catalog: [{ slug: 'notion', name: 'Notion', mcp: true }],
+      toolkit: [{ connector: 'notion', enabled: true, mcp: true }],
+      accounts: [],
+      messages: [],
+    };
+    const mcpConnectCancel = vi.fn(async () => ({ ok: true }));
+    withBridge({
+      connectors: vi.fn().mockResolvedValue(local),
+      mcpConnect: vi.fn(async () => ({ ok: true, url: 'https://mcp.notion.com/authorize' })),
+      mcpConnectStatus: vi
+        .fn()
+        .mockResolvedValueOnce({ done: false, ok: false })
+        .mockResolvedValue({ done: true, ok: false, error: 'The authorization was cancelled.' }),
+      mcpConnectCancel,
+    });
+    renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
+    // The person is told the browser is where it happens, and can give up.
+    expect(await screen.findByText(/waiting for you in the browser/)).toBeTruthy();
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(mcpConnectCancel).toHaveBeenCalledWith({ name: 'notion' });
+    expect(
+      await screen.findByText('The authorization was cancelled.', {}, { timeout: 8000 }),
+    ).toBeTruthy();
+  }, 15000);
+
   it('read the host in the middle while the connectors load', async () => {
     withBridge({
       connectors: vi.fn(() => new Promise(() => undefined)),
@@ -766,6 +836,38 @@ describe('the settings', () => {
     ).toBeTruthy();
     // The header meta and the centered body say the same thing.
     expect(screen.getAllByText('Reading the host…').length).toBeGreaterThan(1);
+  });
+
+  it('stop reading the host when the answer never comes', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const connectors = vi.fn(() => new Promise(() => undefined));
+      withBridge({ connectors });
+      renderSettings();
+      await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+      expect(
+        screen.getAllByText('Reading the host…').length,
+      ).toBeGreaterThan(1);
+
+      // A shell that hangs must not leave the page waiting forever.
+      act(() => {
+        vi.advanceTimersByTime(70000);
+      });
+
+      expect(screen.queryByText('Reading the host…')).toBeNull();
+      expect(screen.getByText('The host took too long to answer.')).toBeTruthy();
+      expect(
+        screen.getByRole('heading', { name: 'The host did not answer' }),
+      ).toBeTruthy();
+      expect(screen.getByText('Host down')).toBeTruthy();
+
+      // And the way out is to ask again.
+      await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+      expect(connectors).toHaveBeenCalledTimes(2);
+      expect(connectors).toHaveBeenLastCalledWith({ fresh: true });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('ask the host again when the connectors fail', async () => {

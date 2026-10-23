@@ -12,6 +12,8 @@ const ROW: Connector = {
   state: 'connected',
   enabled: true,
   account: '',
+  mcp: false,
+  installed: false,
 };
 
 const MARK = 'data:image/png;base64,iVBORw==';

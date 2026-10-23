@@ -93,6 +93,42 @@ describe('the connectors of the host', () => {
     expect(rows.find((row) => row.slug === 'notion')?.state).toBe('available');
   });
 
+  it('mark the services the host connects by itself', () => {
+    const rows = readConnectors({
+      ...LIST,
+      catalog: [
+        { slug: 'notion', mcp: true },
+        { slug: 'google_maps', name: 'Google Maps' },
+      ],
+      toolkit: [
+        { connector: 'notion', enabled: true, connected: true, installed: true, mcp: true },
+        { connector: 'google_maps', enabled: true },
+      ],
+      accounts: [],
+    });
+    const notion = rows.find((row) => row.slug === 'notion');
+    expect(notion?.mcp).toBe(true);
+    expect(notion?.installed).toBe(true);
+    // A service of the portal is not one of those: it takes an account.
+    expect(rows.find((row) => row.slug === 'google_maps')?.mcp).toBe(false);
+    expect(rows.find((row) => row.slug === 'google_maps')?.installed).toBe(false);
+  });
+
+  it('read a service of the host that was never installed', () => {
+    const rows = readConnectors({
+      ok: true,
+      available: true,
+      catalog: [{ slug: 'linear', mcp: true }],
+      toolkit: [{ connector: 'linear', enabled: true, mcp: true }],
+      accounts: [],
+      messages: [],
+    });
+    const linear = rows.find((row) => row.slug === 'linear');
+    expect(linear?.state).toBe('available');
+    expect(linear?.installed).toBe(false);
+    expect(linear?.mcp).toBe(true);
+  });
+
   it('trust the toolkit when it says connected', () => {
     const rows = readConnectors({
       ...LIST,
@@ -275,6 +311,8 @@ describe('the dock of the connectors', () => {
       state: 'available',
       enabled: true,
       account: '',
+      mcp: false,
+      installed: false,
     },
     {
       slug: 'b',
@@ -285,6 +323,8 @@ describe('the dock of the connectors', () => {
       state: 'connected',
       enabled: true,
       account: '',
+      mcp: false,
+      installed: false,
     },
     {
       slug: 'c',
@@ -295,6 +335,8 @@ describe('the dock of the connectors', () => {
       state: 'connected',
       enabled: true,
       account: '',
+      mcp: false,
+      installed: false,
     },
   ];
 

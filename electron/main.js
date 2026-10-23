@@ -26,6 +26,8 @@ const {
   sshConfigHosts,
 } = require('./connection.js');
 const { createMarkReader } = require('./logos.js');
+const { createConnectorsReader } = require('./connectors.js');
+const { authUrlIn, callbackPort, loginOutcome } = require('./mcp.js');
 
 app.setName('Hermes Bot');
 
@@ -141,6 +143,11 @@ function security(args) {
     return execFileSync('/usr/bin/security', args, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      // The Keychain can ask the person a question, and this call is made on
+      // the shell's own thread: a question nobody answers must not hold every
+      // call to the host behind it. A key that did not come back reads as no
+      // key, which the person can act on.
+      timeout: 5000,
     });
   } catch {
     return '';
@@ -474,6 +481,7 @@ function runProcess(command, args, timeoutMs, input, timeoutMessage, options) {
       stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'],
       env: { ...process.env, PATH: LOCAL_PATH },
     });
+    if (options?.onSpawn) options.onSpawn(child);
     let stdout = '';
     let stderr = '';
     if (input && child.stdin) {
@@ -486,9 +494,11 @@ function runProcess(command, args, timeoutMs, input, timeoutMessage, options) {
     }, timeoutMs);
     child.stdout.on('data', (chunk) => {
       stdout += chunk.toString();
+      if (options?.onStdout) options.onStdout(stdout);
     });
     child.stderr.on('data', (chunk) => {
       stderr += chunk.toString();
+      if (options?.onStderr) options.onStderr(stderr);
     });
     child.on('error', (error) => {
       clearTimeout(timer);
@@ -520,7 +530,7 @@ function runSsh(host, command, timeoutMs = 20000, input, options) {
     ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', host, command],
     timeoutMs,
     input,
-    'SSH command timed out',
+    options?.timeoutMessage || 'SSH command timed out',
     options,
   );
 }
@@ -533,7 +543,7 @@ function runLocalCommand(command, timeoutMs = 20000, input, options) {
     ['-c', command],
     timeoutMs,
     input,
-    'Command timed out',
+    options?.timeoutMessage || 'Command timed out',
     options,
   );
 }
@@ -1012,6 +1022,40 @@ def toolset_toggle():
 
 # --------------------------------------------------------------- connectors
 
+def mcp_service_state():
+    """Where the local services stand, without the portal: installed, on, authorized.
+
+    A service the host knows by itself is connected on the host — through its
+    own browser flow — so its state is read there, from the catalogue, the
+    configuration and the tokens. Nothing here asks Nous anything.
+    """
+    from hermes_cli.config import get_env_value
+    from hermes_cli.mcp_catalog import get_entry, installed_servers, is_enabled
+    from hermes_cli.mcp_config import _oauth_tokens_present
+
+    out = {}
+    for name in installed_servers():
+        enabled = bool(is_enabled(name))
+        authorized = True
+        entry = get_entry(name)
+        auth = getattr(entry, "auth", None) if entry is not None else None
+        if auth is not None:
+            kind = str(getattr(auth, "type", "none") or "none")
+            if kind == "oauth":
+                authorized = bool(_oauth_tokens_present(name))
+            else:
+                for spec in list(getattr(auth, "env", []) or []):
+                    if not get_env_value(spec.name):
+                        authorized = False
+                        break
+        out[name] = {
+            "installed": True,
+            "enabled": enabled,
+            "authorized": bool(authorized),
+        }
+    return out
+
+
 def connectors_of():
     """The services of the account: the catalogue, the toolkit, the accounts.
 
@@ -1064,26 +1108,47 @@ def connectors_of():
 
     # Without Nous the three lists above stay empty, yet the host still knows
     # every service it can reach: the local catalogue names them with no
-    # account at all. Those names keep the page useful before anyone signs
-    # in — the Portal details fill in on top once the host is signed in.
+    # account at all. Those names are connected on the host, by the service
+    # itself — the page neither needs nor asks for a Nous account for them.
+    portal_rows = len(out["catalog"])
     try:
         from tools.connectors.targets import catalog_names
 
+        states = {}
+        try:
+            states = mcp_service_state()
+        except Exception:
+            states = {}
         seen = {str(entry.get("slug") or "") for entry in out["catalog"]}
-        for slug in list(catalog_names() or []):
+        known = [str(name) for name in list(catalog_names() or [])]
+        known += [name for name in states if name not in seen and name not in known]
+        for slug in known:
             name = str(slug or "")
             if not name or name in seen:
                 continue
             seen.add(name)
+            state = states.get(name) or {}
+            installed = bool(state.get("installed"))
+            enabled = bool(state.get("enabled")) if installed else True
+            connected = bool(installed and enabled and state.get("authorized"))
             out["catalog"].append({
                 "slug": name, "name": "", "description": "",
-                "category": "", "logo": "",
+                "category": "", "logo": "", "mcp": True,
             })
             if not any(str(entry.get("connector") or "") == name for entry in out["toolkit"]):
                 out["toolkit"].append({
-                    "connector": name, "enabled": True,
-                    "connected": False, "status": "",
+                    "connector": name,
+                    "enabled": enabled,
+                    "connected": connected,
+                    "installed": installed,
+                    "status": "",
+                    "mcp": True,
                 })
+        # The portal being closed is not a fault once the local catalogue can
+        # answer: the page has services, so it shows none of the portal's
+        # reasons and draws no card asking for an account.
+        if not portal_rows and out["catalog"]:
+            out["messages"] = []
     except Exception:
         pass
 
@@ -1256,7 +1321,7 @@ function capabilityCommand(scriptPath, env) {
 }
 
 // A question for the host, asked with the script that knows the answer.
-async function askHost(what, env = {}, timeoutMs = 45000) {
+async function askHost(what, env = {}, timeoutMs = 45000, timeoutMessage) {
   const script = Buffer.from(CAPABILITIES_PYTHON, 'utf8').toString('base64');
   const path = '/tmp/hermesbot-capabilities.py';
   // The cleanup must not mask the script: without the exit round-trip a
@@ -1272,6 +1337,7 @@ async function askHost(what, env = {}, timeoutMs = 45000) {
   // them: a cut answer parses as nothing, and the page blamed the host.
   const result = await runHostCommand(storedConnection(), command, timeoutMs, undefined, {
     maxStdout: 512 * 1024,
+    timeoutMessage,
   });
   if (!result.ok) {
     return {
@@ -1350,9 +1416,17 @@ ipcMain.handle('hermes:toolsets:toggle', async (_event, payload) => {
   };
 });
 
-// The connectors of the account: the services a bot can reach.
-ipcMain.handle('hermes:connectors', async () => {
-  const answer = await askHost('connectors', {}, 60000);
+// The connectors of the account: the services a bot can reach. The read is
+// slow — it boots Python on the host — so it is asked once and given again:
+// the dock, the settings page and the double mount of a dev build all wait on
+// the same answer instead of waking the host three times.
+const connectorsOfHost = createConnectorsReader(async () => {
+  const answer = await askHost(
+    'connectors',
+    {},
+    60000,
+    'The host took too long to list the services. Try again in a moment.',
+  );
   const messages = Array.isArray(answer.messages) ? answer.messages : [];
   const catalog = Array.isArray(answer.catalog) ? answer.catalog : [];
   const toolkit = Array.isArray(answer.toolkit) ? answer.toolkit : [];
@@ -1372,6 +1446,286 @@ ipcMain.handle('hermes:connectors', async () => {
     messages,
     error: typeof answer.error === 'string' ? answer.error : '',
   };
+});
+
+ipcMain.handle('hermes:connectors', (_event, payload) =>
+  connectorsOfHost({ fresh: Boolean(payload?.fresh) }),
+);
+
+// ------------------------------------------------- the local MCP services
+//
+// A service the host knows by itself — the entries of the local MCP
+// catalogue — is connected on the host, and the provider runs its own
+// browser flow. Nothing here goes through the Nous portal: the host prints
+// the link, the browser comes back to the host's loopback, and the shell
+// forwards that port for the length of the flow.
+
+const HERMES_CLI_BOOTSTRAP = [
+  'import os, sys',
+  "os.environ.pop('PYTHONHOME', None)",
+  "os.environ.pop('PYTHONPATH', None)",
+  "os.environ.pop('VIRTUAL_ENV', None)",
+  "sys.path.insert(0, os.path.expanduser('~/.hermes/hermes-agent'))",
+  "os.environ['HERMES_HOME'] = os.environ.get('HERMES_HOME') or os.path.expanduser('~/.hermes')",
+  'import hermes_bootstrap',
+  'from hermes_cli.main import main',
+  "sys.argv[0] = 'hermes'",
+  'main()',
+].join('\n');
+
+/** The host's own command, run with the Python that runs Hermes. */
+function hermesCli(args) {
+  return [
+    'PY=$(ls -1d "$HOME"/.hermes/tools/python-*/bin/python3 2>/dev/null | tail -1)',
+    '[ -n "$PY" ] || PY=python3',
+    `"$PY" -u -I -c ${shellQuote(HERMES_CLI_BOOTSTRAP)} ${args
+      .map((arg) => shellQuote(arg))
+      .join(' ')}`,
+  ].join('\n');
+}
+
+function mcpInstallCommand(name) {
+  return hermesCli(['mcp', 'install', name]);
+}
+
+function mcpLoginCommand(name) {
+  return hermesCli(['mcp', 'login', name, '--flow', 'browser']);
+}
+
+// A connection in flight, one per service: the link the host printed, the
+// port it comes back to, and the two processes that make it happen.
+const mcpFlows = new Map();
+
+function stopForward(flow) {
+  if (!flow?.forward) return;
+  try {
+    flow.forward.kill('SIGTERM');
+  } catch {
+    // Already gone: nothing to stop.
+  }
+  flow.forward = null;
+}
+
+/**
+ * The port the provider answers on, held open on this Mac.
+ *
+ * The redirection is to the loopback of the machine that runs Hermes: the
+ * browser opens on this Mac, so the same port number is the one the shell
+ * has to answer on. `ExitOnForwardFailure` makes a busy port say so instead
+ * of hanging on nothing.
+ */
+function forwardPort(sshHost, port) {
+  const child = spawn(
+    'ssh',
+    [
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ConnectTimeout=10',
+      // The forward belongs to this process: a shared connection would keep
+      // the port open after the flow it served is gone.
+      '-o',
+      'ControlMaster=no',
+      '-o',
+      'ControlPath=none',
+      '-o',
+      'ExitOnForwardFailure=yes',
+      '-o',
+      'ServerAliveInterval=30',
+      '-N',
+      '-L',
+      `127.0.0.1:${port}:127.0.0.1:${port}`,
+      sshHost,
+    ],
+    { stdio: ['ignore', 'ignore', 'pipe'] },
+  );
+  child.stderr.on('data', () => undefined);
+  child.on('error', () => undefined);
+  return child;
+}
+
+/** True once the forward has been up a moment; false if the port was taken. */
+function forwardReady(child) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(true);
+    }, 700);
+    child.once('exit', () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(false);
+    });
+  });
+}
+
+/** Open the link, once the port it comes back to can be reached. */
+async function showAuthorization(connection, flow) {
+  try {
+    if (connection.mode !== 'local' && flow.port) {
+      flow.forward = forwardPort(connection.sshHost, flow.port);
+      const bound = await forwardReady(flow.forward);
+      if (!bound) {
+        flow.error =
+          `Port ${flow.port} is already taken on this Mac, so the service cannot answer. ` +
+          'Close what uses it, then try again.';
+        if (flow.child) flow.child.kill('SIGTERM');
+        return;
+      }
+    }
+    if (!/^https:\/\//.test(flow.url)) return;
+    await shell.openExternal(flow.url).catch(() => undefined);
+  } finally {
+    // The page may open the link too: it only does so once the way back is
+    // open, and this is what says that it is.
+    flow.opened = true;
+  }
+}
+
+/** Wait for the link, the end of the command, or the point where it is slow. */
+function waitForLink(flow, timeoutMs) {
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeoutMs;
+    const tick = () => {
+      if ((flow.url && flow.opened) || flow.done || Date.now() > deadline) {
+        resolve();
+        return;
+      }
+      setTimeout(tick, 100);
+    };
+    tick();
+  });
+}
+
+async function startMcpConnect(name, installed) {
+  const running = mcpFlows.get(name);
+  if (running && !running.done) {
+    return { ok: true, url: running.url, port: running.port, error: '' };
+  }
+  const flow = {
+    name,
+    url: '',
+    port: 0,
+    opened: false,
+    done: false,
+    ok: false,
+    error: '',
+    child: null,
+    forward: null,
+  };
+  mcpFlows.set(name, flow);
+  const connection = storedConnection();
+
+  void (async () => {
+    try {
+      // Nothing is asked for a service the host already has: a second
+      // install would only rewrite the entry.
+      if (!installed) {
+        const answer = await runHostCommand(
+          connection,
+          mcpInstallCommand(name),
+          180000,
+          undefined,
+          {
+            maxStdout: 64 * 1024,
+            maxStderr: 16 * 1024,
+            timeoutMessage: 'The host took too long to install the service.',
+          },
+        );
+        if (!answer.ok) {
+          flow.error =
+            stderrOf(answer) ||
+            answer.error ||
+            'The service could not be installed on the host.';
+          return;
+        }
+      }
+
+      // The link can be printed in pieces: the whole text is read each time.
+      const rememberLink = (text) => {
+        const link = authUrlIn(text);
+        if (!link || flow.url) return;
+        flow.url = link;
+        flow.port = callbackPort(link);
+        void showAuthorization(connection, flow);
+      };
+
+      const answer = await runHostCommand(
+        connection,
+        mcpLoginCommand(name),
+        330000,
+        undefined,
+        {
+          maxStdout: 128 * 1024,
+          maxStderr: 32 * 1024,
+          timeoutMessage: 'The authorization took too long to complete.',
+          onSpawn: (child) => {
+            flow.child = child;
+          },
+          // The host writes the link to its error stream, between the lines
+          // that say what it is doing: both streams are read for it.
+          onStdout: (text) => rememberLink(text),
+          onStderr: (text) => rememberLink(text),
+        },
+      );
+      const outcome = loginOutcome(
+        `${answer.stdout || ''}\n${stderrOf(answer)}`,
+      );
+      flow.ok = Boolean(answer.ok) && outcome.ok;
+      flow.error = flow.ok ? '' : outcome.error || stderrOf(answer) || answer.error;
+    } catch (reason) {
+      flow.error =
+        reason instanceof Error
+          ? reason.message
+          : 'The authorization did not complete.';
+    } finally {
+      flow.done = true;
+      flow.child = null;
+      // The page may reconnect later; the port does not stay open on its own.
+      setTimeout(() => stopForward(flow), 1000);
+    }
+  })();
+
+  // The page answers with the link as soon as the host prints it, and polls
+  // after that: waiting for the whole flow would hold the click for minutes.
+  await waitForLink(flow, 60000);
+  return {
+    ok: Boolean(flow.url) || !flow.error,
+    url: flow.url,
+    port: flow.port,
+    error: flow.error,
+  };
+}
+
+ipcMain.handle('hermes:mcp:connect', async (_event, payload) => {
+  const name = String(payload?.name ?? '').trim();
+  if (!name) return { ok: false, error: 'A service needs a name' };
+  if (!/^[a-z0-9_-]+$/i.test(name)) {
+    return { ok: false, error: 'That is not a service the host can install' };
+  }
+  return startMcpConnect(name, Boolean(payload?.installed));
+});
+
+ipcMain.handle('hermes:mcp:connect-status', (_event, payload) => {
+  const flow = mcpFlows.get(String(payload?.name ?? '').trim());
+  if (!flow) {
+    return { done: true, ok: false, error: 'Nothing was started for it.' };
+  }
+  return { done: flow.done, ok: flow.ok, error: flow.error };
+});
+
+ipcMain.handle('hermes:mcp:connect-cancel', (_event, payload) => {
+  const flow = mcpFlows.get(String(payload?.name ?? '').trim());
+  if (!flow) return { ok: true };
+  if (!flow.done) {
+    flow.error = 'The authorization was cancelled.';
+    if (flow.child) flow.child.kill('SIGTERM');
+  }
+  stopForward(flow);
+  return { ok: true };
 });
 
 // Sign in with Nous without the terminal: the host mints a device code, the
@@ -3233,6 +3587,10 @@ function buildMenu() {
 
 function shutdown() {
   stopTunnel();
+  for (const flow of mcpFlows.values()) {
+    if (flow.child) flow.child.kill('SIGTERM');
+    stopForward(flow);
+  }
 }
 
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {

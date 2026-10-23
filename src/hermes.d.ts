@@ -184,6 +184,8 @@ export type HermesConnectorCatalog = {
   description?: string;
   category?: string;
   logo?: string;
+  /** A service the host connects by itself, outside the Nous portal. */
+  mcp?: boolean;
 };
 
 /** One connector of the toolkit of the account. */
@@ -192,6 +194,10 @@ export type HermesConnectorToolkit = {
   enabled?: boolean;
   connected?: boolean;
   status?: string;
+  /** Whether the service is present on the host already. */
+  installed?: boolean;
+  /** A service the host connects by itself, outside the Nous portal. */
+  mcp?: boolean;
 };
 
 /** One account: a service that is connected. */
@@ -344,7 +350,7 @@ export type HermesBridge = {
     profile?: string;
   }) => Promise<{ ok: boolean; error?: string }>;
   /** The connectors of the host: the services a bot can reach. */
-  connectors: () => Promise<HermesConnectorList>;
+  connectors: (payload?: { fresh?: boolean }) => Promise<HermesConnectorList>;
   /**
    * The mark of a connector. The shell asks the vendor's service for it and
    * hands the bytes: the window touches no network of its own.
@@ -360,6 +366,24 @@ export type HermesBridge = {
     url?: string;
     error?: string;
   }>;
+  /**
+   * A local service the host connects by itself: installed there, then
+   * signed in by the provider's own browser flow. No Nous account.
+   */
+  mcpConnect: (payload: { name: string; installed?: boolean }) => Promise<{
+    ok: boolean;
+    url?: string;
+    port?: number;
+    error?: string;
+  }>;
+  /** Where that connection stands: the page waits for the browser. */
+  mcpConnectStatus: (payload: { name: string }) => Promise<{
+    done: boolean;
+    ok: boolean;
+    error?: string;
+  }>;
+  /** The person gives up on the browser: the flow is stopped. */
+  mcpConnectCancel: (payload: { name: string }) => Promise<{ ok: boolean }>;
   /** Mint a Nous device code so the person signs in without the terminal. */
   nousLoginStart: () => Promise<{
     ok: boolean;
