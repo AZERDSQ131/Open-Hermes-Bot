@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { HermesConnectionMode, HermesStatus } from './hermes';
-import { AgentAvatar } from './components/AgentAvatar';
 import { BLOUB_COLOR_OPTIONS } from './components/Bloub';
 import { ColorGrid, ShapeGrid } from './components/LogoControls';
-import { StageBloub } from './components/StageBloub';
+import { MoodBloub } from './components/MoodBloub';
 import { BLOUB_SHAPES, type BloubShape } from './components/bloubFrames';
 import { toProfileId } from './components/CreateAgentDialog';
 import { avatarColor, profileColor } from './profileColor';
-import type { StateId } from './vendor/bloub/states';
+import type { MoodId } from './moods';
 
 /**
  * The setup: the door the person walks through the first time the app opens.
@@ -48,10 +47,6 @@ type Scene = {
   line: string;
   /** The shape of the actor: it glides into the next one. */
   shape: BloubShape;
-  /** What it is doing. */
-  state: StateId;
-  /** How it feels about it. */
-  expression: string;
 };
 
 const SCENES: Record<StepId, Scene> = {
@@ -60,48 +55,36 @@ const SCENES: Record<StepId, Scene> = {
     title: 'A window onto your agents.',
     line: 'Hermes runs them. The app draws them.',
     shape: 'nuage',
-    state: 'idle',
-    expression: 'curieux',
   },
   setup: {
     eyebrow: 'The setup',
     title: 'Connect your Hermes.',
     line: 'Where it lives, and the key that opens it.',
     shape: 'galet',
-    state: 'idle',
-    expression: 'attentif',
   },
   name: {
     eyebrow: 'Your first bot',
     title: 'What is it called?',
     line: 'The name you will call it by.',
     shape: 'goutte',
-    state: 'idle',
-    expression: 'attentif',
   },
   face: {
     eyebrow: 'Its face',
     title: 'What shape?',
     line: 'The face it wears, everywhere it shows up.',
     shape: 'galet',
-    state: 'idle',
-    expression: 'curieux',
   },
   colour: {
     eyebrow: 'Its colour',
     title: 'What colour?',
     line: 'Hermes keeps it, and the app paints it with it.',
     shape: 'squircle',
-    state: 'idle',
-    expression: 'heureux',
   },
   ready: {
     eyebrow: 'All set',
     title: "You're all set.",
     line: 'Hermes is reachable. The rest is talking.',
     shape: 'hexagone',
-    state: 'idle',
-    expression: 'hilare',
   },
 };
 
@@ -720,23 +703,26 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
           localPort || '18742'
         }:127.0.0.1:${apiPort || '8642'} ${host || '<host>'}`;
 
-  // The actor reacts to what happens: it thinks while the tunnel opens, and
-  // it celebrates when the host answers.
-  const actor = useMemo(() => {
-    // The actor is the bot while the bot is being made: it takes the shape
-    // that is being picked, and the colour that is being picked.
-    const base =
-      step === 'welcome'
-        ? { ...scene, shape: actorShape }
-        : step === 'face' || step === 'colour'
-          ? { ...scene, shape: botFace }
-          : scene;
-    if (step !== 'setup') return base;
-    if (failed) return { ...base, state: 'alert' as StateId };
-    if (connected) return { ...base, state: 'wide' as StateId };
-    if (busy === 'handshake') return { ...base, state: 'thinking' as StateId };
-    return base;
-  }, [actorShape, botFace, busy, connected, failed, scene, step]);
+  // The actor reacts to what happens: it walks the comet while the tunnel
+  // opens, it asks for the look when the host refuses, and it bursts into
+  // the celebration when the two of them are talking. These are the plugin's
+  // moods — each is the whole theatre, played around the clock.
+  const actorMood: MoodId = useMemo(() => {
+    if (step !== 'setup') return 'idle';
+    if (failed) return 'interaction';
+    if (connected) return 'completed';
+    if (busy === 'handshake') return 'running';
+    return 'idle';
+  }, [busy, connected, failed, step]);
+
+  // The shape of the stage: the bot that is being picked while it is being
+  // picked, the wandering actor on the first page, the scene's afterwards.
+  const stageShape =
+    step === 'welcome'
+      ? actorShape
+      : step === 'face' || step === 'colour'
+        ? botFace
+        : scene.shape;
 
   // The light of the window follows the actor, and the last scene follows the
   // bot the person made. From the face on, the preview wears the bot's own
@@ -897,21 +883,26 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
           {step === 'ready' && madeBot ? (
             <div className="onboarding-actor">
               <span className="onboarding-halo" aria-hidden="true" />
-              <AgentAvatar
-                avatar={{ color: madeBot.color, shape: madeBot.shape }}
+              {/* The bot the person made, celebrating in the colour and
+                  shape that were picked: the arrival is its own theatre. */}
+              <MoodBloub
+                color={madeBot.color}
+                shape={madeBot.shape}
+                mood="completed"
                 size={120}
-                showBadge={false}
               />
             </div>
           ) : (
             <div className="onboarding-actor">
               <span className="onboarding-halo" aria-hidden="true" />
-              <StageBloub
+              {/* The actor is for touching: a click loans it another face,
+                  the way the plugin's balls answer the hand. */}
+              <MoodBloub
                 color={light}
-                shape={actor.shape}
-                state={actor.state}
-                expression={actor.expression}
+                shape={stageShape}
+                mood={actorMood}
                 size={196}
+                interactive
               />
             </div>
           )}

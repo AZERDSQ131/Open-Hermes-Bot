@@ -67,7 +67,7 @@ describe('the avatar of a bot', () => {
       <AgentAvatar
         avatar={{
           kind: 'group',
-          members: [bob, bob],
+          members: [bob.avatar, bob.avatar],
         }}
         mood="running"
       />,
