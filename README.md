@@ -48,16 +48,19 @@ drag **Hermes Bot** into *Applications*, and open it.
 
 Two files are published: `-arm64` for Apple silicon, `-x64` for Intel.
 
-The app is not signed with a Developer ID, so macOS greets it like it greets any
-program it has never seen: *“Hermes Bot cannot be opened because the developer
-cannot be verified.”* Open it with a right click → **Open** → **Open**, once. From
-then on it opens like any other app.
-
-Or, from a terminal, once:
+> **Known blocker on macOS: Gatekeeper.** The app is signed ad-hoc — there is
+> no Developer ID on this project — so macOS refuses to open it outright:
+> *“Hermes Bot is damaged and can't be opened”*, with only the Trash offered.
+> This is not a broken download; the app cannot start at all until the
+> quarantine is cleared, and right-click → Open does not bypass this variant.
+> Clear it once, from a terminal, then open the app normally:
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/Hermes Bot.app"
 ```
+
+From then on it opens like any other app. The day the project has a Developer
+ID, this section disappears: builds will be signed and notarized instead.
 
 ### First run
 
@@ -127,10 +130,11 @@ npm run dist
 | `Hermes Bot-1.0.0-arm64-mac.zip` | the same app, zipped (what the auto-update fetches) |
 | `*.blockmap`, `latest-mac.yml` | what `electron-updater` needs to find a new version |
 
-The build is signed with whatever identity is in the keychain, and notarization
-is skipped when there is no Developer ID to notarize with. A build made without
-a Developer ID works on the machine that made it, and on the machines of the
-people who accept the “Open” dance above.
+Every build is signed ad-hoc (`mac.identity: "-"` in `package.json`, so a CI
+build and a local build carry the same signature), and notarization is skipped
+because there is no Developer ID to notarize with. An ad-hoc build works on the
+machine that made it, and on the machines of the people who clear the quarantine
+once, as above.
 
 ## Publish it on GitHub
 
