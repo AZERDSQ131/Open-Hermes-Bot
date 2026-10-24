@@ -145,17 +145,18 @@ it does not. A build signed by another certificate is refused.
 
 Be plain about what that is worth:
 
-- **The build published by the release workflow is not signed.** The workflow
-  runs on a machine that has no signing identity, and `electron-builder`
-  warns and carries on rather than failing. The releases on the project page
-  are therefore unsigned, and there is no signature for Squirrel.Mac to
-  compare against. **A build made on a Mac with an identity in its Keychain
-  is signed** — that one is what a local build gives you, and it is what the
-  update chain can anchor on.
-- **The build is not notarized.** macOS therefore greets the app like it
-  greets any program it has never seen, and it has to be opened once by hand.
-- **A development certificate is a personal anchor, and it expires.** When it
-  does, the update chain closes and the app has to be updated by hand.
+- **The build published by the release workflow is signed ad-hoc.** No
+  Developer ID exists for this project, and a build signed with whatever the
+  keychain holds differs from machine to machine — CI builds were even left
+  unsigned. `mac.identity: "-"` signs every build, CI and local, with no
+  identity, so all of them carry the same signature and there is something
+  for Squirrel.Mac to compare against. Ad-hoc never expires, unlike a
+  development certificate, but it buys no trust from Gatekeeper.
+- **The build is not notarized.** macOS therefore greets the app with
+  *“Hermes Bot is damaged and can't be opened”* and offers the Trash. The way
+  in is one terminal line, once: `xattr -dr com.apple.quarantine
+  "/Applications/Hermes Bot.app"`. (Right-click → Open does not bypass the
+  “damaged” variant.)
 
 ## The limits of this page
 
