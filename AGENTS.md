@@ -101,8 +101,9 @@ tapback, a silence.
   and you lose every group on every host.
 - **An update needs room and a signature.** The update is downloaded and
   unpacked on the machine: a disk with a gigabyte free fails it for a reason
-  that has nothing to do with the update. The app is signed with a
-  development identity, and Squirrel.Mac checks the signature of what it
+  that has nothing to do with the update. The app is signed ad-hoc
+  (`mac.identity: "-"` in `package.json`, so CI and local builds carry the
+  same signature), and Squirrel.Mac checks the signature of what it
   installs against the one of the app that is running.
 - **A conversation is read back from the server**, not kept. A test that
   passes locally against a cached transcript is not a test.
