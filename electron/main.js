@@ -42,6 +42,7 @@ const {
   settleStreamTurn,
   silenceWindow,
 } = require('./stream.js');
+const { modelRef } = require('./models.js');
 
 app.setName('Hermes Bot');
 
@@ -2687,8 +2688,10 @@ ipcMain.handle('hermes:models', async (_event, payload) => {
     };
   }
   const body = result.body || {};
-  const currentModel = String(body.model ?? '');
-  const currentProvider = String(body.provider ?? '');
+  // The host names its configured model the way its own config does — `auto`
+  // with the provider inside the id. The app, the picker and the lock use a
+  // pair, so the shorthand is read once, here.
+  const current = modelRef(body.provider, body.model);
   const models = [];
   for (const provider of body.providers ?? []) {
     // Only providers that can run a turn: an unconfigured row would fail on
@@ -2701,14 +2704,14 @@ ipcMain.handle('hermes:models', async (_event, payload) => {
         model: id,
         provider: provider.slug,
         providerName: provider.name,
-        current: id === currentModel && provider.slug === currentProvider,
+        current: id === current.model && provider.slug === current.provider,
       });
     }
   }
   return {
     ok: true,
-    current: currentModel,
-    currentProvider,
+    current: current.model,
+    currentProvider: current.provider,
     models,
   };
 });
@@ -2994,13 +2997,19 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
 
   const body = { message };
   if (payload?.model) {
-    body.model = String(payload.model);
+    // One provider and one model id, never the host's `auto` shorthand: the
+    // lock compares this pair with what actually ran, and a prefix left in
+    // the model id fails a turn that worked.
+    const ref = modelRef(payload.provider, payload.model);
+    body.model = ref.model;
+    if (ref.provider) body.provider = ref.provider;
     // The session row remembers the model of its last turn, and Hermes prefers
     // it over a plain `model` in the body. A lock makes the model the picker
     // shows the one that actually runs, including when it changes mid-thread.
     body.require_model_lock = true;
+  } else if (payload?.provider) {
+    body.provider = String(payload.provider);
   }
-  if (payload?.provider) body.provider = String(payload.provider);
   // Ephemeral per-turn instructions: Hermes appends them to the system prompt
   // and leaves the stored conversation untouched.
   if (payload?.instructions) body.system_message = String(payload.instructions);
