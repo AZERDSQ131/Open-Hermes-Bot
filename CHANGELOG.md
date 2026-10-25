@@ -41,6 +41,16 @@ follow [semantic versioning](https://semver.org/).
 
 ### Fixed
 
+- **A key the host has since replaced.** The app kept one key and never asked
+  which machine it belonged to, so a key read on this Mac was still offered to
+  a Pi, and every call answered "API key rejected by the Hermes API server" —
+  a sentence that named no machine and no next step. A refusal now asks the
+  machine itself: the app reads `API_SERVER_KEY` from its Hermes home, tries
+  it, and keeps it only if the host accepts it, with the machine it came from
+  written down. A key that fails too leaves the old one in place and says
+  where to look, and the settings say which machine a saved key belongs to
+  instead of offering a key that would be refused.
+
 - **The connectors that never finished loading.** The page asked the host
   once per page that wanted it — the dock at launch, the page when it opened,
   and twice more while a dev build settles — and each ask booted Python on the
