@@ -64,13 +64,21 @@ bot's own gateway and checked against that bot's own key.
 | Call | What it does |
 | --- | --- |
 | `GET /health/detailed` | The connection test: a throwaway tunnel in `ssh` mode, the port itself in `local`. |
-| `GET /api/sessions` | The conversations a bot holds. |
+| `GET /api/sessions` | The conversations a bot holds, the app's own (`source=api_server`). |
+| `GET /api/sessions?order=recent` | Every conversation the bot holds, the app's included: what the history of before is read from. |
 | `POST /api/sessions` | Opens a conversation. |
 | `GET /api/sessions/<id>/messages` | The transcript, oldest first. |
 | `PATCH /api/sessions/<id>` | Renames a conversation. |
 | `DELETE /api/sessions/<id>` | Deletes a conversation, and its transcript. |
 | `GET /api/sessions/<id>/chat/stream` | A turn, as a stream of text deltas and tool calls. |
 | `GET /api/model/options` | The models the bot's providers offer. |
+
+The two reads of `/api/sessions` are the same call asked twice. The sidebar
+wants the conversations this app opened — a session carries the source that
+opened it — so it asks for `api_server` and nothing else. The list of before
+wants the opposite: everything the profile holds, whoever wrote it. Rows that
+are already on screen are dropped where the answer is read, not where it is
+asked, so a host that ignores the filter changes nothing.
 
 A profile mints its own `API_SERVER_KEY` when it is created, and the gateway
 checks `/p/<name>/` against that key: a bot's turn cannot ride the primary
