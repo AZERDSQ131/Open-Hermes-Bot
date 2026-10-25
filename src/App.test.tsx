@@ -1525,6 +1525,11 @@ describe('the sessions of before', () => {
     ).toBeTruthy();
     // The session is not read by the app yet: the room is a preview.
     expect(bridge.messages.mock.calls.length).toBe(reads);
+    // One room is open at a time: the bot's row waits while the session is read.
+    const botRow = screen
+      .getByText('Chief of Staff', { selector: '.thread-name' })
+      .closest('button');
+    expect(botRow?.getAttribute('aria-current')).toBeNull();
   });
 
   it('goes back to the bot without losing it', async () => {

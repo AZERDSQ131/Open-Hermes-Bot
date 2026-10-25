@@ -2851,7 +2851,9 @@ export default function App() {
           <section className="pinned-strip" aria-label="Pinned agents">
             <div className="pinned-grid">
               {pinnedThreads.map((thread) => {
-                const isActive = thread.id === activeThread?.id;
+                // A past conversation is drawn over its bot: the bot's row
+                // waits its turn instead of reading as the open conversation.
+                const isActive = thread.id === activeThread?.id && !pastOpen;
                 return (
                   <button
                     type="button"
@@ -2891,7 +2893,7 @@ export default function App() {
 
         <nav className="thread-list" aria-label="Agents">
           {filteredThreads.map((thread) => {
-            const isActive = thread.id === activeThread?.id;
+            const isActive = thread.id === activeThread?.id && !pastOpen;
             const warming = Boolean(thread.pending);
             return (
               <button
@@ -3316,7 +3318,7 @@ export default function App() {
                   ),
                 )}
 
-                {activeThread.thinking ? (
+                {!pastOpen && activeThread.thinking ? (
                   activeThread.avatar.kind === 'group' ? (
                     activeThread.live?.length ? (
                       <div className="group-live">
