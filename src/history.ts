@@ -2,12 +2,14 @@
 // open — one the CLI wrote, another client, or an older install. The app
 // draws it and keeps nothing: it is the same session, continued in place.
 //
-// The host read is not written yet. `simulatedPastSessions` stands in for it,
-// and it is the only thing here that has to go when `/api/sessions` is asked
-// without the `source=api_server` filter: the grouping, the fold, the search
-// and the dates are the seam that read will plug into.
+// The host answers with every session of a profile (`hermes:history`); this
+// file decides what that answer means. What the sidebar already shows is not
+// listed again, an archived row stays archived, and a group is rebuilt from
+// its members rather than counted here. What is left is grouped under the bot
+// whose profile holds it, folded, searched and dated.
 
-import type { Message, SingleAvatar, Thread } from './data';
+import type { SingleAvatar, Thread } from './data';
+import { parseGroupSessionTitle } from './conversations';
 import { profileKey } from './modelPrefs';
 import { avatarColor } from './profileColor';
 
@@ -29,6 +31,7 @@ export type PastSession = {
   messageCount: number;
   /** Epoch milliseconds, as the host writes it. */
   lastActive: number;
+  archived: boolean;
 };
 
 /** The conversations one bot owns, under the face it wears. */
@@ -91,6 +94,33 @@ export function relativeDay(now: number, lastActive: number): string {
 export function shortDay(at: number): string {
   const day = new Date(at);
   return `${day.getDate()} ${MONTHS[day.getMonth()]}`;
+}
+
+/**
+ * What the section may list: the host's answer, minus what the window already
+ * shows. The sidebar links a bot to its session by title, so a session whose
+ * title is a bot's name is that bot's conversation — listed twice it would
+ * read as two rooms with one history. A group is not one of these either: it
+ * is rebuilt from the titles of its members.
+ */
+export function visiblePastSessions(
+  sessions: PastSession[],
+  threads: Thread[],
+): PastSession[] {
+  const takenTitles = new Set<string>();
+  const takenIds = new Set<string>();
+  for (const thread of threads) {
+    if (thread.members) continue;
+    takenTitles.add(thread.name.trim().toLowerCase());
+    if (thread.sessionId) takenIds.add(thread.sessionId);
+  }
+
+  return sessions.filter((session) => {
+    if (session.archived) return false;
+    if (parseGroupSessionTitle(session.title)) return false;
+    if (takenIds.has(session.id)) return false;
+    return !takenTitles.has(session.title.trim().toLowerCase());
+  });
 }
 
 /**
@@ -191,88 +221,4 @@ export function viewPastConversations(
 
   const shown = matched.reduce((sum, group) => sum + group.sessions.length, 0);
   return { groups: matched, total, hidden: total - shown };
-}
-
-// ------------------------------------------------------------ the simulation
-
-/**
- * The sessions the host would answer with, made up for now: a few per bot, at
- * dates that age as the window stays open. Deterministic, so a screenshot and
- * a test see the same room. Delete with the read.
- */
-const SIMULATED_TITLES = [
-  'Bridge audit',
-  'Tunnel refactor',
-  'Release checklist',
-  'Weekly notes',
-  'VPS migration',
-  'Model picks',
-];
-
-const SIMULATED_AGES = [2 * HOUR, 2 * DAY, 6 * DAY, 21 * DAY];
-
-export function simulatedPastSessions(
-  threads: Thread[],
-  now: number = Date.now(),
-): PastSession[] {
-  const bots = threads.filter((thread) => !thread.members);
-  const sessions: PastSession[] = [];
-
-  bots.forEach((bot, index) => {
-    const key = profileKey(bot.profile);
-    // One bot holds more than the fold shows, so "the others" has something
-    // to count in a window nobody has used yet.
-    const count = index % 2 === 0 ? 4 : 2;
-    for (let slot = 0; slot < count; slot += 1) {
-      const title = SIMULATED_TITLES[(index * 3 + slot) % SIMULATED_TITLES.length];
-      sessions.push({
-        id: `past:${key}:${slot}`,
-        // A session the CLI never named: the row has to read as something.
-        title: index === 0 && slot === 1 ? '' : title,
-        profile: bot.profile,
-        messageCount: 4 + slot * 9 + index * 3,
-        lastActive: now - SIMULATED_AGES[slot % SIMULATED_AGES.length],
-      });
-    }
-  });
-
-  return sessions;
-}
-
-/**
- * The first lines of a past conversation, made up for now. The event says
- * where the lines come from, so nobody mistakes the preview for the session.
- */
-export function simulatedTranscript(session: PastSession): Message[] {
-  const messages = session.messageCount;
-  return [
-    {
-      id: `${session.id}:event`,
-      role: 'event',
-      text: `This session lives on the host — ${messages} messages, in the profile that holds it. Reading it back here is the next step.`,
-    },
-    {
-      id: `${session.id}:opening`,
-      role: 'user',
-      text: 'Picking this back up.',
-    },
-    {
-      id: `${session.id}:answer`,
-      role: 'assistant',
-      text: `Still here. The session kept all ${messages} messages, and the next word goes into the same one.`,
-    },
-  ];
-}
-
-/**
- * The answer a past conversation gives for now. It says what it is: nothing
- * reached the host, because there is no read or turn on a session the app did
- * not open yet.
- */
-export function simulatedReply(session: PastSession): Message {
-  return {
-    id: `${session.id}:reply:${Date.now()}`,
-    role: 'assistant',
-    text: 'This reply is simulated: the host read lands with the backend, and nothing has reached Hermes.',
-  };
 }

@@ -6,10 +6,8 @@ import {
   pastTitle,
   relativeDay,
   shortDay,
-  simulatedPastSessions,
-  simulatedReply,
-  simulatedTranscript,
   viewPastConversations,
+  visiblePastSessions,
 } from './history';
 import type { PastSession } from './history';
 import type { Thread } from './data';
@@ -24,7 +22,7 @@ function past(
   lastActive: number,
   profile?: string,
 ): PastSession {
-  return { id, title, profile, messageCount: 3, lastActive };
+  return { id, title, profile, messageCount: 3, lastActive, archived: false };
 }
 
 function bot(id: string, name: string, profile?: string): Thread {
@@ -206,44 +204,51 @@ describe('viewPastConversations', () => {
   });
 });
 
-describe('the simulation', () => {
+describe('what the section may list', () => {
   const threads = [
     bot('bot:chief', 'Chief of Staff'),
     bot('bot:bob', 'Bob', 'bob'),
+    {
+      id: 'group:three',
+      name: 'Group · three · Bob',
+      members: [],
+      avatar: { kind: 'group' as const, members: [] },
+      preview: '',
+      time: '',
+      chatTime: '',
+      messages: [],
+    },
   ];
 
-  it('gives every bot something to show, and one bot more than the fold', () => {
-    const sessions = simulatedPastSessions(threads, NOW);
-    expect(sessions.map((session) => session.profile)).toContain('bob');
-    expect(sessions.filter((session) => !session.profile)).toHaveLength(4);
-    expect(simulatedPastSessions(threads, NOW)).toEqual(sessions);
+  it('drops the conversation a bot is already showing', () => {
+    const rows = [past('a', 'Bob', NOW, 'bob'), past('b', 'Bridge audit', NOW, 'bob')];
+    expect(visiblePastSessions(rows, threads).map((row) => row.id)).toEqual(['b']);
   });
 
-  it('keeps an unnamed session, so the row has something to say', () => {
-    const sessions = simulatedPastSessions(threads, NOW);
-    expect(sessions.some((session) => !session.title)).toBe(true);
+  it('drops the session a bot is holding, whatever its title', () => {
+    const rows = [past('held', 'Renamed on the host', NOW, 'bob')];
+    const holding = [{ ...threads[1], sessionId: 'held' }, threads[0]];
+    expect(visiblePastSessions(rows, holding)).toEqual([]);
   });
 
-  it('holds nothing when there is no bot to hold it', () => {
-    expect(simulatedPastSessions([], NOW)).toEqual([]);
+  it('drops an archived conversation, which stays archived', () => {
+    const rows = [{ ...past('a', 'Old', NOW), archived: true }];
+    expect(visiblePastSessions(rows, threads)).toEqual([]);
   });
 
-  it('writes a transcript of the shape the window already draws', () => {
-    const session = past('a', 'Bridge audit', NOW);
-    const lines = simulatedTranscript(session);
-    expect(lines[0].role).toBe('event');
-    expect(lines.some((line) => line.role === 'user')).toBe(true);
-    expect(lines.some((line) => line.role === 'assistant')).toBe(true);
-    expect(lines.map((line) => line.id)).toEqual([
-      'a:event',
-      'a:opening',
-      'a:answer',
+  it('drops a group, which is rebuilt from its members', () => {
+    const rows = [past('g', 'Group · three · Bob', NOW, 'bob')];
+    expect(visiblePastSessions(rows, threads)).toEqual([]);
+  });
+
+  it('keeps what the window is not showing, and the host does not name twice', () => {
+    const rows = [
+      past('a', 'Bridge audit', NOW, 'bob'),
+      past('b', '   ', NOW - 1000, 'bob'),
+    ];
+    expect(visiblePastSessions(rows, threads).map((row) => row.id)).toEqual([
+      'a',
+      'b',
     ]);
-  });
-
-  it('says out loud that the answer did not reach the host', () => {
-    const reply = simulatedReply(past('a', 'Bridge audit', NOW));
-    expect(reply.role).toBe('assistant');
-    expect(reply.role === 'assistant' && reply.text).toContain('simulated');
   });
 });

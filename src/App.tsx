@@ -56,10 +56,8 @@ import {
   pastTitle,
   relativeDay,
   shortDay,
-  simulatedPastSessions,
-  simulatedReply,
-  simulatedTranscript,
   viewPastConversations,
+  visiblePastSessions,
   type PastGroup,
   type PastSession,
 } from './history';
@@ -500,21 +498,31 @@ export default function App() {
   // Folded, a group shows a few conversations and counts the rest; this opens
   // the count. It is not kept: the fold is a mood, not a setting.
   const [historyAll, setHistoryAll] = useState(false);
-  // One clock for the simulation: the dates a screenshot shows do not move
-  // while the window stays open.
+  // One clock for the dates of the section: a row should not say "now" and
+  // then "1 m" while the window sits open.
   const historyNow = useRef(Date.now()).current;
+  // The sessions the host already held, as it answered: one read per profile,
+  // and nothing kept beyond the window.
+  const [pastRows, setPastRows] = useState<PastSession[]>([]);
+  // What that read is doing: the section is a place, and a place says when it
+  // has nothing yet or could not be reached.
+  const [historyState, setHistoryState] = useState<
+    'idle' | 'reading' | 'ready' | 'error'
+  >('idle');
+  const [historyError, setHistoryError] = useState('');
   // The past conversation being read, when one is: a session is not a bot, so
   // it is drawn over the bot that owns it rather than taking its place.
   const [pastOpen, setPastOpen] = useState<{
     group: PastGroup;
     session: PastSession;
   } | null>(null);
-  // What the room said, as far as this window knows: the lines read back, and
-  // whatever is said here once the composer is used.
+  // What the room said, read back from the host when it is opened.
   const [pastMessages, setPastMessages] = useState<Message[]>([]);
-  // A turn written into a past conversation lands after the person may have
-  // gone back to the bot: the count says which room the answer belongs to.
-  const pastTurn = useRef(0);
+  const [pastReading, setPastReading] = useState(false);
+  const [pastError, setPastError] = useState('');
+  // A read that lands after the person moved on belongs to nobody: the token
+  // says which room the lines were asked for.
+  const pastRead = useRef(0);
 
   // One live turn per thread, keyed by thread: a new message replaces the turn
   // in flight, and a replaced turn must not paint over the new one.
@@ -579,6 +587,53 @@ export default function App() {
       perProfile.set(profileKey(answer.profile), answer.sessions);
     }
     setThreads((current) => withConversations(current, perProfile));
+  }
+
+  // The sessions the host already held, asked profile by profile. Nothing is
+  // adopted here and nothing is kept: the answer is what the section shows,
+  // and a profile that does not answer does not take the others with it.
+  async function loadHistory(profiles: HermesProfile[]) {
+    const bridge = window.hermes;
+    if (!bridge?.history) return;
+    setHistoryState('reading');
+    setHistoryError('');
+    const targets: Array<string | undefined> = [
+      undefined,
+      ...profiles.map((profile) => profile.name),
+    ];
+    const answers = await Promise.all(
+      targets.map(async (profile) => {
+        try {
+          const result = await bridge.history({ profile });
+          if (!result.ok) {
+            return { profile, error: result.error ?? 'The host did not answer' };
+          }
+          return { profile, sessions: result.sessions ?? [] };
+        } catch (reason) {
+          return {
+            profile,
+            error:
+              reason instanceof Error
+                ? reason.message
+                : 'The host did not answer',
+          };
+        }
+      }),
+    );
+    const rows: PastSession[] = [];
+    let failure = '';
+    for (const answer of answers) {
+      if (answer.error) {
+        failure = failure || answer.error;
+        continue;
+      }
+      for (const session of answer.sessions ?? []) {
+        rows.push({ ...session, profile: answer.profile });
+      }
+    }
+    setPastRows(rows);
+    setHistoryError(failure);
+    setHistoryState(failure && !rows.length ? 'error' : 'ready');
   }
 
   // The setup is asked for once. The app's own record says whether the door
@@ -661,9 +716,13 @@ export default function App() {
           );
           // The conversations those bots are holding: the sidebar is rebuilt
           // from the server's own list of them.
-          void loadConversations(
-            (result.profiles ?? []).filter((profile) => profile.served !== false),
+          const served = (result.profiles ?? []).filter(
+            (profile) => profile.served !== false,
           );
+          void loadConversations(served);
+          // The sessions nobody opened yet, from the same host, in the same
+          // breath as the conversations that are on screen.
+          void loadHistory(served);
         } else {
           setBotsError(result.error ?? 'Could not reach Hermes');
         }
@@ -876,12 +935,11 @@ export default function App() {
   }, [query, orderedThreads]);
 
   // The past conversations of the host, under the bot that owns each one. The
-  // host read is not written yet: `simulatedPastSessions` stands in for the
-  // listing, and it is the only line that goes when `/api/sessions` answers
-  // without the `source=api_server` filter.
+  // window already shows some of them — a bot's own room — and those are not
+  // listed twice.
   const pastGroups = useMemo(
-    () => groupPastSessions(simulatedPastSessions(threads, historyNow), threads),
-    [historyNow, threads],
+    () => groupPastSessions(visiblePastSessions(pastRows, threads), threads),
+    [pastRows, threads],
   );
 
   // What the section shows: the fold, and the search the sidebar already has.
@@ -1253,10 +1311,18 @@ export default function App() {
    * and nothing is adopted. The window keeps the lines it was handed — the
    * session itself stays on the host.
    */
-  function openPastConversation(group: PastGroup, session: PastSession) {
+  /**
+   * Reading a past conversation: the room is drawn over the bot that owns it,
+   * and the transcript is read back from the host. The app keeps no copy, so
+   * what is shown is what Hermes holds.
+   */
+  async function openPastConversation(group: PastGroup, session: PastSession) {
+    const read = pastRead.current + 1;
+    pastRead.current = read;
     setPastOpen({ group, session });
-    setPastMessages(simulatedTranscript(session));
-    pastTurn.current += 1;
+    setPastMessages([]);
+    setPastError('');
+    setPastReading(true);
     setContextMenu(null);
     setLogoOpen(false);
     setRenaming(false);
@@ -1265,21 +1331,43 @@ export default function App() {
     setMentionHidden(true);
     clearAttachments();
     stopDictation();
-    window.requestAnimationFrame(() => composerRef.current?.focus());
+
+    const bridge = window.hermes;
+    try {
+      const result = await bridge?.messages({
+        profile: group.profile,
+        sessionId: session.id,
+      });
+      if (pastRead.current !== read) return;
+      if (!result?.ok || !result.messages) {
+        setPastError(result?.error ?? 'This conversation could not be read.');
+        return;
+      }
+      setPastMessages(privateTranscript(result.messages));
+    } catch (reason) {
+      if (pastRead.current !== read) return;
+      setPastError(
+        reason instanceof Error
+          ? reason.message
+          : 'This conversation could not be read.',
+      );
+    } finally {
+      if (pastRead.current === read) setPastReading(false);
+    }
   }
 
   /** Back to the bot that owns the session: the bot never went anywhere. */
   function closePastConversation() {
     setPastOpen(null);
     setPastMessages([]);
-    pastTurn.current += 1;
+    setPastError('');
+    pastRead.current += 1;
     setSidebarOpen(false);
   }
 
   /**
-   * Leaving the session alone: the bot's own conversation is one click away,
-   * and the session keeps every message it had. Nothing is copied, nothing is
-   * cut.
+   * The bot's own conversation is one click away, and the session keeps every
+   * message it had. Nothing is copied, nothing is cut.
    */
   function startFreshFromPast() {
     const open = pastOpen;
@@ -1292,33 +1380,80 @@ export default function App() {
   }
 
   /**
-   * What writing into a past conversation does for now: the line is kept in
-   * the window and the answer is the simulation's. Nothing reaches the host —
-   * there is no read and no turn on a session the app did not open yet.
+   * Resuming a past conversation makes it the bot's conversation: a bot holds
+   * one, so the room it was in is put aside under the day it last spoke, and
+   * the session the person chose takes the bot's name. Nothing is deleted —
+   * the room that was set aside is on the host, and appears in this same list.
    */
-  function continuePastConversation(text: string) {
+  async function continuePastConversation() {
     const open = pastOpen;
     if (!open) return;
-    const turn = pastTurn.current;
-    const at = Date.now();
-    setPastMessages((current) => [
-      ...current,
-      { id: `${open.session.id}:said:${at}`, role: 'user', text },
-    ]);
-    setDraft('');
-    setMentionHidden(true);
-    // The answer arrives a moment later, the way a bot's does, and only if the
-    // person is still in the same room.
-    window.setTimeout(() => {
-      if (pastTurn.current !== turn) return;
-      setPastMessages((current) => [...current, simulatedReply(open.session)]);
-    }, 400);
+    const owner = threads.find(
+      (thread) => !thread.members && profileKey(thread.profile) === open.group.key,
+    );
+    if (!owner) return;
+    const bridge = window.hermes;
+    if (!bridge?.renameSession) return;
+    const profile = owner.profile;
+    setPastError('');
+
+    const previous = owner.sessionId;
+    if (previous && previous !== open.session.id) {
+      const aside = `${owner.name} · ${shortDay(open.session.lastActive)}`;
+      const renamed = await bridge
+        .renameSession({ profile, sessionId: previous, title: aside })
+        .catch((reason: Error) => ({ ok: false, error: reason.message }));
+      if (!renamed.ok) {
+        setPastError(renamed.error ?? 'The room in use could not be set aside.');
+        return;
+      }
+    }
+    const adopted = await bridge
+      .renameSession({
+        profile,
+        sessionId: open.session.id,
+        title: owner.name,
+      })
+      .catch((reason: Error) => ({ ok: false, error: reason.message }));
+    if (!adopted.ok) {
+      setPastError(adopted.error ?? 'This conversation could not be resumed.');
+      return;
+    }
+
+    closePastConversation();
+    // The host is the one that was changed: the room is read back from it,
+    // like any other conversation.
+    transcriptState.current.delete(owner.id);
+    setThreads((current) =>
+      current.map((thread) =>
+        thread.id === owner.id
+          ? {
+              ...thread,
+              sessionId: open.session.id,
+              messages: [],
+              preview: '',
+              unread: false,
+            }
+          : thread,
+      ),
+    );
+    selectThread(owner.id);
+    void loadHistory(threads.filter((thread) => !thread.members));
   }
 
   function openSettings(section: Section = 'connection') {
     setContextMenu(null);
     setSettingsSection(section);
     setSettingsOpen(true);
+  }
+
+  /** A read that failed is worth asking again, by hand. */
+  async function retryHistory() {
+    const bridge = window.hermes;
+    if (!bridge?.profiles) return;
+    const result = await bridge.profiles();
+    if (!result.ok || !result.profiles) return;
+    await loadHistory(result.profiles);
   }
 
   /** The dock of the connectors opens the page where they are listed. */
@@ -1541,6 +1676,7 @@ export default function App() {
     const result = await bridge.profiles();
     if (!result.ok || !result.profiles) return;
     await loadConversations(result.profiles);
+    await loadHistory(result.profiles);
   }
 
   // The deletion happens where the conversation is kept. A bot is a Hermes
@@ -2380,12 +2516,6 @@ export default function App() {
       setAttachmentNote('A file could not be copied to the server and was not sent.');
     }
 
-    // A past conversation has no turn to send yet: the host read lands with
-    // the backend, so the line stays in the window and says so.
-    if (pastOpen) {
-      continuePastConversation(text);
-      return;
-    }
     // A group speaks with many voices: it gets its own relay, not the single
     // bot turn below.
     if (thread.avatar.kind === 'group') {
@@ -2984,7 +3114,9 @@ export default function App() {
           ) : null}
         </nav>
 
-        {pastGroups.length ? (
+        {historyState === 'reading' ||
+        historyState === 'error' ||
+        pastGroups.length ? (
           <section className="history" aria-label="Past conversations">
             <button
               type="button"
@@ -3002,6 +3134,25 @@ export default function App() {
 
             {historyOpen ? (
               <div className="history-body">
+                {historyState === 'reading' && !pastGroups.length ? (
+                  <div className="history-skeleton" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                ) : null}
+                {historyState === 'error' ? (
+                  <p className="history-error" role="status">
+                    {historyError || 'The host did not answer.'}{' '}
+                    <button
+                      type="button"
+                      className="history-retry"
+                      onClick={retryHistory}
+                    >
+                      Try again
+                    </button>
+                  </p>
+                ) : null}
                 {pastView.groups.map((group) => (
                   <div className="history-group" key={group.key}>
                     <div className="history-group-head">
@@ -3208,7 +3359,29 @@ export default function App() {
           }}
         >
           <div className="chat-inner">
-            {activeThread.pending ? (
+            {pastOpen && pastReading ? (
+              <div className="past-state" role="status">
+                <span className="warming-dots" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                Reading the conversation…
+              </div>
+            ) : pastOpen && pastError ? (
+              <div className="past-state is-error" role="status">
+                <p>{pastError}</p>
+                <button
+                  type="button"
+                  className="button-ghost"
+                  onClick={() =>
+                    pastOpen && openPastConversation(pastOpen.group, pastOpen.session)
+                  }
+                >
+                  Try again
+                </button>
+              </div>
+            ) : activeThread.pending ? (
               <div className="warming-screen" role="status">
                 <AgentAvatar
                   avatar={activeThread.avatar}
@@ -3249,6 +3422,11 @@ export default function App() {
                 </div>
               </div>
             ) : shownMessages.length === 0 ? (
+              pastOpen ? (
+                <p className="past-state">
+                  This conversation holds no words the app can draw.
+                </p>
+              ) : (
               <div className="empty-state">
                 <AgentAvatar
                   avatar={activeThread.avatar}
@@ -3267,6 +3445,7 @@ export default function App() {
                     : 'Give it a job. It works while you sleep.'}
                 </p>
               </div>
+              )
             ) : (
               <>
                 {pastOpen ? (
@@ -3562,7 +3741,8 @@ export default function App() {
                       {pastOpen.group.name}
                     </span>
                     <span className="composer-context-since">
-                      since {shortDay(pastOpen.session.lastActive)}
+                      lives on the host, since{' '}
+                      {shortDay(pastOpen.session.lastActive)}
                     </span>
                   </span>
                   <button
@@ -3572,9 +3752,17 @@ export default function App() {
                   >
                     Start a new one
                   </button>
+                  <button
+                    type="button"
+                    className="composer-context-action is-primary"
+                    onClick={continuePastConversation}
+                  >
+                    Continue in {pastOpen.group.name}
+                  </button>
                 </div>
               ) : null}
 
+              {pastOpen ? null : (
               <div className="composer-main">
                 <button
                   type="button"
@@ -3668,6 +3856,7 @@ export default function App() {
                   </button>
                 )}
               </div>
+              )}
             </form>
           </div>
         </div>
