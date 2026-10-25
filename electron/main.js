@@ -3815,7 +3815,10 @@ app.whenReady().then(() => {
     app.dock.setIcon(path.join(__dirname, '..', 'build', 'icon.png'));
   }
   createWindow();
-  if (storedConnection().autoConnect && storedApiKey()) {
+  // A window shown on a host that is not there (`VITE_DEMO=1`) has no reason
+  // to open a tunnel to the host that is: the renderer answers itself.
+  const demo = process.env.VITE_DEMO === '1';
+  if (!demo && storedConnection().autoConnect && storedApiKey()) {
     connectNow().catch(() => undefined);
   }
   // The update test presses the button itself: it asks the launch to leave

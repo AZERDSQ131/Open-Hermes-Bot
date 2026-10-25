@@ -1,6 +1,9 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('hermes', {
+// A window with a host that is not there: `VITE_DEMO=1 npm run dev`. The
+// renderer installs its own bridge when the flag is set, and this one must not
+// be in the way — the preload is the only place that can leave the name free.
+if (process.env.VITE_DEMO !== '1') contextBridge.exposeInMainWorld('hermes', {
   getSettings: () => ipcRenderer.invoke('hermes:settings:get'),
   saveSettings: (payload) => ipcRenderer.invoke('hermes:settings:save', payload),
   importKey: (payload) => ipcRenderer.invoke('hermes:key:import', payload),
