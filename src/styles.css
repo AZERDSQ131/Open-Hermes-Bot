@@ -902,11 +902,15 @@ button:focus-visible {
 /* ------------------------------------------------- the sessions of before */
 
 /* The conversations Hermes already held, under the bot that owns each one.
-   Folded at the foot of the sidebar: a window that just opened should not
-   read as somebody else's history. */
+   The element that opens them is the last thing in the sidebar, so it is
+   always in the same place and always reachable: a window that just opened
+   should not read as somebody else's history, and a long history should not
+   push the foot of the sidebar away. */
 .history {
-  margin-top: 14px;
-  padding-top: 6px;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column-reverse;
+  padding: 0 10px 2px;
   border-top: 1px solid var(--divider);
 }
 
@@ -915,7 +919,7 @@ button:focus-visible {
   width: 100%;
   align-items: center;
   gap: 7px;
-  padding: 8px 10px;
+  padding: 9px 10px;
   border-radius: 9px;
   color: #8b8b93;
   transition:
@@ -946,7 +950,7 @@ button:focus-visible {
 }
 
 .history-caret.is-open {
-  transform: rotate(0deg);
+  transform: rotate(180deg);
 }
 
 .history-label {
@@ -984,7 +988,14 @@ button:focus-visible {
 }
 
 .history-body {
+  max-height: min(46vh, 340px);
+  overflow-y: auto;
   padding: 2px 0 4px;
+  scrollbar-width: none;
+}
+
+.history-body::-webkit-scrollbar {
+  display: none;
 }
 
 .history-group + .history-group {

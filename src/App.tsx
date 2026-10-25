@@ -2953,73 +2953,73 @@ export default function App() {
           pastView.total === 0 ? (
             <p className="no-results">No agents found</p>
           ) : null}
-
-          {pastGroups.length ? (
-            <section className="history" aria-label="Past conversations">
-              <button
-                type="button"
-                className="history-toggle"
-                aria-expanded={historyOpen}
-                onClick={() => setHistoryOpen((open) => !open)}
-              >
-                <span
-                  className={`history-caret ${historyOpen ? 'is-open' : ''}`}
-                  aria-hidden="true"
-                />
-                <span className="history-label">Past conversations</span>
-                <span className="history-tag">Preview</span>
-                <span className="history-count">{pastView.total}</span>
-              </button>
-
-              {historyOpen ? (
-                <div className="history-body">
-                  {pastView.groups.map((group) => (
-                    <div className="history-group" key={group.key}>
-                      <div className="history-group-head">
-                        <AgentAvatar
-                          avatar={group.avatar}
-                          size={16}
-                          showBadge={false}
-                        />
-                        <span className="history-group-name">{group.name}</span>
-                      </div>
-                      {group.sessions.map((session) => (
-                        <button
-                          type="button"
-                          key={session.id}
-                          className={`history-row ${
-                            pastOpen?.session.id === session.id ? 'is-active' : ''
-                          }`}
-                          onClick={() => openPastConversation(group, session)}
-                          title={pastTitle(session)}
-                        >
-                          <span className="history-row-title">
-                            {pastTitle(session)}
-                          </span>
-                          <span className="history-row-meta">
-                            {relativeDay(historyNow, session.lastActive)} ·{' '}
-                            {session.messageCount}{' '}
-                            {session.messageCount === 1 ? 'message' : 'messages'}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  ))}
-                  {pastView.hidden ? (
-                    <button
-                      type="button"
-                      className="history-more"
-                      onClick={() => setHistoryAll(true)}
-                    >
-                      See the {pastView.hidden}{' '}
-                      {pastView.hidden === 1 ? 'other' : 'others'}
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-            </section>
-          ) : null}
         </nav>
+
+        {pastGroups.length ? (
+          <section className="history" aria-label="Past conversations">
+            <button
+              type="button"
+              className="history-toggle"
+              aria-expanded={historyOpen}
+              onClick={() => setHistoryOpen((open) => !open)}
+            >
+              <span
+                className={`history-caret ${historyOpen ? 'is-open' : ''}`}
+                aria-hidden="true"
+              />
+              <span className="history-label">Past conversations</span>
+              <span className="history-tag">Preview</span>
+              <span className="history-count">{pastView.total}</span>
+            </button>
+
+            {historyOpen ? (
+              <div className="history-body">
+                {pastView.groups.map((group) => (
+                  <div className="history-group" key={group.key}>
+                    <div className="history-group-head">
+                      <AgentAvatar
+                        avatar={group.avatar}
+                        size={16}
+                        showBadge={false}
+                      />
+                      <span className="history-group-name">{group.name}</span>
+                    </div>
+                    {group.sessions.map((session) => (
+                      <button
+                        type="button"
+                        key={session.id}
+                        className={`history-row ${
+                          pastOpen?.session.id === session.id ? 'is-active' : ''
+                        }`}
+                        onClick={() => openPastConversation(group, session)}
+                        title={pastTitle(session)}
+                      >
+                        <span className="history-row-title">
+                          {pastTitle(session)}
+                        </span>
+                        <span className="history-row-meta">
+                          {relativeDay(historyNow, session.lastActive)} ·{' '}
+                          {session.messageCount}{' '}
+                          {session.messageCount === 1 ? 'message' : 'messages'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+                {pastView.hidden ? (
+                  <button
+                    type="button"
+                    className="history-more"
+                    onClick={() => setHistoryAll(true)}
+                  >
+                    See the {pastView.hidden}{' '}
+                    {pastView.hidden === 1 ? 'other' : 'others'}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         <div className="sidebar-footer">
           <div className="footer-identity">
