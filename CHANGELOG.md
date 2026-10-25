@@ -8,6 +8,18 @@ follow [semantic versioning](https://semver.org/).
 
 ### Added
 
+- **The conversations of before.** The sidebar lists the sessions Hermes
+  already holds and the app did not open — the ones the CLI wrote, another
+  client, an older install. They sit under the bot whose profile holds them,
+  folded away at the foot of the list with the day of their last word and how
+  much they hold: a bot is the face of a profile, so no bot is invented and no
+  session moves house. Choosing one draws it over its bot, with the way back
+  above the title, and the composer says whose session it is — with
+  **Start a new one** beside it — before the first word. The read itself is
+  not written yet: the section is marked **Preview**, `src/history.ts` stands
+  in for `/api/sessions` without its `source` filter, and an answer written
+  there says out loud that it is simulated.
+
 - **The phone.** `mobile/` is the same interface one screen wide: an Expo app
   that lists the bots, reads a conversation back from the host, and sends a
   turn that streams as it is written. A phone cannot open an SSH tunnel, so
