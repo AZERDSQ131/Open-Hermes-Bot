@@ -1584,6 +1584,20 @@ describe('the sessions of before', () => {
     expect(screen.queryByText(/started outside the app/)).toBeNull();
     expect(screen.queryByText(/^since /)).toBeNull();
   });
+
+  it('leaves the session with the escape key, unless a word is written', async () => {
+    await openHistory(makeBridge());
+    await userEvent.click(
+      screen.getAllByRole('button', { name: /Bridge audit/ })[0],
+    );
+    await userEvent.type(screen.getByLabelText(/Message/), 'half a thought');
+    await userEvent.keyboard('{Escape}');
+    // A word already written is not thrown away by a key.
+    expect(screen.getByText(/started outside the app/)).toBeTruthy();
+    await userEvent.clear(screen.getByLabelText(/Message/));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByText(/started outside the app/)).toBeNull();
+  });
 });
 
 describe('a warming bot past its delay', () => {

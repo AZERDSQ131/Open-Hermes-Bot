@@ -1128,6 +1128,20 @@ export default function App() {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [sidebarOpen]);
 
+  // Escape leaves a past conversation the way the back arrow does — but only
+  // an empty composer: a word already written is not thrown away by a key.
+  useEffect(() => {
+    if (!pastOpen) return;
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (draft.trim()) return;
+      if (settingsOpen || createOpen || logoOpen || mentionMatch) return;
+      closePastConversation();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [pastOpen, draft, settingsOpen, createOpen, logoOpen, mentionMatch]);
+
   useEffect(() => {
     if (!renaming) return;
     const input = nameInputRef.current;
