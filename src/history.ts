@@ -147,7 +147,15 @@ export function groupPastSessions(
   return groups.sort(
     (a, b) =>
       Number(b.key === 'default') - Number(a.key === 'default') ||
-      (b.sessions[0]?.lastActive ?? 0) - (a.sessions[0]?.lastActive ?? 0),
+      latest(b) - latest(a),
+  );
+}
+
+/** When a group was last spoken to: the newest of what it holds. */
+function latest(group: PastGroup): number {
+  return group.sessions.reduce(
+    (newest, session) => Math.max(newest, session.lastActive),
+    0,
   );
 }
 
