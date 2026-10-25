@@ -921,14 +921,6 @@ button:focus-visible {
   padding: 7px 10px;
   border-radius: 9px;
   color: #6e6e76;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
-}
-
-.history-toggle:hover {
-  background: var(--row-hover);
-  color: #a4a4ac;
 }
 
 .history-toggle:focus-visible {
