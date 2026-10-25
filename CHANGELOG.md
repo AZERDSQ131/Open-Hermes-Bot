@@ -16,8 +16,8 @@ follow [semantic versioning](https://semver.org/).
   session moves house. Choosing one draws it over its bot, with the way back
   above the title, and the composer says whose session it is — with
   **Start a new one** beside it — before the first word. The read itself is
-  not written yet: the section is marked **Preview**, `src/history.ts` stands
-  in for `/api/sessions` without its `source` filter, and an answer written
+  not written yet: `src/history.ts` stands in for `/api/sessions` without its
+  `source` filter, the room says so on its first line, and an answer written
   there says out loud that it is simulated.
 
 - **The phone.** `mobile/` is the same interface one screen wide: an Expo app
