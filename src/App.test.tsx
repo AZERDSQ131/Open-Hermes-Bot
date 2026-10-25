@@ -35,6 +35,74 @@ function makeBridge(overrides: Record<string, unknown> = {}) {
         { role: 'assistant', content: 'Hi there', timestamp: 2 },
       ],
     })),
+    // The sessions the host already held: one per case the window has to
+    // know about — an unnamed one, an archived one, a group, and the very
+    // conversation Bob is already showing.
+    history: vi.fn(async (payload?: { profile?: string }) => {
+      const now = Date.now();
+      // The bots of the bridge hold nothing of their own here: the primary
+      // profile is the one with a past, which is the case worth drawing.
+      if (payload?.profile) return { ok: true, sessions: [] };
+      return {
+        ok: true,
+        sessions: [
+          {
+            id: 'past-audit',
+            title: 'Bridge audit',
+            messageCount: 41,
+            lastActive: now - 2 * 60 * 60 * 1000,
+            archived: false,
+          },
+          {
+            id: 'past-untitled',
+            title: '',
+            messageCount: 4,
+            lastActive: now - 3 * 24 * 60 * 60 * 1000,
+            archived: false,
+          },
+          {
+            id: 'past-tunnel',
+            title: 'Tunnel refactor',
+            messageCount: 12,
+            lastActive: now - 8 * 24 * 60 * 60 * 1000,
+            archived: false,
+          },
+          {
+            id: 'past-release',
+            title: 'Release checklist',
+            messageCount: 7,
+            lastActive: now - 30 * 24 * 60 * 60 * 1000,
+            archived: false,
+          },
+          {
+            id: 'sess-bob',
+            title: 'Bob',
+            messageCount: 2,
+            lastActive: 10,
+            archived: false,
+          },
+          {
+            id: 'past-archived',
+            title: 'Old room',
+            messageCount: 3,
+            lastActive: 5,
+            archived: true,
+          },
+          {
+            id: 'past-group',
+            title: 'Group · three · Bob',
+            messageCount: 9,
+            lastActive: 5,
+            archived: false,
+          },
+        ],
+      };
+    }),
+    renameSession: vi.fn(
+      async (_payload: { sessionId: string; title: string; profile?: string }) => ({
+        ok: true,
+      }),
+    ),
     status: vi.fn(async () => ({ state: 'connected', version: '0.21.5' })),
     onStatus: vi.fn(() => () => undefined),
     sendChat: vi.fn(
@@ -71,7 +139,6 @@ function makeBridge(overrides: Record<string, unknown> = {}) {
     ),
     deleteBot: vi.fn(async () => ({ ok: true })),
     deleteSession: vi.fn(async () => ({ ok: true })),
-    renameSession: vi.fn(async () => ({ ok: true })),
     uploadAttachment: vi.fn(async () => ({
       ok: true,
       path: '/home/jules/file.txt',
@@ -1491,20 +1558,22 @@ describe('a turn that stopped before the end', () => {
 });
 
 describe('the sessions of before', () => {
+  // The dock lives at the foot of the sidebar and is closed until asked for.
   async function openHistory(bridge: Record<string, unknown>) {
     await renderApp(bridge);
-    await userEvent.click(
-      screen.getByRole('button', { name: /Past conversations/ }),
-    );
+    const toggle = await screen.findByRole('button', {
+      name: /Past conversations/,
+    });
+    await userEvent.click(toggle);
   }
 
   it('keeps the way into the history at the foot of the sidebar', async () => {
     await renderApp(makeBridge());
-    const toggle = screen.getByRole('button', { name: /Past conversations/ });
+    const toggle = await screen.findByRole('button', {
+      name: /Past conversations/,
+    });
     const nav = screen.getByRole('navigation', { name: 'Agents' });
     const settings = screen.getByRole('button', { name: 'Settings' });
-    // Out of the scroll of the bots, and the last thing before the foot: a
-    // long history never pushes the way in out of reach.
     expect(
       nav.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
@@ -1516,44 +1585,57 @@ describe('the sessions of before', () => {
 
   it('folds the history away until someone asks for it', async () => {
     await renderApp(makeBridge());
-    const toggle = screen.getByRole('button', { name: /Past conversations/ });
+    const toggle = await screen.findByRole('button', {
+      name: /Past conversations/,
+    });
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByText('Bridge audit')).toBeNull();
   });
 
-  it('shows the past conversations under the bot that owns them', async () => {
+  it('lists what the host answered, under the bot that owns it', async () => {
     await openHistory(makeBridge());
     expect(
       screen.getByRole('button', { name: /Past conversations/ }).getAttribute(
         'aria-expanded',
       ),
     ).toBe('true');
-    // The two bots of the bridge, and the primary one, each hold a group.
-    expect(screen.getAllByText('Chief of Staff').length).toBeGreaterThan(1);
-    expect(screen.getByText('Bob', { selector: '.history-group-name' })).toBeTruthy();
-    expect(screen.getAllByText('Bridge audit').length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('Chief of Staff').length,
+    ).toBeGreaterThan(1);
+    expect(screen.getByText('Bridge audit')).toBeTruthy();
+    expect(screen.getByText('Tunnel refactor')).toBeTruthy();
+  });
+
+  it('does not list the conversation a bot is already showing', async () => {
+    const bridge = makeBridge();
+    await openHistory(bridge);
+    // Bob's own session came in the same answer, and the section has no row
+    // for it: one room, one place.
+    expect(
+      screen.queryByText('Bob', { selector: '.history-group-name' }),
+    ).toBeNull();
+    expect(screen.queryByText('Old room')).toBeNull();
+    expect(screen.queryByText('Group · three · Bob')).toBeNull();
   });
 
   it('reads a session the CLI never named as a sentence', async () => {
     await openHistory(makeBridge());
-    expect(screen.getAllByText('Untitled conversation').length).toBe(1);
+    expect(screen.getByText('Untitled conversation')).toBeTruthy();
   });
 
   it('counts what the fold hides, and opens it', async () => {
     await openHistory(makeBridge());
-    const more = screen.getByRole('button', { name: /See the 2 others/ });
-    const before = screen.getAllByText(/^(Bridge audit|Tunnel refactor|Release checklist|Weekly notes)$/).length;
+    const more = await screen.findByRole('button', { name: /See the 1 other/ });
+    expect(screen.queryByText('Release checklist')).toBeNull();
     await userEvent.click(more);
     expect(screen.queryByRole('button', { name: /See the/ })).toBeNull();
-    expect(
-      screen.getAllByText(/^(Bridge audit|Tunnel refactor|Release checklist|Weekly notes)$/).length,
-    ).toBeGreaterThan(before);
+    expect(screen.getByText('Release checklist')).toBeTruthy();
   });
 
   it('searches the history with the search the sidebar already has', async () => {
     await openHistory(makeBridge());
     await userEvent.type(screen.getByLabelText('Search agents'), 'tunnel');
-    expect(screen.getAllByText('Tunnel refactor').length).toBeGreaterThan(0);
+    expect(screen.getByText('Tunnel refactor')).toBeTruthy();
     expect(screen.queryByText('Bridge audit')).toBeNull();
   });
 
@@ -1571,41 +1653,70 @@ describe('the sessions of before', () => {
     expect(screen.queryByText('No past conversation matches.')).toBeNull();
   });
 
-  it('does not say no agents when only the history matched', async () => {
-    await openHistory(makeBridge());
-    await userEvent.type(screen.getByLabelText('Search agents'), 'tunnel');
-    expect(screen.queryByText('No agents found')).toBeNull();
+  it('says when the host did not answer, and asks again', async () => {
+    let failing = true;
+    const history = vi.fn(async (payload?: { profile?: string }) =>
+      failing
+        ? { ok: false, error: 'no route to host' }
+        : payload?.profile
+          ? { ok: true, sessions: [] }
+          : {
+            ok: true,
+            sessions: [
+              {
+                id: 'past-audit',
+                title: 'Bridge audit',
+                messageCount: 41,
+                lastActive: Date.now(),
+                archived: false,
+              },
+            ],
+          },
+    );
+    const bridge = makeBridge({ history });
+    await openHistory(bridge);
+    expect(await screen.findByText(/no route to host/)).toBeTruthy();
+    failing = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Bridge audit')).toBeTruthy();
   });
 
-  it('reads a past conversation over the bot that owns it', async () => {
+  it('reads a past conversation from the host, over the bot that owns it', async () => {
     const bridge = makeBridge();
     await openHistory(bridge);
-    const reads = bridge.messages.mock.calls.length;
     await userEvent.click(
-      screen.getAllByRole('button', { name: /Bridge audit/ })[0],
+      screen.getByRole('button', { name: /Bridge audit/ }),
     );
     expect(
       await screen.findByText(/This conversation started outside the app/),
     ).toBeTruthy();
+    // The transcript comes from the session, not from the window.
+    await waitFor(() =>
+      expect(bridge.messages).toHaveBeenCalledWith(
+        expect.objectContaining({ sessionId: 'past-audit' }),
+      ),
+    );
     expect(
-      screen.getByRole('button', { name: /Back to Chief of Staff/ }),
+      await screen.findByText('Hello', { selector: '.bubble' }),
     ).toBeTruthy();
-    // The session is not read by the app yet: the room is a preview.
-    expect(bridge.messages.mock.calls.length).toBe(reads);
-    // One room is open at a time: the bot's row waits while the session is read.
-    const botRow = screen
-      .getByText('Chief of Staff', { selector: '.thread-name' })
-      .closest('button');
-    expect(botRow?.getAttribute('aria-current')).toBeNull();
+  });
+
+  it('says when a conversation cannot be read', async () => {
+    const bridge = makeBridge({
+      messages: vi.fn(async () => ({ ok: false, error: 'that room is gone' })),
+    });
+    await openHistory(bridge);
+    await userEvent.click(
+      screen.getByRole('button', { name: /Bridge audit/ }),
+    );
+    expect(await screen.findByText('that room is gone')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
   });
 
   it('goes back to the bot without losing it', async () => {
-    await renderApp(makeBridge());
+    await openHistory(makeBridge());
     await userEvent.click(
-      screen.getByRole('button', { name: /Past conversations/ }),
-    );
-    await userEvent.click(
-      screen.getAllByRole('button', { name: /Bridge audit/ })[0],
+      screen.getByRole('button', { name: /Bridge audit/ }),
     );
     await userEvent.click(
       screen.getByRole('button', { name: /Back to Chief of Staff/ }),
@@ -1614,61 +1725,94 @@ describe('the sessions of before', () => {
     expect(screen.getByLabelText(/Message/)).toBeTruthy();
   });
 
-  it('says which session the composer writes into', async () => {
-    await openHistory(makeBridge());
-    await userEvent.click(
-      screen.getAllByRole('button', { name: /Bridge audit/ })[0],
-    );
-    const chip = (await screen.findByText(/^since /)).closest(
-      '.composer-context',
-    );
-    expect(chip?.textContent).toContain('Chief of Staff');
-    expect(
-      screen.getByRole('button', { name: 'Start a new one' }),
-    ).toBeTruthy();
-  });
-
-  it('writes into the session without pretending the host answered', async () => {
+  it('resumes a conversation as the bot\'s own, setting the old room aside', async () => {
     const bridge = makeBridge();
     await openHistory(bridge);
     await userEvent.click(
-      screen.getAllByRole('button', { name: /Bridge audit/ })[0],
+      screen.getByRole('button', { name: /Bridge audit/ }),
     );
-    await userEvent.type(screen.getByLabelText(/Message/), 'Where were we?');
-    await userEvent.keyboard('{Enter}');
-    expect(await screen.findByText('Where were we?')).toBeTruthy();
-    expect(
-      await screen.findByText(/This reply is simulated/),
-    ).toBeTruthy();
-    // Nothing reached Hermes: there is no turn on a session the app did not
-    // open yet.
-    expect(bridge.sendChat).not.toHaveBeenCalled();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Continue in Chief of Staff',
+      }),
+    );
+    // The room the bot was in is renamed to its day, and the chosen session
+    // takes the bot's name: one conversation per bot, nothing deleted.
+    await waitFor(() =>
+      expect(bridge.renameSession).toHaveBeenCalledWith(
+        expect.objectContaining({ sessionId: 'past-audit', title: 'Chief of Staff' }),
+      ),
+    );
+    expect(bridge.renameSession).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/started outside the app/)).toBeNull();
+    expect(await screen.findByText('Hello', { selector: '.bubble' })).toBeTruthy();
   });
 
-  it('leaves the session alone from the composer', async () => {
-    await openHistory(makeBridge());
+  it('sets the room in use aside before taking the new one', async () => {
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({
+        ok: true,
+        sessions: [
+          {
+            id: 'sess-chief',
+            title: 'Chief of Staff',
+            messageCount: 9,
+            lastActive: 10,
+            archived: false,
+          },
+        ],
+      })),
+      history: vi.fn(async (payload?: { profile?: string }) =>
+        payload?.profile
+          ? { ok: true, sessions: [] }
+          : {
+              ok: true,
+              sessions: [
+                {
+                  id: 'past-audit',
+                  title: 'Bridge audit',
+                  messageCount: 41,
+                  lastActive: Date.now() - 2 * 60 * 60 * 1000,
+                  archived: false,
+                },
+              ],
+            },
+      ),
+    });
+    await openHistory(bridge);
     await userEvent.click(
-      screen.getAllByRole('button', { name: /Bridge audit/ })[0],
+      screen.getByRole('button', { name: /Bridge audit/ }),
+    );
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Continue in Chief of Staff',
+      }),
+    );
+    await waitFor(() => expect(bridge.renameSession).toHaveBeenCalledTimes(2));
+    const calls = bridge.renameSession.mock.calls.map(([payload]) => payload);
+    expect(calls[0]).toEqual(
+      expect.objectContaining({ sessionId: 'sess-chief' }),
+    );
+    expect(calls[0].title).toContain('Chief of Staff ·');
+    expect(calls[1]).toEqual(
+      expect.objectContaining({
+        sessionId: 'past-audit',
+        title: 'Chief of Staff',
+      }),
+    );
+  });
+
+  it('leaves the session alone when the person starts a new one', async () => {
+    const bridge = makeBridge();
+    await openHistory(bridge);
+    await userEvent.click(
+      screen.getByRole('button', { name: /Bridge audit/ }),
     );
     await userEvent.click(
       screen.getByRole('button', { name: 'Start a new one' }),
     );
     expect(screen.queryByText(/started outside the app/)).toBeNull();
-    expect(screen.queryByText(/^since /)).toBeNull();
-  });
-
-  it('leaves the session with the escape key, unless a word is written', async () => {
-    await openHistory(makeBridge());
-    await userEvent.click(
-      screen.getAllByRole('button', { name: /Bridge audit/ })[0],
-    );
-    await userEvent.type(screen.getByLabelText(/Message/), 'half a thought');
-    await userEvent.keyboard('{Escape}');
-    // A word already written is not thrown away by a key.
-    expect(screen.getByText(/started outside the app/)).toBeTruthy();
-    await userEvent.clear(screen.getByLabelText(/Message/));
-    await userEvent.keyboard('{Escape}');
-    expect(screen.queryByText(/started outside the app/)).toBeNull();
+    expect(bridge.renameSession).not.toHaveBeenCalled();
   });
 
   it('folds the history with the escape key', async () => {

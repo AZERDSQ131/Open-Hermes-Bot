@@ -1070,6 +1070,73 @@ button:focus-visible {
   white-space: nowrap;
 }
 
+/* The read is on its way: three rows of what a row will look like, so the
+   dock does not open on a hole. */
+.history-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 10px 10px 12px 33px;
+}
+
+.history-skeleton span {
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.09),
+    rgba(255, 255, 255, 0.05)
+  );
+  background-size: 200% 100%;
+  animation: history-shimmer 1.4s ease-in-out infinite;
+}
+
+.history-skeleton span:nth-child(2) {
+  width: 72%;
+  animation-delay: 0.15s;
+}
+
+.history-skeleton span:nth-child(3) {
+  width: 54%;
+  animation-delay: 0.3s;
+}
+
+@keyframes history-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -20% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history-skeleton span {
+    animation: none;
+  }
+}
+
+/* A read that failed says so where the rows would be, and offers the one
+   thing to do about it. */
+.history-error {
+  margin: 4px 10px 8px;
+  color: #c8a37a;
+  font-size: 11.5px;
+  letter-spacing: -0.002em;
+  line-height: 1.5;
+}
+
+.history-retry {
+  color: #d9b892;
+  font-size: inherit;
+  text-decoration: underline;
+}
+
+.history-retry:hover {
+  color: #f0d6bb;
+}
+
 /* A search that matched nothing in the history says so: an empty dock is a
    gap, not an answer. */
 .history-empty {
@@ -1641,6 +1708,43 @@ button:focus-visible {
 .composer-context-action:hover {
   background: rgba(255, 255, 255, 0.06);
   color: #e6e6ea;
+}
+
+/* The way out of a read-only room: the one action that makes it the bot's. */
+.composer-context-action.is-primary {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
+  color: #f1f1f4;
+}
+
+.composer-context-action.is-primary:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+/* What a room that is being read says while it is being read, or when it
+   could not be. */
+.past-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 40px auto;
+  max-width: 460px;
+  color: #8a8a92;
+  font-size: 13px;
+  letter-spacing: -0.003em;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.past-state.is-error {
+  flex-direction: column;
+  color: #c8a37a;
+}
+
+.past-state.is-error p {
+  margin: 0;
 }
 
 /* The server is out of reach: the chat says so, and says where to fix it. */
