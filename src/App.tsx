@@ -52,6 +52,17 @@ import {
   privateTranscript,
 } from './conversations';
 import {
+  groupPastSessions,
+  pastTitle,
+  relativeDay,
+  shortDay,
+  simulatedPastSessions,
+  simulatedTranscript,
+  viewPastConversations,
+  type PastGroup,
+  type PastSession,
+} from './history';
+import {
   extractReaction,
   REACTION_PROMPT,
   stripReactionMarkers,
@@ -480,6 +491,25 @@ export default function App() {
   const [hermesStatus, setHermesStatus] = useState<HermesStatus>({
     state: 'disconnected',
   });
+  // The conversations Hermes held before this window: a session is held by a
+  // profile, so each one belongs under the bot that owns it. Folded away until
+  // someone asks — a new install should not open on another client's history.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  // Folded, a group shows a few conversations and counts the rest; this opens
+  // the count. It is not kept: the fold is a mood, not a setting.
+  const [historyAll, setHistoryAll] = useState(false);
+  // One clock for the simulation: the dates a screenshot shows do not move
+  // while the window stays open.
+  const historyNow = useRef(Date.now()).current;
+  // The past conversation being read, when one is: a session is not a bot, so
+  // it is drawn over the bot that owns it rather than taking its place.
+  const [pastOpen, setPastOpen] = useState<{
+    group: PastGroup;
+    session: PastSession;
+  } | null>(null);
+  // What the room said, as far as this window knows: the lines read back, and
+  // whatever is said here once the composer is used.
+  const [pastMessages, setPastMessages] = useState<Message[]>([]);
 
   // One live turn per thread, keyed by thread: a new message replaces the turn
   // in flight, and a replaced turn must not paint over the new one.
@@ -655,6 +685,11 @@ export default function App() {
 
   const activeThread =
     threads.find((thread) => thread.id === activeId) ?? threads[0];
+
+  // What the window draws: the bot's conversation, or the past conversation
+  // read over it. The past one is a session the app did not open, so it never
+  // replaces the bot in the sidebar.
+  const shownMessages = pastOpen ? pastMessages : activeThread.messages;
 
   // A conversation is read back from the server when it is opened: the app
   // keeps no copy of it, so what the room said is where Hermes put it.
@@ -834,6 +869,21 @@ export default function App() {
           thread.preview.toLowerCase().includes(needle)),
     );
   }, [query, orderedThreads]);
+
+  // The past conversations of the host, under the bot that owns each one. The
+  // host read is not written yet: `simulatedPastSessions` stands in for the
+  // listing, and it is the only line that goes when `/api/sessions` answers
+  // without the `source=api_server` filter.
+  const pastGroups = useMemo(
+    () => groupPastSessions(simulatedPastSessions(threads, historyNow), threads),
+    [historyNow, threads],
+  );
+
+  // What the section shows: the fold, and the search the sidebar already has.
+  const pastView = useMemo(
+    () => viewPastConversations(pastGroups, { query, all: historyAll }),
+    [pastGroups, query, historyAll],
+  );
 
   const contextThread = contextMenu
     ? (threads.find((thread) => thread.id === contextMenu.threadId) ?? null)
@@ -1145,6 +1195,9 @@ export default function App() {
 
   function selectThread(id: string) {
     setActiveId(id);
+    // A bot is a bot: choosing one leaves the past conversation it was read
+    // under, rather than showing the two at once.
+    setPastOpen(null);
     setThreads((current) =>
       current.map((thread) =>
         thread.id === id && thread.unread
@@ -1161,11 +1214,34 @@ export default function App() {
     composerRef.current?.blur();
   }
 
-  function openSettings(section: Section = 'connection') {
+  /**
+   * Reading a past conversation: the room is drawn over the bot that owns it,
+   * and nothing is adopted. The window keeps the lines it was handed — the
+   * session itself stays on the host.
+   */
+  function openPastConversation(group: PastGroup, session: PastSession) {
+    setPastOpen({ group, session });
+    setPastMessages(simulatedTranscript(session));
     setContextMenu(null);
     setLogoOpen(false);
     setRenaming(false);
     setSidebarOpen(false);
+    setDraft('');
+    setMentionHidden(true);
+    clearAttachments();
+    stopDictation();
+    window.requestAnimationFrame(() => composerRef.current?.focus());
+  }
+
+  /** Back to the bot that owns the session: the bot never went anywhere. */
+  function closePastConversation() {
+    setPastOpen(null);
+    setPastMessages([]);
+    setSidebarOpen(false);
+  }
+
+  function openSettings(section: Section = 'connection') {
+    setContextMenu(null);
     setSettingsSection(section);
     setSettingsOpen(true);
   }
@@ -2805,8 +2881,76 @@ export default function App() {
             );
           })}
 
-          {filteredThreads.length === 0 && pinnedThreads.length === 0 ? (
+          {filteredThreads.length === 0 &&
+          pinnedThreads.length === 0 &&
+          pastView.total === 0 ? (
             <p className="no-results">No agents found</p>
+          ) : null}
+
+          {pastGroups.length ? (
+            <section className="history" aria-label="Past conversations">
+              <button
+                type="button"
+                className="history-toggle"
+                aria-expanded={historyOpen}
+                onClick={() => setHistoryOpen((open) => !open)}
+              >
+                <span
+                  className={`history-caret ${historyOpen ? 'is-open' : ''}`}
+                  aria-hidden="true"
+                />
+                <span className="history-label">Past conversations</span>
+                <span className="history-tag">Preview</span>
+                <span className="history-count">{pastView.total}</span>
+              </button>
+
+              {historyOpen ? (
+                <div className="history-body">
+                  {pastView.groups.map((group) => (
+                    <div className="history-group" key={group.key}>
+                      <div className="history-group-head">
+                        <AgentAvatar
+                          avatar={group.avatar}
+                          size={16}
+                          showBadge={false}
+                        />
+                        <span className="history-group-name">{group.name}</span>
+                      </div>
+                      {group.sessions.map((session) => (
+                        <button
+                          type="button"
+                          key={session.id}
+                          className={`history-row ${
+                            pastOpen?.session.id === session.id ? 'is-active' : ''
+                          }`}
+                          onClick={() => openPastConversation(group, session)}
+                          title={pastTitle(session)}
+                        >
+                          <span className="history-row-title">
+                            {pastTitle(session)}
+                          </span>
+                          <span className="history-row-meta">
+                            {relativeDay(historyNow, session.lastActive)} ·{' '}
+                            {session.messageCount}{' '}
+                            {session.messageCount === 1 ? 'message' : 'messages'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                  {pastView.hidden ? (
+                    <button
+                      type="button"
+                      className="history-more"
+                      onClick={() => setHistoryAll(true)}
+                    >
+                      See the {pastView.hidden}{' '}
+                      {pastView.hidden === 1 ? 'other' : 'others'}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
           ) : null}
         </nav>
 
@@ -2848,32 +2992,63 @@ export default function App() {
             >
               <MenuIcon size={19} />
             </button>
-            <div className="header-agent" ref={logoRef}>
-              <button
-                type="button"
-                className={`header-logo ${logoOpen ? 'is-open' : ''}`}
-                onClick={() => setLogoOpen((current) => !current)}
-                aria-label="Change logo"
-                aria-expanded={logoOpen}
-                title="Change logo"
-              >
+            {pastOpen ? (
+              <div className="header-agent">
                 <AgentAvatar
-                  avatar={activeThread.avatar}
+                  avatar={pastOpen.group.avatar}
                   size={27}
                   className="header-avatar"
                   showBadge={false}
                 />
-              </button>
-              {logoOpen ? (
-                <LogoEditor
-                  avatar={activeThread.avatar}
-                  onChange={updateActiveAvatar}
-                  onClose={() => setLogoOpen(false)}
-                />
-              ) : null}
-            </div>
+              </div>
+            ) : (
+              <div className="header-agent" ref={logoRef}>
+                <button
+                  type="button"
+                  className={`header-logo ${logoOpen ? 'is-open' : ''}`}
+                  onClick={() => setLogoOpen((current) => !current)}
+                  aria-label="Change logo"
+                  aria-expanded={logoOpen}
+                  title="Change logo"
+                >
+                  <AgentAvatar
+                    avatar={activeThread.avatar}
+                    size={27}
+                    className="header-avatar"
+                    showBadge={false}
+                  />
+                </button>
+                {logoOpen ? (
+                  <LogoEditor
+                    avatar={activeThread.avatar}
+                    onChange={updateActiveAvatar}
+                    onClose={() => setLogoOpen(false)}
+                  />
+                ) : null}
+              </div>
+            )}
 
-            {renaming ? (
+            {pastOpen ? (
+              <div className="chat-heading">
+                <button
+                  type="button"
+                  className="chat-back"
+                  onClick={closePastConversation}
+                  aria-label={`Back to ${pastOpen.group.name}`}
+                  title={`Back to ${pastOpen.group.name}`}
+                >
+                  <span className="chat-back-caret" aria-hidden="true">
+                    ‹
+                  </span>
+                  {pastOpen.group.name}
+                </button>
+                <h1 className="chat-title">
+                  <span className="chat-title-static">
+                    {pastTitle(pastOpen.session)}
+                  </span>
+                </h1>
+              </div>
+            ) : renaming ? (
               <input
                 ref={nameInputRef}
                 className="chat-title-input"
@@ -2973,7 +3148,7 @@ export default function App() {
                   </button>
                 </div>
               </div>
-            ) : activeThread.messages.length === 0 ? (
+            ) : shownMessages.length === 0 ? (
               <div className="empty-state">
                 <AgentAvatar
                   avatar={activeThread.avatar}
@@ -2994,9 +3169,17 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="chat-time">{activeThread.chatTime}</div>
+                {pastOpen ? (
+                  <p className="past-notice">
+                    This conversation started outside the app on{' '}
+                    {shortDay(pastOpen.session.lastActive)}. Your next message
+                    continues it.
+                  </p>
+                ) : (
+                  <div className="chat-time">{activeThread.chatTime}</div>
+                )}
 
-                {activeThread.messages.map((message) =>
+                {shownMessages.map((message) =>
                   message.role === 'event' ? (
                     <div className="chat-event" key={message.id}>
                       {message.text}
