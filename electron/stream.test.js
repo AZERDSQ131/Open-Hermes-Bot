@@ -44,6 +44,9 @@ describe('why a turn stopped', () => {
     expect(exitReasonWords('context_compression_timeout')).toBe(
       'the conversation outgrew what the model can hold',
     );
+    expect(exitReasonWords('text_response(finish_reason=stop)')).toBe(
+      'the model answered and stopped (stop), and the host still marked the turn unfinished',
+    );
     expect(exitReasonWords('empty_response_exhausted')).toBe(
       'the model kept answering nothing',
     );
