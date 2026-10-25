@@ -34,6 +34,26 @@ the connection again.
 
 In `local` mode there is no tunnel to open and none to miss.
 
+## The key
+
+Hermes checks every call against the `API_SERVER_KEY` of its own home
+(`~/.hermes/.env`). The app keeps a copy in the Keychain, and that copy is the
+only thing it holds about the door — so the copy goes stale: the key is
+rotated, Hermes is reinstalled, or the key read on this Mac is still in the
+pocket when the person points the app at a Pi.
+
+The machine's own home is the truth. When the health probe answers `401`, the
+app reads `API_SERVER_KEY` from the Hermes home of the machine it is talking
+to and tries it: the host's key is adopted **only** when the host accepts it,
+and the machine it came from is written down beside the connection record. A
+key that fails too leaves the old one where it was, and the person reads what
+to check instead of a dead end.
+
+A key that came from another machine is not offered as one that fits: the
+settings say which machine it belongs to, and the next connect reads the key
+of the machine in front of the person. `electron/keys.js` holds those rules,
+tested to the line.
+
 ## The API
 
 Everything rides `http://127.0.0.1:<localPort>` in `ssh` mode and
