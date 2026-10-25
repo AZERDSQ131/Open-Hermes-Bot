@@ -899,6 +899,249 @@ button:focus-visible {
   text-align: center;
 }
 
+/* ------------------------------------------------- the sessions of before */
+
+/* The conversations Hermes already held, under the bot that owns each one.
+   Folded at the foot of the sidebar: a window that just opened should not
+   read as somebody else's history. */
+.history {
+  margin-top: 14px;
+  padding-top: 6px;
+  border-top: 1px solid var(--divider);
+}
+
+.history-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  color: #8b8b93;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.history-toggle:hover {
+  background: var(--row-hover);
+  color: #b6b6bd;
+}
+
+.history-toggle:focus-visible {
+  outline-offset: -2px;
+}
+
+/* A small caret that turns when the section opens: the fold is the only
+   thing it says. */
+.history-caret {
+  width: 0;
+  height: 0;
+  flex: 0 0 auto;
+  border-top: 4px solid currentColor;
+  border-right: 4px solid transparent;
+  border-left: 4px solid transparent;
+  transform: rotate(-90deg);
+  transition: transform 140ms ease;
+}
+
+.history-caret.is-open {
+  transform: rotate(0deg);
+}
+
+.history-label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* The stand-in for the host read, said plainly and once. It goes with it. */
+.history-tag {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 5px;
+  color: #7c7c85;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.history-count {
+  flex: 0 0 auto;
+  min-width: 14px;
+  color: #7c7c85;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.history-body {
+  padding: 2px 0 4px;
+}
+
+.history-group + .history-group {
+  margin-top: 8px;
+}
+
+.history-group-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px 4px;
+}
+
+.history-group-name {
+  overflow: hidden;
+  color: #8e8e96;
+  font-size: 11.5px;
+  font-weight: 550;
+  letter-spacing: -0.003em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-row {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px 6px 33px;
+  border-radius: 9px;
+  text-align: left;
+  transition: background-color 120ms ease;
+}
+
+.history-row + .history-row {
+  margin-top: 1px;
+}
+
+.history-row:hover {
+  background: var(--row-hover);
+}
+
+.history-row.is-active {
+  background: var(--row-active);
+}
+
+.history-row:focus-visible {
+  outline-offset: -2px;
+}
+
+.history-row-title {
+  overflow: hidden;
+  color: #cfcfd6;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-row.is-active .history-row-title {
+  color: #f0f0f2;
+}
+
+.history-row-meta {
+  overflow: hidden;
+  color: #78787f;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.002em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The rest of a bot's conversations, when the fold hides more than it shows. */
+.history-more {
+  display: block;
+  margin: 4px 10px 2px;
+  padding: 5px 6px 5px 23px;
+  border-radius: 8px;
+  color: #8f8f98;
+  font-size: 12px;
+  letter-spacing: -0.003em;
+  text-align: left;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.history-more:hover {
+  background: var(--row-hover);
+  color: #c6c6cd;
+}
+
+/* The line a past conversation carries: it says where it comes from, once,
+   before the person writes in somebody else's session. */
+.past-notice {
+  margin: 0 0 18px;
+  padding: 10px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  color: #9d9da5;
+  font-size: 12.5px;
+  letter-spacing: -0.004em;
+  line-height: 1.45;
+}
+
+/* The head of a past conversation: the way back to the bot, above its title,
+   because a session is not a bot and the bot never left. */
+.chat-heading {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.chat-back {
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  margin-left: -2px;
+  overflow: hidden;
+  padding: 1px 4px;
+  border-radius: 6px;
+  color: #85858d;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.002em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.chat-back:hover {
+  background: rgba(255, 255, 255, 0.055);
+  color: #c1c1c8;
+}
+
+.chat-back-caret {
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* A title that is read, not renamed: the session's name is the host's. */
+.chat-title-static {
+  display: block;
+  overflow: hidden;
+  padding: 1px 4px 1px 2px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .context-menu {
   position: fixed;
   z-index: 320;
