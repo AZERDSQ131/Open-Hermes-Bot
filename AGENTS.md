@@ -25,6 +25,7 @@ npm run build            # typecheck + production renderer build
 npm test                 # the tests
 npm run test:coverage    # the tests, and the coverage thresholds
 npm run dist             # the .app and the .dmg, in release/
+VITE_DEMO=1 npm run dev  # the window on a host that is not there (src/demo.ts)
 
 cd bridge && python3 -m unittest discover -s tests   # the phone's door
 cd mobile && npx tsc --noEmit                        # the phone's typecheck
