@@ -1461,6 +1461,22 @@ describe('the sessions of before', () => {
     );
   }
 
+  it('keeps the way into the history at the foot of the sidebar', async () => {
+    await renderApp(makeBridge());
+    const toggle = screen.getByRole('button', { name: /Past conversations/ });
+    const nav = screen.getByRole('navigation', { name: 'Agents' });
+    const settings = screen.getByRole('button', { name: 'Settings' });
+    // Out of the scroll of the bots, and the last thing before the foot: a
+    // long history never pushes the way in out of reach.
+    expect(
+      nav.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      toggle.compareDocumentPosition(settings) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it('folds the history away until someone asks for it', async () => {
     await renderApp(makeBridge());
     const toggle = screen.getByRole('button', { name: /Past conversations/ });
