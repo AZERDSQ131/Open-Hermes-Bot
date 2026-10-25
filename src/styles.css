@@ -3221,6 +3221,12 @@ button:focus-visible {
   line-height: 1.5;
 }
 
+/* A key that belongs to another machine says so where the key would be:
+   an empty field with no reason is a puzzle, not a setting. */
+.settings-field-note.is-warning {
+  color: #c8a37a;
+}
+
 .settings-field-actions {
   display: flex;
   flex-wrap: wrap;

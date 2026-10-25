@@ -41,6 +41,12 @@ export type HermesSettings = {
   localPort: number;
   autoConnect: boolean;
   hasKey: boolean;
+  /**
+   * The machine a saved key was read from, when that machine is not the one
+   * the app is configured for. The key does not travel: the app says so
+   * instead of offering a key that would be refused.
+   */
+  keyElsewhere?: string;
   /** Whether the person has already been through the setup. */
   onboardingCompleted: boolean;
 };

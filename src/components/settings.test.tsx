@@ -157,8 +157,37 @@ describe('the settings', () => {
     expect(bridge.connect).toHaveBeenCalled();
   });
 
-  it('ask for the key when the saved host has none to give', async () => {
-    const bridge = {
+  it('says when the saved key belongs to another machine', async () => {
+    withBridge({
+      getSettings: vi.fn(async () => ({
+        mode: 'ssh',
+        configured: true,
+        sshHost: 'raspi',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: false,
+        // The key in the pocket was read here, before the Pi was named: it
+        // would be refused, so the page explains the empty field.
+        keyElsewhere: 'this Mac',
+      })),
+    });
+    renderSettings();
+    expect(
+      await screen.findByText(/The saved key was read from this Mac/),
+    ).toBeTruthy();
+  });
+
+  it('keeps quiet about the key when it belongs here', async () => {
+    withBridge();
+    renderSettings();
+    await waitFor(() =>
+      expect(screen.getByDisplayValue('my-host')).toBeTruthy(),
+    );
+    expect(screen.queryByText(/The saved key was read from/)).toBeNull();
+  });
+
+  it('ask for the key when the saved host has none to give', async () => {    const bridge = {
       getSettings: vi.fn(async () => ({
         mode: 'ssh',
         configured: true,

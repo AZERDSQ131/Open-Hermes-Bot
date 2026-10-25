@@ -89,6 +89,9 @@ export function SettingsView({
   const [autoConnect, setAutoConnect] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [hasKey, setHasKey] = useState(false);
+  // The machine a saved key was read from, when it is not this one: the key
+  // does not travel, and the page says which machine it belongs to.
+  const [keyElsewhere, setKeyElsewhere] = useState('');
   const [advanced, setAdvanced] = useState(false);
   const [section, setSection] = useState<Section>(opened ?? 'connection');
   const [busy, setBusy] = useState<BusyAction>(null);
@@ -111,6 +114,7 @@ export function SettingsView({
         setLocalPort(String(settings.localPort));
         setAutoConnect(settings.autoConnect);
         setHasKey(settings.hasKey);
+        setKeyElsewhere(settings.keyElsewhere ?? '');
       })
       .catch(() => undefined);
     return () => {
@@ -231,6 +235,7 @@ export function SettingsView({
         return;
       }
       setHasKey(true);
+      setKeyElsewhere('');
       setApiKey('');
     }
     const saved = await bridge
@@ -255,6 +260,7 @@ export function SettingsView({
     if (saved.settings) {
       setMode(saved.settings.mode ?? at);
       setHasKey(saved.settings.hasKey);
+      setKeyElsewhere(saved.settings.keyElsewhere ?? '');
       setHost(saved.settings.sshHost);
       setPort(String(saved.settings.apiPort));
       setLocalPort(String(saved.settings.localPort));
@@ -294,6 +300,7 @@ export function SettingsView({
         return;
       }
       setHasKey(true);
+      setKeyElsewhere('');
       setApiKey('');
     }
     await persist(at, name);
@@ -309,6 +316,7 @@ export function SettingsView({
       .catch((reason: Error) => ({ ok: false, error: reason.message }));
     if (result.ok) {
       setHasKey(true);
+      setKeyElsewhere('');
       setApiKey('');
       setNotice(`Key imported from ${host || 'the server'}.`);
     } else {
@@ -692,6 +700,13 @@ export function SettingsView({
                         Kept in the macOS Keychain, never written by Hermes
                         Bot.
                       </span>
+                      {keyElsewhere ? (
+                        <span className="settings-field-note is-warning">
+                          The saved key was read from {keyElsewhere}. A key
+                          stays with the machine whose Hermes made it — read
+                          this one, or paste it above.
+                        </span>
+                      ) : null}
                     </div>
                   )}
                 </div>
