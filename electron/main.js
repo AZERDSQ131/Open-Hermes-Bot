@@ -28,6 +28,15 @@ const {
 const { createMarkReader } = require('./logos.js');
 const { createConnectorsReader } = require('./connectors.js');
 const { authUrlIn, callbackPort, loginOutcome } = require('./mcp.js');
+const {
+  MIN_KEY_LENGTH,
+  adoptHostKey,
+  envKey,
+  hostName,
+  keyOrigin,
+  originMatches,
+  refusalMessage,
+} = require('./keys.js');
 
 app.setName('Hermes Bot');
 
@@ -203,6 +212,44 @@ function storedApiKey() {
   return readSecret();
 }
 
+// Which machine the key in the Keychain was read from. A key read on this Mac
+// is not the key of a Pi: keeping the origin is what stops the app from
+// offering a key that belongs somewhere else. A record written before the
+// origins existed holds no origin, and the key is given the benefit of the
+// doubt until the host refuses it.
+function storedKeyOrigin() {
+  return readStore().keyOrigin ?? null;
+}
+
+function rememberKeyOrigin(connection) {
+  writeStore({ ...readStore(), keyOrigin: keyOrigin(connection) });
+}
+
+function forgetKeyOrigin() {
+  const store = readStore();
+  if (!store.keyOrigin) return;
+  const next = { ...store };
+  delete next.keyOrigin;
+  writeStore(next);
+}
+
+/** The key belongs to the machine the app is talking to, if it says so. */
+function keyFitsConnection() {
+  return Boolean(storedApiKey()) && originMatches(storedKeyOrigin(), storedConnection());
+}
+
+/**
+ * The machine a key that does not fit here was read from, in words. Empty
+ * when there is no key, or when the key belongs to the machine in front of
+ * the person.
+ */
+function keyElsewhere() {
+  const origin = storedKeyOrigin();
+  if (!origin || !storedApiKey()) return '';
+  if (originMatches(origin, storedConnection())) return '';
+  return hostName(origin);
+}
+
 function publicSettings() {
   const connection = storedConnection();
   return {
@@ -212,7 +259,10 @@ function publicSettings() {
     apiPort: connection.apiPort,
     localPort: connection.localPort,
     autoConnect: Boolean(connection.autoConnect),
-    hasKey: Boolean(storedApiKey()),
+    hasKey: keyFitsConnection(),
+    // A key read on this Mac is not the key of a Pi: saying which machine it
+    // came from is what turns an empty field into an explanation.
+    keyElsewhere: keyElsewhere(),
     onboardingCompleted: storedOnboarding().completed,
   };
 }
@@ -448,20 +498,84 @@ function statusFromProbe(probe, connection) {
       sshHost: mode === 'ssh' ? connection.sshHost : '',
     };
   }
-  if (probe.status === 401) {
-    return {
-      state: 'error',
-      message: 'API key rejected by the Hermes API server',
-      mode,
-      label,
-    };
-  }
+  // A refusal is not the end of the road: the key that works may be sitting
+  // in the Hermes home of the machine. What to do about it is decided by the
+  // caller, which is the only one that can read that home.
+  if (probe.status === 401) return refusedStatus(connection, {});
   return {
     state: 'error',
     message: probe.error || tunnelError || `HTTP ${probe.status || '?'}`,
     mode,
     label,
   };
+}
+
+/** A status that names the machine whose key was refused, and the way out. */
+function refusedStatus(connection, options) {
+  const mode = connection?.mode === 'local' ? 'local' : 'ssh';
+  return {
+    state: 'error',
+    message: refusalMessage(connection, options),
+    mode,
+    label: connectionLabel(mode, connection?.sshHost),
+  };
+}
+
+/** The key in the Hermes home of the machine that runs Hermes. */
+async function readHostKey(connection) {
+  const result = await runHostCommand(
+    connection,
+    'grep -m1 -E \'^API_SERVER_KEY=\' "$HOME/.hermes/.env" 2>/dev/null | cut -d= -f2-',
+  );
+  if (!result.ok || !result.stdout.trim()) return { key: '', result };
+  const key = envKey(result.stdout);
+  // A key that is too short is the wreckage of a read, not a key.
+  return { key: key.length >= MIN_KEY_LENGTH ? key : '', result };
+}
+
+/**
+ * The key in the Keychain was refused. Hermes' own home is the truth about
+ * the key, so the app reads it there and tries it: the host's key is adopted
+ * only when the host accepts it, and a key that fails too leaves the old one
+ * where it was and says so. Nothing is ever overwritten on a guess.
+ */
+async function settleRefusedKey(connection, apiKey, port) {
+  const host = await readHostKey(connection);
+  if (!host.key) return refusedStatus(connection, { hostKeyFound: false });
+  const second = await probeHealth(host.key, port);
+  const adopted = adoptHostKey({
+    stored: apiKey,
+    hostKey: host.key,
+    accepted: second.ok,
+  });
+  if (!adopted) {
+    return refusedStatus(connection, {
+      hostKeyFound: true,
+      hostKeyDiffers: host.key !== apiKey,
+    });
+  }
+  storeSecret(adopted);
+  rememberKeyOrigin(connection);
+  return statusFromProbe(second, connection);
+}
+
+/** The status of a probe, healing a key the machine has since replaced. */
+async function statusOfProbe(probe, connection, apiKey, port) {
+  if (probe?.status !== 401) return statusFromProbe(probe, connection);
+  return settleRefusedKey(connection, apiKey, port);
+}
+
+/**
+ * A test never adopts anything: the person is reading the answer to what they
+ * are about to save, not asking the app to change the key behind them.
+ */
+async function testStatusOfProbe(probe, connection, apiKey) {
+  if (probe?.status !== 401) return statusFromProbe(probe, connection);
+  const host = await readHostKey(connection);
+  return refusedStatus(connection, {
+    hostKeyFound: Boolean(host.key),
+    hostKeyDiffers: Boolean(host.key) && host.key !== apiKey,
+  });
 }
 
 // A GUI app inherits almost nothing of the shell: the PATH it is launched
@@ -575,15 +689,6 @@ function stderrOf(result) {
   return String(result?.stderr ?? '').trim();
 }
 
-function parseEnvValue(raw) {
-  let value = String(raw ?? '').split('\n')[0].trim();
-  const quoted =
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"));
-  if (quoted) value = value.slice(1, -1);
-  return value.trim();
-}
-
 ipcMain.handle('hermes:settings:get', () => publicSettings());
 
 ipcMain.handle('hermes:settings:save', (_event, payload) => {
@@ -617,9 +722,15 @@ ipcMain.handle('hermes:settings:save', (_event, payload) => {
       ? Boolean(current.autoConnect)
       : Boolean(payload.autoConnect);
 
-  if (payload?.clearKey) clearSecret();
+  if (payload?.clearKey) {
+    clearSecret();
+    forgetKeyOrigin();
+  }
   if (typeof payload?.apiKey === 'string' && payload.apiKey.trim()) {
     storeSecret(payload.apiKey.trim());
+    // A key typed for this connection belongs to it: the machine it opens is
+    // the one the person just named.
+    rememberKeyOrigin({ mode, sshHost: host ?? '' });
   }
 
   // The store holds more than the connection: what the person already went
@@ -657,25 +768,24 @@ ipcMain.handle('hermes:key:import', async (_event, payload) => {
   const current = storedConnection();
   const mode = payload?.mode ? normalizeMode(payload.mode) : current.mode;
   const host = sanitizeHost(payload?.sshHost) || current.sshHost;
+  const connection = { mode, sshHost: host };
   // The key sits in the same place either way: the Hermes home of the
   // machine that runs it.
-  const result = await runHostCommand(
-    { mode, sshHost: host },
-    'grep -m1 -E \'^API_SERVER_KEY=\' "$HOME/.hermes/.env" 2>/dev/null | cut -d= -f2-',
-  );
-  if (!result.ok || !result.stdout.trim()) {
+  const read = await readHostKey(connection);
+  if (!read.key) {
     return {
       ok: false,
       error:
-        result.error ||
-        stderrOf(result) ||
+        read.result?.error ||
+        stderrOf(read.result) ||
         'API_SERVER_KEY not found in ~/.hermes/.env',
     };
   }
-  const key = parseEnvValue(result.stdout);
-  if (key.length < 16) return { ok: false, error: 'Imported key looks invalid' };
-  storeSecret(key);
-  return { ok: true, keyLength: key.length };
+  storeSecret(read.key);
+  // The key now in the pocket is the key of the machine it was read from: a
+  // move to another machine is no longer mistaken for a key that fits.
+  rememberKeyOrigin(connection);
+  return { ok: true, keyLength: read.key.length };
 });
 
 // The persons' machines have names they have already written once. Reading
@@ -719,18 +829,26 @@ async function connectNow() {
   if (connection.mode === 'local') {
     stopTunnel();
     const probe = await waitForLocal(connection.apiPort, apiKey);
-    if (probe.ok) directPort = connection.apiPort;
-    return setStatus(statusFromProbe(probe, connection));
+    const status = await statusOfProbe(
+      probe,
+      connection,
+      apiKey,
+      connection.apiPort,
+    );
+    if (status.state === 'connected') directPort = connection.apiPort;
+    return setStatus(status);
   }
 
   // The orphan comes first: the PID file is what says which ssh to reap, and
   // closing the live tunnel would take that file with it.
   reapOrphanTunnel();
   let probe = null;
+  let usedPort = connection.localPort;
   for (let attempt = 0; attempt < PORT_ATTEMPTS; attempt += 1) {
     const localPort =
       attempt === 0 ? connection.localPort : portAfter(connection.localPort, attempt);
     const state = startLiveTunnel({ ...connection, localPort });
+    usedPort = state?.localPort ?? localPort;
     probe = await waitForTunnel(state, apiKey);
     if (probe.ok || probe.status === 401) break;
     // Something else answers on that port, or the tunnel could not bind: the
@@ -741,7 +859,7 @@ async function connectNow() {
       Boolean(state?.dead);
     if (!taken) break;
   }
-  return setStatus(statusFromProbe(probe, connection));
+  return setStatus(await statusOfProbe(probe, connection, apiKey, usedPort));
 }
 
 ipcMain.handle('hermes:connect', () => connectNow());
@@ -764,7 +882,7 @@ ipcMain.handle('hermes:test', async (_event, payload) => {
   // throwaway tunnel to open, and nothing to close afterwards.
   if (mode === 'local') {
     const probe = await waitForLocal(port, apiKey, 5000);
-    return statusFromProbe(probe, connection);
+    return testStatusOfProbe(probe, connection, apiKey);
   }
 
   const host = sanitizeHost(payload?.sshHost);
@@ -775,7 +893,7 @@ ipcMain.handle('hermes:test', async (_event, payload) => {
   );
   try {
     const probe = await waitForTunnel(ephemeral, apiKey);
-    return statusFromProbe(probe, { ...connection, sshHost: host });
+    return await testStatusOfProbe(probe, { ...connection, sshHost: host }, apiKey);
   } finally {
     killTunnel(ephemeral);
   }
