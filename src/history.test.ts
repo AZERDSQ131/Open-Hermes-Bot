@@ -184,6 +184,16 @@ describe('viewPastConversations', () => {
     expect(view.groups[0].sessions[0].title).toBe('Tunnel refactor');
   });
 
+  it('shows every match of a search, not the fold', () => {
+    const view = viewPastConversations(groups, { query: 'r' });
+    // Every title of the primary bot holds an 'r': a question gets all four
+    // while the fold would have shown three, and nothing is left counted but
+    // unseen.
+    expect(view.total).toBe(4);
+    expect(view.groups[0].sessions).toHaveLength(4);
+    expect(view.hidden).toBe(0);
+  });
+
   it('drops a group whose conversations all fell out of the search', () => {
     const view = viewPastConversations(groups, { query: 'bob' });
     expect(view.groups).toHaveLength(1);

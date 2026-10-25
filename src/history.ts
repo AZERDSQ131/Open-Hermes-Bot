@@ -162,14 +162,16 @@ function latest(group: PastGroup): number {
 /**
  * What the section shows. The search reads the title only: the transcript is
  * not in the window, and a row that matched a word nobody can see would be a
- * mystery. Folded, one group shows `PAST_PREVIEW` conversations; the rest is
- * counted, never lost.
+ * mystery. Folded, one group shows `PAST_PREVIEW` conversations and the rest
+ * is counted, never lost — but a search is a question rather than a browse,
+ * so it shows every match it found.
  */
 export function viewPastConversations(
   groups: PastGroup[],
   options: { query?: string; all?: boolean } = {},
 ): PastView {
   const needle = (options.query ?? '').trim().toLowerCase();
+  const showAll = Boolean(options.all) || needle.length > 0;
   const matched: PastGroup[] = [];
   let total = 0;
 
@@ -183,7 +185,7 @@ export function viewPastConversations(
     total += sessions.length;
     matched.push({
       ...group,
-      sessions: options.all ? sessions : sessions.slice(0, PAST_PREVIEW),
+      sessions: showAll ? sessions : sessions.slice(0, PAST_PREVIEW),
     });
   }
 
