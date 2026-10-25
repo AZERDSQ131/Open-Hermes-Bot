@@ -1567,6 +1567,62 @@ button:focus-visible {
   letter-spacing: -0.004em;
 }
 
+/* Which session the composer writes into. The person is in a conversation the
+   app did not open, so the field says whose it is and how to leave it. */
+.composer-context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 4px 7px;
+  padding: 0 2px 7px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.composer-context-copy {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.composer-context-name {
+  overflow: hidden;
+  color: #d7d7dd;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.003em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-context-since {
+  flex: 0 0 auto;
+  color: #7d7d85;
+  font-size: 11.5px;
+  letter-spacing: -0.002em;
+  white-space: nowrap;
+}
+
+.composer-context-action {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  color: #b3b3ba;
+  font-size: 11.5px;
+  letter-spacing: -0.003em;
+  white-space: nowrap;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.composer-context-action:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e6e6ea;
+}
+
 /* The server is out of reach: the chat says so, and says where to fix it. */
 .chat-notice {
   margin: 0;
