@@ -76,6 +76,14 @@ nowhere else: not in a file on this machine, not in the Keychain, not in
 What the person reads: the messages of one session, plus the identity of who
 wrote them. A conversation is a view of a session, not a copy of it.
 
+## Past conversation
+
+A session the app did not open — the CLI wrote it, another client, an older
+install — listed under the bot whose profile holds it. It is the same session,
+not a copy: continuing it writes where the messages already are, and the app
+keeps nothing. A conversation belongs to a profile, so no bot is invented for
+one, and a group is never one of them.
+
 ## Group
 
 A set of bots answering the same message. A group is not a Hermes object: it
