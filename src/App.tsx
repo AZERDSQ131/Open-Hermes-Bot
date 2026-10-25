@@ -2968,7 +2968,6 @@ export default function App() {
                 aria-hidden="true"
               />
               <span className="history-label">Past conversations</span>
-              <span className="history-tag">Preview</span>
               <span className="history-count">{pastView.total}</span>
             </button>
 

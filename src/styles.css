@@ -955,28 +955,6 @@ button:focus-visible {
   white-space: nowrap;
 }
 
-/* The stand-in for the host read, said plainly and once. It goes with it.
-   Quiet until the eye is on the row: the mark is a note, not a label. */
-.history-tag {
-  flex: 0 0 auto;
-  padding: 1px 5px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 5px;
-  color: #6f6f77;
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  opacity: 0;
-  text-transform: uppercase;
-  transition: opacity 160ms ease;
-}
-
-.history-toggle:hover .history-tag,
-.history-toggle:focus-visible .history-tag,
-.history-toggle[aria-expanded='true'] .history-tag {
-  opacity: 1;
-}
-
 .history-count {
   flex: 0 0 auto;
   min-width: 14px;
