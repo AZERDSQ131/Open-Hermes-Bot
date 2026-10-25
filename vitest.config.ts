@@ -102,6 +102,14 @@ export default defineConfig({
           branches: 100,
           statements: 100,
         },
+        // The key of the host, and the moment it stops being the key: a
+        // refusal that cannot be recovered from is a dead end.
+        'electron/keys.js': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
         // The read of the connectors: one shell for everyone who asks, and
         // an answer from a moment ago given again instead of waking the host.
         'electron/connectors.js': {
@@ -127,6 +135,7 @@ export default defineConfig({
         'electron/updater.js',
         'electron/connection.js',
         'electron/logos.js',
+        'electron/keys.js',
         'electron/connectors.js',
         'electron/mcp.js',
       ],
