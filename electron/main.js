@@ -37,6 +37,11 @@ const {
   originMatches,
   refusalMessage,
 } = require('./keys.js');
+const {
+  TURN_LIMIT_MS,
+  settleStreamTurn,
+  silenceWindow,
+} = require('./stream.js');
 
 app.setName('Hermes Bot');
 
@@ -3008,26 +3013,29 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
     if (event.sender.isDestroyed()) return;
     event.sender.send(channel, { requestId, ...data });
   };
-  // Two different waits. A whole turn may legitimately take minutes, but a
-  // server that stops producing events — the agent retrying a rate-limited
-  // call for ten minutes without a word — must not hold the composer hostage.
-  // Silence is the signal.
-  const SILENCE_MS = 45000;
-  const HARD_LIMIT_MS = 5 * 60 * 1000;
+  // Two different waits. A whole turn may legitimately take minutes, and a
+  // tool at work — a build, an install, a scan — says nothing while it does
+  // it, so the window widens while one runs. Silence is the signal; a turn
+  // that keeps painting is not quiet, and is only stopped at the ceiling.
   let silent = false;
-  const hardStop = setTimeout(() => controller.abort(), HARD_LIMIT_MS);
+  let toolRunning = false;
+  const hardStop = setTimeout(() => controller.abort(), TURN_LIMIT_MS);
   let silenceTimer = null;
   const armSilence = () => {
     clearTimeout(silenceTimer);
     silenceTimer = setTimeout(() => {
       silent = true;
       controller.abort();
-    }, SILENCE_MS);
+    }, silenceWindow({ toolRunning }));
   };
   armSilence();
 
   let text = '';
   let failure = '';
+  // The terminal status Hermes sends with the last frame of the turn: what
+  // the turn settled to, and why when it did not finish.
+  let runStatus = '';
+  let runReason = '';
 
   try {
     const response = await fetch(
@@ -3068,8 +3076,6 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
         buffer = buffer.slice(split + 2);
         split = buffer.indexOf('\n\n');
         if (!frame.trim() || frame.startsWith(':')) continue;
-        // Keepalives are not progress; anything else restarts the clock.
-        armSilence();
 
         const { event: name, data } = parseSseFrame(frame);
         let parsed = null;
@@ -3083,32 +3089,53 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
           text += parsed.delta;
           send('hermes:chat:delta', { text: parsed.delta });
         } else if (name === 'tool.started' && parsed?.tool_name) {
+          toolRunning = true;
           send('hermes:chat:tool', { tool: parsed.tool_name });
+        } else if (
+          name === 'tool.completed' ||
+          name === 'tool.failed'
+        ) {
+          toolRunning = false;
         } else if (name === 'assistant.completed') {
-          const final = parsed?.message?.content ?? parsed?.text;
+          const final = parsed?.message?.content ?? parsed?.text ?? parsed?.content;
           if (typeof final === 'string' && !text) text = final;
         } else if (name === 'error') {
           failure = parsed?.message || 'The bot stopped before answering';
-        } else if (name === 'run.failed') {
-          failure = failure || 'The bot could not finish this turn';
+        } else if (name === 'run.completed' || name === 'run.failed' || name === 'run.cancelled') {
+          runStatus = name.slice('run.'.length);
+          runReason = String(parsed?.turn_exit_reason ?? '');
         } else if (name === 'done') {
-          if (failure) return { ok: false, error: failure };
-          return { ok: true, text };
+          return settleStreamTurn({
+            text,
+            status: runStatus,
+            reason: runReason,
+            failure,
+          });
         }
+
+        // Keepalives are not progress; anything else restarts the clock — and
+        // a running tool restarts it on the longer one.
+        armSilence();
       }
     }
 
-    if (failure) return { ok: false, error: failure };
-    return { ok: true, text };
+    // A stream that closed without its last frame still said what it had.
+    return settleStreamTurn({
+      text,
+      status: runStatus,
+      reason: runReason,
+      failure,
+    });
   } catch (error) {
     if (error.name === 'AbortError') {
       if (controller.canceled) return { ok: false, canceled: true };
-      return {
-        ok: false,
-        error: silent
-          ? 'The bot stopped answering — the model may be out of quota, or the server cannot reach it. Try another model from the picker.'
-          : 'The bot took more than five minutes to answer.',
-      };
+      return settleStreamTurn({
+        text,
+        status: 'failed',
+        failure: silent
+          ? 'nothing came back from the host for a long time — the model may be out of quota, or the server cannot reach it'
+          : 'the turn ran past its ceiling of twenty minutes',
+      });
     }
     return { ok: false, error: error.message };
   } finally {

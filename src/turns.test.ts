@@ -5,6 +5,7 @@ import {
   isInstallingDependencies,
   isQuotaFailure,
   retryWhileDependenciesInstall,
+  withTurnNote,
 } from './turns';
 import type { Message } from './data';
 
@@ -216,5 +217,21 @@ describe('waiting for the install', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('a turn that stopped before the end', () => {
+  it('leaves the answer alone and puts the reason under it', () => {
+    const answered = [line('all done', 'a')];
+    const kept = withTurnNote(answered, ' The turn stopped early. ', 'n');
+    expect(kept).toEqual([
+      { id: 'a', role: 'assistant', text: 'all done' },
+      { id: 'n', role: 'event', text: 'The turn stopped early.' },
+    ]);
+  });
+
+  it('adds nothing when there is nothing to say', () => {
+    const answered = [line('all done', 'a')];
+    expect(withTurnNote(answered, '   ', 'n')).toBe(answered);
   });
 });
