@@ -2196,6 +2196,51 @@ ipcMain.handle('hermes:sessions', async (_event, payload) => {
   return { ok: true, sessions };
 });
 
+// The conversations the host already held: the sessions the app did not open —
+// written by the CLI, another client, an older install. It is the same list the
+// sidebar rebuilds from, asked without the `source` filter that keeps the app's
+// own conversations apart. Nothing is adopted here: the rows go back as the host
+// wrote them, and the window decides which ones are already on screen.
+const HISTORY_PAGE = 100;
+const HISTORY_PAGES = 5;
+
+ipcMain.handle('hermes:history', async (_event, payload) => {
+  const profile = payload?.profile;
+  const sessions = [];
+  const seen = new Set();
+  let offset = 0;
+  for (let page = 0; page < HISTORY_PAGES; page += 1) {
+    const result = await apiCall(
+      `/api/sessions?limit=${HISTORY_PAGE}&offset=${offset}&order=recent`,
+      { profile, timeoutMs: 20000 },
+    );
+    if (!result.ok) {
+      return {
+        ok: false,
+        error: apiErrorText(result, 'Could not read the conversations of before'),
+      };
+    }
+    const rows = result.body?.data ?? result.body?.sessions ?? [];
+    if (!rows.length) break;
+    for (const row of rows) {
+      const id = String(row?.id ?? '').trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      sessions.push({
+        id,
+        title: String(row?.title ?? ''),
+        messageCount: Number(row?.message_count ?? 0),
+        lastActive: Number(row?.last_active ?? 0),
+        archived: Boolean(row?.archived),
+      });
+    }
+    if (result.body?.has_more === false) break;
+    if (rows.length < HISTORY_PAGE) break;
+    offset += rows.length;
+  }
+  return { ok: true, sessions };
+});
+
 // The transcript of one conversation, oldest first: what the app shows when a
 // conversation is reopened.
 ipcMain.handle('hermes:messages', async (_event, payload) => {
