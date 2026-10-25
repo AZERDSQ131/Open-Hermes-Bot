@@ -47,6 +47,11 @@ const REASONS = [
     /^context_compression_(exhausted|timeout)$/,
     () => 'the conversation outgrew what the model can hold',
   ],
+  [
+    /^text_response\(finish_reason=(\w+)\)$/,
+    (found) =>
+      `the model answered and stopped (${found[1]}), and the host still marked the turn unfinished`,
+  ],
   [/^empty_response_exhausted$/, () => 'the model kept answering nothing'],
   [/^all_retries_exhausted_no_response$/, () => 'the model never answered'],
   [/^session_persistence_failed$/, () => 'Hermes could not save the turn'],
