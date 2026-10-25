@@ -15,7 +15,9 @@ follow [semantic versioning](https://semver.org/).
   much they hold: a bot is the face of a profile, so no bot is invented and no
   session moves house. Choosing one draws it over its bot, with the way back
   above the title, and the composer says whose session it is — with
-  **Start a new one** beside it — before the first word. The read itself is
+  **Start a new one** beside it — before the first word. A search shows every
+  match rather than the fold, a search that finds nothing says so, and the
+  escape key folds the dock again. The read itself is
   not written yet: `src/history.ts` stands in for `/api/sessions` without its
   `source` filter, the room says so on its first line, and an answer written
   there says out loud that it is simulated.
