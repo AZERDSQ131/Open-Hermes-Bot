@@ -10,17 +10,21 @@ follow [semantic versioning](https://semver.org/).
 
 - **The conversations of before.** The sidebar lists the sessions Hermes
   already holds and the app did not open — the ones the CLI wrote, another
-  client, an older install. They sit under the bot whose profile holds them,
+  client, an older install — and it lists them from the host: the same
+  endpoint the sidebar rebuilds from, asked without the filter that keeps the
+  app's conversations apart. They sit under the bot whose profile holds them,
   folded away at the foot of the list with the day of their last word and how
   much they hold: a bot is the face of a profile, so no bot is invented and no
-  session moves house. Choosing one draws it over its bot, with the way back
-  above the title, and the composer says whose session it is — with
-  **Start a new one** beside it — before the first word. A search shows every
-  match rather than the fold, a search that finds nothing says so, and the
-  escape key folds the dock again. The read itself is
-  not written yet: `src/history.ts` stands in for `/api/sessions` without its
-  `source` filter, the room says so on its first line, and an answer written
-  there says out loud that it is simulated.
+  session moves house. What the window already shows is not listed twice, an
+  archived row stays archived, and a group is rebuilt from its members rather
+  than counted here. Choosing a conversation reads its transcript back from
+  the host, over the bot that owns it, with the way back above the title; the
+  read says what it is doing, and a host that does not answer says so with a
+  retry. **Continue in …** makes the conversation the bot's own: a bot holds
+  one, so the room it was in is renamed to the day it last spoke and set
+  aside — nothing is deleted, and the room set aside appears in this same
+  list. A search shows every match rather than the fold, a search that finds
+  nothing says so, and the escape key folds the dock again.
 
 - **The phone.** `mobile/` is the same interface one screen wide: an Expo app
   that lists the bots, reads a conversation back from the host, and sends a

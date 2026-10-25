@@ -49,7 +49,7 @@ it, which is the normal state of a fresh install.
 | `src/components/MoodBloub.tsx` | the actor that walks a mood around the clock, and dozes with the quiet |
 | `src/group.ts` | the protocol of a group: silence, tapbacks, mentions, waves |
 | `src/conversations.ts` | reading a conversation back out of the sessions |
-| `src/history.ts` | the sessions the app did not open: how they group under a bot, how old they read, and the simulated listing until the host read lands |
+| `src/history.ts` | the sessions the app did not open: what the host's answer leaves to list, how they group under a bot, and how old they read |
 | `src/turns.ts` | the rules of a turn: tapbacks, quota, a server still installing |
 | `src/updates.ts` | what an update means, in words |
 | `src/components/UpdateButton.tsx` | the next version, in the round face at the foot of the sidebar |
