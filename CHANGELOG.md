@@ -43,6 +43,19 @@ follow [semantic versioning](https://semver.org/).
 
 ### Fixed
 
+- **"The bot could not finish this turn", on a turn that had worked.** The
+  host names its configured model its own way — provider `auto`, with the real
+  provider inside the model id (`opencode-go/muse-spark`). The app sent that
+  pair back with the model lock the picker relies on; Hermes ran it, resolved
+  the prefix, compared the request with what ran, and failed the turn at the
+  last step — after the work, when the answer was being written. The prefix is
+  read as the provider now, at the source and in the turn, and the lock
+  confirms what it was given. And a turn that stops early keeps what it wrote:
+  the answer stands, with one line under it saying why — a spent step budget,
+  a broken stream — instead of the answer being thrown away. A tool at work is
+  no longer silence either, so a build that says nothing for two minutes does
+  not end the turn.
+
 - **A key the host has since replaced.** The app kept one key and never asked
   which machine it belonged to, so a key read on this Mac was still offered to
   a Pi, and every call answered "API key rejected by the Hermes API server" —
