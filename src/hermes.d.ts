@@ -233,6 +233,12 @@ export type HermesChatResult = {
   error?: string;
   /** The renderer abandoned this turn for a newer message. */
   canceled?: boolean;
+  /**
+   * Why the turn stopped before the end, when it still produced an answer:
+   * a spent step budget, a broken stream. The answer stands; the note says
+   * what it is.
+   */
+  note?: string;
 };
 
 export type HermesChatDelta = { requestId: string; text: string };

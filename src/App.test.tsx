@@ -1453,6 +1453,43 @@ describe('a bot that is still connecting', () => {
   });
 });
 
+describe('a turn that stopped before the end', () => {
+  it('keeps the answer and says why it stopped', async () => {
+    const bridge = makeBridge({
+      sendChat: vi.fn(async () => ({
+        ok: true,
+        text: 'I upgraded the packages and restarted the service.',
+        note: 'The turn stopped early: it reached its step budget (60/60).',
+      })),
+    });
+    await renderApp(bridge);
+    await userEvent.type(screen.getByLabelText(/Message/), 'upgrade everything');
+    await userEvent.keyboard('{Enter}');
+    expect(
+      await screen.findByText(
+        'I upgraded the packages and restarted the service.',
+        { selector: '.bubble' },
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'The turn stopped early: it reached its step budget (60/60).',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('says nothing extra when the turn finished', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    await userEvent.type(screen.getByLabelText(/Message/), 'hello');
+    await userEvent.keyboard('{Enter}');
+    expect(
+      await screen.findByText('The answer', { selector: '.bubble' }),
+    ).toBeTruthy();
+    expect(screen.queryByText(/The turn stopped early/)).toBeNull();
+  });
+});
+
 describe('the sessions of before', () => {
   async function openHistory(bridge: Record<string, unknown>) {
     await renderApp(bridge);

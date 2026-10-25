@@ -73,6 +73,7 @@ import {
   attachReaction,
   isQuotaFailure,
   retryWhileDependenciesInstall,
+  withTurnNote,
 } from './turns';
 import {
   cleanProtocol,
@@ -2183,10 +2184,15 @@ export default function App() {
                 error: `${member.name} could not answer: ${result.error ?? 'unknown error'}`,
               };
             }
+            // A turn that stopped early answered anyway: the line under it
+            // says why, beside any note the turn already carried.
             return {
               floor,
               turn: readGroupTurn(result.text ?? '', members),
-              note,
+              note:
+                [note, result.note?.trim()]
+                  .filter((line) => Boolean(line))
+                  .join(' ') || undefined,
             };
           } catch (reason) {
             if (!isCurrent()) return { floor, canceled: true };
@@ -2488,6 +2494,9 @@ export default function App() {
     // from here has to settle the thread.
     let reply = '';
     let reaction: string | undefined;
+    // Why the turn stopped before the end, when it still answered: a spent
+    // step budget, a broken stream. It rides under the answer, as a line.
+    let turnNote = '';
     try {
       let sessionId = thread.sessionId;
       if (!sessionId) {
@@ -2603,6 +2612,7 @@ export default function App() {
         fail(result.error ?? 'The bot could not answer this one.');
         return;
       }
+      turnNote = result.note?.trim() ?? '';
       const parsed = extractReaction(result.text ?? '');
       // The protocol markers are plumbing, never copy: a bubble never shows
       // them, and the transcript read back from the server shows none either.
@@ -2639,14 +2649,18 @@ export default function App() {
                 : item.preview,
               chatTime: 'Now',
               unread: threadId !== activeIdRef.current,
-              messages: attachReaction(
-                reply
-                  ? [
-                      ...item.messages,
-                      { id: uid(), role: 'assistant', text: reply },
-                    ]
-                  : item.messages,
-                reaction,
+              messages: withTurnNote(
+                attachReaction(
+                  reply
+                    ? [
+                        ...item.messages,
+                        { id: uid(), role: 'assistant', text: reply },
+                      ]
+                    : item.messages,
+                  reaction,
+                ),
+                turnNote,
+                uid(),
               ),
             }
           : item,

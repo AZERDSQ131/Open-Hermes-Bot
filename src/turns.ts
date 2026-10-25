@@ -62,6 +62,21 @@ export function attachReaction(
 }
 
 /**
+ * A turn that stopped before the end still answered: the answer stands, and
+ * the line under it says why. The line is an event, not the bot's voice — it
+ * belongs to the conversation, and nothing sends it back to Hermes.
+ */
+export function withTurnNote(
+  messages: Message[],
+  note: string,
+  id: string,
+): Message[] {
+  const text = note.trim();
+  if (!text) return messages;
+  return [...messages, { id, role: 'event', text }];
+}
+
+/**
  * In a group, a tapback lands on the last line the reactor did not write, and
  * is signed: two bots can react to the same message without overwriting one
  * another. Reacting to your own line would be talking to yourself.

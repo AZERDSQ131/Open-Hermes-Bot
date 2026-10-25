@@ -102,6 +102,22 @@ export default defineConfig({
           branches: 100,
           statements: 100,
         },
+        // How a model is named on both sides of the door: `auto` and a
+        // prefixed id must not reach the lock as if they were a pair.
+        'electron/models.js': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
+        // The end of a turn: why it stopped, what it still answered, and how
+        // long silence is allowed to last.
+        'electron/stream.js': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
         // The key of the host, and the moment it stops being the key: a
         // refusal that cannot be recovered from is a dead end.
         'electron/keys.js': {
@@ -136,6 +152,8 @@ export default defineConfig({
         'electron/connection.js',
         'electron/logos.js',
         'electron/keys.js',
+        'electron/stream.js',
+        'electron/models.js',
         'electron/connectors.js',
         'electron/mcp.js',
       ],
