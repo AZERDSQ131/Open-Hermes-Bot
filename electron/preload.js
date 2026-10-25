@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('hermes', {
   savePrefs: (payload) => ipcRenderer.invoke('hermes:prefs:save', payload),
   createSession: (payload) => ipcRenderer.invoke('hermes:session', payload),
   sessions: (payload) => ipcRenderer.invoke('hermes:sessions', payload),
+  history: (payload) => ipcRenderer.invoke('hermes:history', payload),
   messages: (payload) => ipcRenderer.invoke('hermes:messages', payload),
   renameSession: (payload) => ipcRenderer.invoke('hermes:session:rename', payload),
   models: (payload) => ipcRenderer.invoke('hermes:models', payload),

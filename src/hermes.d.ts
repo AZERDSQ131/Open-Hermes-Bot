@@ -291,6 +291,12 @@ export type HermesBridge = {
   }) => Promise<HermesSessionResult>;
   /** The conversations Hermes holds for a profile. */
   sessions: (payload: { profile?: string }) => Promise<HermesSessionList>;
+  /**
+   * The sessions the host already held — the app did not open them. The same
+   * shape as `sessions`, asked without the filter that keeps the app's own
+   * conversations apart, and left for the window to sort out.
+   */
+  history: (payload: { profile?: string }) => Promise<HermesSessionList>;
   /** The transcript of one conversation, oldest first. */
   messages: (payload: {
     profile?: string;
