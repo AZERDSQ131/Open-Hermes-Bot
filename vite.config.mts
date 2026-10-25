@@ -52,6 +52,11 @@ function contentSecurityPolicy(): Plugin {
 export default defineConfig({
   base: './',
   plugins: [react(), contentSecurityPolicy()],
+  server: {
+    // The coverage report is written while the app is open — a test run from
+    // another window used to reload the renderer once per report file.
+    watch: { ignored: ['**/coverage/**', '**/release/**', '**/dist/**'] },
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
