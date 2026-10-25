@@ -1541,6 +1541,49 @@ describe('the sessions of before', () => {
     expect(screen.queryByText(/started outside the app/)).toBeNull();
     expect(screen.getByLabelText(/Message/)).toBeTruthy();
   });
+
+  it('says which session the composer writes into', async () => {
+    await openHistory(makeBridge());
+    await userEvent.click(
+      screen.getAllByRole('button', { name: /Bridge audit/ })[0],
+    );
+    const chip = (await screen.findByText(/^since /)).closest(
+      '.composer-context',
+    );
+    expect(chip?.textContent).toContain('Chief of Staff');
+    expect(
+      screen.getByRole('button', { name: 'Start a new one' }),
+    ).toBeTruthy();
+  });
+
+  it('writes into the session without pretending the host answered', async () => {
+    const bridge = makeBridge();
+    await openHistory(bridge);
+    await userEvent.click(
+      screen.getAllByRole('button', { name: /Bridge audit/ })[0],
+    );
+    await userEvent.type(screen.getByLabelText(/Message/), 'Where were we?');
+    await userEvent.keyboard('{Enter}');
+    expect(await screen.findByText('Where were we?')).toBeTruthy();
+    expect(
+      await screen.findByText(/This reply is simulated/),
+    ).toBeTruthy();
+    // Nothing reached Hermes: there is no turn on a session the app did not
+    // open yet.
+    expect(bridge.sendChat).not.toHaveBeenCalled();
+  });
+
+  it('leaves the session alone from the composer', async () => {
+    await openHistory(makeBridge());
+    await userEvent.click(
+      screen.getAllByRole('button', { name: /Bridge audit/ })[0],
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Start a new one' }),
+    );
+    expect(screen.queryByText(/started outside the app/)).toBeNull();
+    expect(screen.queryByText(/^since /)).toBeNull();
+  });
 });
 
 describe('a warming bot past its delay', () => {

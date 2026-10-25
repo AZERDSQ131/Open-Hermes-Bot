@@ -57,6 +57,7 @@ import {
   relativeDay,
   shortDay,
   simulatedPastSessions,
+  simulatedReply,
   simulatedTranscript,
   viewPastConversations,
   type PastGroup,
@@ -510,6 +511,9 @@ export default function App() {
   // What the room said, as far as this window knows: the lines read back, and
   // whatever is said here once the composer is used.
   const [pastMessages, setPastMessages] = useState<Message[]>([]);
+  // A turn written into a past conversation lands after the person may have
+  // gone back to the bot: the count says which room the answer belongs to.
+  const pastTurn = useRef(0);
 
   // One live turn per thread, keyed by thread: a new message replaces the turn
   // in flight, and a replaced turn must not paint over the new one.
@@ -1222,6 +1226,7 @@ export default function App() {
   function openPastConversation(group: PastGroup, session: PastSession) {
     setPastOpen({ group, session });
     setPastMessages(simulatedTranscript(session));
+    pastTurn.current += 1;
     setContextMenu(null);
     setLogoOpen(false);
     setRenaming(false);
@@ -1237,7 +1242,47 @@ export default function App() {
   function closePastConversation() {
     setPastOpen(null);
     setPastMessages([]);
+    pastTurn.current += 1;
     setSidebarOpen(false);
+  }
+
+  /**
+   * Leaving the session alone: the bot's own conversation is one click away,
+   * and the session keeps every message it had. Nothing is copied, nothing is
+   * cut.
+   */
+  function startFreshFromPast() {
+    const open = pastOpen;
+    closePastConversation();
+    if (!open) return;
+    const owner = threads.find(
+      (thread) => !thread.members && profileKey(thread.profile) === open.group.key,
+    );
+    if (owner) selectThread(owner.id);
+  }
+
+  /**
+   * What writing into a past conversation does for now: the line is kept in
+   * the window and the answer is the simulation's. Nothing reaches the host —
+   * there is no read and no turn on a session the app did not open yet.
+   */
+  function continuePastConversation(text: string) {
+    const open = pastOpen;
+    if (!open) return;
+    const turn = pastTurn.current;
+    const at = Date.now();
+    setPastMessages((current) => [
+      ...current,
+      { id: `${open.session.id}:said:${at}`, role: 'user', text },
+    ]);
+    setDraft('');
+    setMentionHidden(true);
+    // The answer arrives a moment later, the way a bot's does, and only if the
+    // person is still in the same room.
+    window.setTimeout(() => {
+      if (pastTurn.current !== turn) return;
+      setPastMessages((current) => [...current, simulatedReply(open.session)]);
+    }, 400);
   }
 
   function openSettings(section: Section = 'connection') {
@@ -2300,6 +2345,12 @@ export default function App() {
       setAttachmentNote('A file could not be copied to the server and was not sent.');
     }
 
+    // A past conversation has no turn to send yet: the host read lands with
+    // the backend, so the line stays in the window and says so.
+    if (pastOpen) {
+      continuePastConversation(text);
+      return;
+    }
     // A group speaks with many voices: it gets its own relay, not the single
     // bot turn below.
     if (thread.avatar.kind === 'group') {
@@ -3448,6 +3499,31 @@ export default function App() {
                 <p className="composer-note" role="status">
                   {dictationNote}
                 </p>
+              ) : null}
+
+              {pastOpen ? (
+                <div className="composer-context">
+                  <AgentAvatar
+                    avatar={pastOpen.group.avatar}
+                    size={18}
+                    showBadge={false}
+                  />
+                  <span className="composer-context-copy">
+                    <span className="composer-context-name">
+                      {pastOpen.group.name}
+                    </span>
+                    <span className="composer-context-since">
+                      since {shortDay(pastOpen.session.lastActive)}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="composer-context-action"
+                    onClick={startFreshFromPast}
+                  >
+                    Start a new one
+                  </button>
+                </div>
               ) : null}
 
               <div className="composer-main">
