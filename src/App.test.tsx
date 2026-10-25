@@ -1520,6 +1520,20 @@ describe('the sessions of before', () => {
     expect(screen.queryByText('Bridge audit')).toBeNull();
   });
 
+  it('says when a search found nothing in the history', async () => {
+    await openHistory(makeBridge());
+    await userEvent.type(screen.getByLabelText('Search agents'), 'zzz');
+    expect(
+      await screen.findByText('No past conversation matches.'),
+    ).toBeTruthy();
+  });
+
+  it('says nothing of the sort when a search found something', async () => {
+    await openHistory(makeBridge());
+    await userEvent.type(screen.getByLabelText('Search agents'), 'tunnel');
+    expect(screen.queryByText('No past conversation matches.')).toBeNull();
+  });
+
   it('does not say no agents when only the history matched', async () => {
     await openHistory(makeBridge());
     await userEvent.type(screen.getByLabelText('Search agents'), 'tunnel');

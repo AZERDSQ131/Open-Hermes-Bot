@@ -3015,6 +3015,11 @@ export default function App() {
                     {pastView.hidden === 1 ? 'other' : 'others'}
                   </button>
                 ) : null}
+                {pastView.total === 0 ? (
+                  <p className="history-empty">
+                    No past conversation matches.
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </section>
