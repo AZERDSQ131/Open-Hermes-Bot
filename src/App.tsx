@@ -1128,6 +1128,21 @@ export default function App() {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [sidebarOpen]);
 
+  // Escape folds the history the way it leaves a past conversation: the dock
+  // is a place the person opened, and a key closes it. A past conversation, a
+  // dialog or a word already in the composer keep their own escape.
+  useEffect(() => {
+    if (!historyOpen || pastOpen) return;
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (draft.trim()) return;
+      if (settingsOpen || createOpen || logoOpen || mentionMatch) return;
+      setHistoryOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [historyOpen, pastOpen, draft, settingsOpen, createOpen, logoOpen, mentionMatch]);
+
   // Escape leaves a past conversation the way the back arrow does — but only
   // an empty composer: a word already written is not thrown away by a key.
   useEffect(() => {

@@ -1633,6 +1633,21 @@ describe('the sessions of before', () => {
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByText(/started outside the app/)).toBeNull();
   });
+
+  it('folds the history with the escape key', async () => {
+    await openHistory(makeBridge());
+    expect(
+      screen.getByRole('button', { name: /Past conversations/ }).getAttribute(
+        'aria-expanded',
+      ),
+    ).toBe('true');
+    await userEvent.keyboard('{Escape}');
+    expect(
+      screen.getByRole('button', { name: /Past conversations/ }).getAttribute(
+        'aria-expanded',
+      ),
+    ).toBe('false');
+  });
 });
 
 describe('a warming bot past its delay', () => {
