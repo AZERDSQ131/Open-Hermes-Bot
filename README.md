@@ -105,13 +105,17 @@ lights and a hidden inset title bar.
 
 ```bash
 npm run build   # typecheck + production renderer build
+npm run typecheck:electron   # the main process on its own
 npm start       # build, then launch the production app
 npm test        # the protocol and the transcript reader
 npm run test:coverage   # the same, with the coverage
 ```
 
-Every push runs the typecheck, the tests and the build on GitHub Actions
-(`.github/workflows/ci.yml`): the app is macOS, so the check runs on macOS.
+Every push runs the typechecks, the tests and the build on GitHub Actions
+(`.github/workflows/ci.yml`), on Linux, which says the same thing as macOS and
+is faster; the app itself is built on macOS by the release workflow. The
+renderer is checked by `tsc --noEmit`, and the main process by
+`npm run typecheck:electron`, a config of its own with `checkJs`.
 The coverage is a gate too: the rules of a conversation — the protocol, the
 transcript reader, the preferences, the recorder, the turns — are fully
 covered, and the build fails if a line of them stops being exercised.

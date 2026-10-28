@@ -92,9 +92,12 @@ tapback, a silence.
   run the app: it runs Node, the main script never starts, and the process
   exits with no message at all. `env -u ELECTRON_RUN_AS_NODE electron .`
   when the app seems to die silently.
-- **`electron/main.js` is plain JavaScript**, 2000 lines, and nothing checks
-  it. It carries the SSH, the tunnel, the SSE stream and the shell scripts it
-  runs on the host. A mistake there is silent.
+- **`electron/main.js` is plain JavaScript**, the biggest file in the app, and
+  it carries the SSH, the tunnel, the SSE stream and the shell scripts it runs
+  on the host. A mistake there is silent, so `npm run typecheck:electron`
+  checks it (`tsconfig.electron.json`, `checkJs`, and no `strict` yet), and the
+  CI runs that before the build. The check covers exactly what ships: the test
+  files are out of it, as they are out of the bundle.
 - **The paths inside the bundle.** `__dirname` is inside `app.asar` in a
   packaged app. A path that reaches outside the bundle (`../build/icon.png`)
   has to be *in* the bundle: `build/**` is in the `files` list of
