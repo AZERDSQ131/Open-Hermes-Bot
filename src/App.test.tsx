@@ -591,7 +591,8 @@ describe('a round in a group', () => {
     const composer = await screen.findByLabelText(/Message/);
     await userEvent.type(composer, 'Hello');
     await userEvent.keyboard('{Enter}');
-    expect(await screen.findByText(/could not answer/)).toBeTruthy();
+    // Every member gets its turn: a group is not one bot answering for all.
+    expect((await screen.findAllByText(/could not answer/)).length).toBe(2);
   });
 });
 
@@ -708,6 +709,22 @@ describe('the roster of a group', () => {
       archived: false,
     },
   ];
+
+  it('offers every member the group has, even two that reach the same profile', async () => {
+    // A member is a name in a profile, and the primary profile holds the
+    // default bot: two members can resolve to the same profile without being
+    // the same bot. One id for both would drop a row from the roster.
+    const bridge = makeBridge({
+      sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
+      messages: vi.fn(async () => ({ ok: true, messages: [] })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(await screen.findByText('Crew'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, '@');
+    expect(await screen.findByText('@Chief of Staff')).toBeTruthy();
+    expect(await screen.findByText('@Bob')).toBeTruthy();
+  });
 
   it('puts the name of the bot in the composer', async () => {
     const bridge = makeBridge({
@@ -963,10 +980,13 @@ describe('a group that writes while it answers', () => {
     const bridge = makeBridge({
       sessions: vi.fn(async () => ({ ok: true, sessions: groupSessions })),
       messages: vi.fn(async () => ({ ok: true, messages: [] })),
-      sendChat: vi
-        .fn()
-        .mockResolvedValueOnce({ ok: false, error: 'usage limit reached' })
-        .mockResolvedValueOnce({ ok: true, text: 'Answered anyway' }),
+      // Both members are answered at once: the picked model fails for each of
+      // them, and the free one answers.
+      sendChat: vi.fn(async (payload: { model?: string }) =>
+        payload.model === 'grok-free'
+          ? { ok: true, text: 'Answered anyway' }
+          : { ok: false, error: 'usage limit reached' },
+      ),
       models: vi.fn(async () => ({
         ok: true,
         current: 'muse',

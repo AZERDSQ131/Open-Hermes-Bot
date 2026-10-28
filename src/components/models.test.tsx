@@ -191,4 +191,40 @@ describe('the models in the settings', () => {
     await waitFor(() => expect(screen.getAllByText('Bob').length).toBeGreaterThan(0));
     expect(screen.getAllByText('Chief of Staff').length).toBeGreaterThan(0);
   });
+
+  it('draws the primary bot once when the host names it too', async () => {
+    // The host may list the primary profile under its own name; the page
+    // already draws that bot as its first row, so it is one bot, not two.
+    withBridge();
+    render(
+      <ModelPrefsProvider>
+        <ModelsSettings connected />
+      </ModelPrefsProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getAllByLabelText(/^Default model for /).length).toBe(2),
+    );
+    expect(
+      screen.getAllByLabelText('Default model for Chief of Staff').length,
+    ).toBe(1);
+  });
+
+  it('keeps the name the host gives the primary bot', async () => {
+    withBridge({
+      profiles: vi.fn(async () => ({
+        ok: true,
+        profiles: [
+          { name: 'bob', title: 'Bob' },
+          { name: 'default', title: 'Ada' },
+        ],
+      })),
+    });
+    render(
+      <ModelPrefsProvider>
+        <ModelsSettings connected />
+      </ModelPrefsProvider>,
+    );
+    expect(await screen.findByLabelText('Default model for Ada')).toBeTruthy();
+    expect(screen.queryByText('Chief of Staff')).toBeNull();
+  });
 });

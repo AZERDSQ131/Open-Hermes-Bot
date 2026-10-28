@@ -6,6 +6,7 @@ import {
   isFavorite,
   isHidden,
   modelId,
+  profileKey,
   useModelPrefs,
   withDefault,
   withFavorite,
@@ -93,18 +94,35 @@ export function ModelsSettings({ connected }: ModelsSettingsProps) {
     };
   }, [bridge, reload]);
 
-  const bots = useMemo<Bot[]>(
-    () => [
-      { key: 'default', label: 'Chief of Staff', profile: undefined },
-      ...(profiles ?? []).map((bot) => ({
-        key: bot.name,
+  // The primary bot is the row the app always has, and the host may list it
+  // under its own name too: the two are one bot. A second row for it would
+  // share the key, and a shared key is a row React shows twice or drops.
+  const bots = useMemo<Bot[]>(() => {
+    const primary = (profiles ?? []).find(
+      (bot) => profileKey(bot.name) === 'default',
+    );
+    const rows: Bot[] = [
+      {
+        key: 'default',
+        label: primary?.title?.trim() || 'Chief of Staff',
+        profile: undefined,
+        color: primary?.color,
+      },
+    ];
+    const seen = new Set(rows.map((bot) => bot.key));
+    for (const bot of profiles ?? []) {
+      const key = profileKey(bot.name);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push({
+        key,
         label: bot.title || bot.name,
         profile: bot.name,
         color: bot.color,
-      })),
-    ],
-    [profiles],
-  );
+      });
+    }
+    return rows;
+  }, [profiles]);
 
   const offeredModels = useMemo(
     () => (models ?? []).filter((entry) => !isHidden(prefs, modelId(entry))),
