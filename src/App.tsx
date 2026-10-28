@@ -353,7 +353,12 @@ function withConversations(
       const avatar =
         bot && bot.avatar.kind !== 'group' ? bot.avatar : undefined;
       return {
-        id: bot?.id ?? `bot:${member.profile}`,
+        // A member is one name in one profile, and two members can share a
+        // profile: the primary one is where the default bot's conversation
+        // lives. The name is part of the fallback id, so two members never
+        // share one — a shared id is a row React merges, and a tapback on one
+        // bot would be read as the other's.
+        id: bot?.id ?? `bot:${profileKey(member.profile)}:${member.name}`,
         name: member.name,
         profile: member.profile,
         avatar: avatar ?? {

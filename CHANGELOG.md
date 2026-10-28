@@ -47,6 +47,17 @@ follow [semantic versioning](https://semver.org/).
 
 ### Fixed
 
+- **A bot listed twice, and a group where half the members never spoke.** A
+  bot is one row, but the primary profile arrived twice — the app draws it as
+  its first bot, and the host can list it under its own name as well — so the
+  models page carried two rows with one key and two pickers with one name. A
+  group member had the same problem for another reason: its id was its profile,
+  and the primary profile holds the default bot, so two members of one group
+  could share an id. React then merged the rows and kept one of the two, which
+  is why a mention menu could drop a bot, and why a tapback on one member could
+  be read as the other's. A member is now one name in one profile, the primary
+  bot is one row, and a test fails on a duplicate key instead of printing it.
+
 - **"The bot could not finish this turn", on a turn that had worked.** The
   host names its configured model its own way — provider `auto`, with the real
   provider inside the model id (`opencode-go/muse-spark`). The app sent that
