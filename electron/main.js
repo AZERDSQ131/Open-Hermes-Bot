@@ -1716,7 +1716,11 @@ async function showAuthorization(connection, flow) {
   }
 }
 
-/** Wait for the link, the end of the command, or the point where it is slow. */
+/**
+ * Wait for the link, the end of the command, or the point where it is slow.
+ *
+ * @returns {Promise<void>}
+ */
 function waitForLink(flow, timeoutMs) {
   return new Promise((resolve) => {
     const deadline = Date.now() + timeoutMs;
@@ -2045,6 +2049,12 @@ async function awaitWarming(profile) {
   ]);
 }
 
+/**
+ * A call to the Hermes API of one profile, once the link to the host is up.
+ *
+ * @param {string} pathname
+ * @param {{ method?: string, body?: unknown, profile?: string, timeoutMs?: number, waitForWarming?: boolean }} [options]
+ */
 async function apiCall(pathname, { method = 'GET', body, profile, timeoutMs = 30000, waitForWarming = true } = {}) {
   if (waitForWarming) await awaitWarming(profile);
   if (!isLive()) await ensureConnected();
@@ -3059,6 +3069,7 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
   // and leaves the stored conversation untouched.
   if (payload?.instructions) body.system_message = String(payload.instructions);
 
+  /** @type {AbortController & { canceled?: boolean }} */
   const controller = new AbortController();
   const requestId = String(payload?.requestId ?? '');
   // A new message in the same thread cancels the previous turn by request id.
@@ -3757,15 +3768,16 @@ function createWindow() {
   win.once('ready-to-show', () => win.show());
 
   // The dictation needs the microphone, and only the dictation asks for it.
-  // Everything else the window could ask for is denied.
+  // Everything else the window could ask for is denied. The microphone is
+  // 'media': Electron 44 has no 'audioCapture' permission, so a clause on
+  // that word could never be true.
   win.webContents.session.setPermissionRequestHandler(
     (_webContents, permission, callback) => {
-      callback(permission === 'media' || permission === 'audioCapture');
+      callback(permission === 'media');
     },
   );
   win.webContents.session.setPermissionCheckHandler(
-    (_webContents, permission) =>
-      permission === 'media' || permission === 'audioCapture',
+    (_webContents, permission) => permission === 'media',
   );
 
   win.webContents.setWindowOpenHandler(({ url }) => {

@@ -22,6 +22,7 @@ shelve something.
 ```bash
 npm run dev              # the app, with hot reload
 npm run build            # typecheck + production renderer build
+npm run typecheck:electron  # the main process: the shell, the SSH, the tunnel
 npm test                 # the tests
 npm run test:coverage    # the tests, and the coverage thresholds
 npm run dist             # the .app and the .dmg, in release/

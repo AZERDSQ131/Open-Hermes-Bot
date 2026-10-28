@@ -37,6 +37,7 @@ function silenceWindow(options) {
 }
 
 /** The codes Hermes writes, and what they mean when a person reads them. */
+/** @type {Array<[RegExp, (found: RegExpExecArray) => string]>} */
 const REASONS = [
   [
     /^max_iterations_reached\((\d+)\/(\d+)\)$/,

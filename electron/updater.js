@@ -25,7 +25,7 @@ const UNSUPPORTED_MESSAGE =
  *
  * @param {object} options
  * @param {{ isPackaged: boolean, getVersion: () => string }} options.app
- * @param {object} options.autoUpdater the electron-updater instance
+ * @param {import('electron-updater').AppUpdater} options.autoUpdater the electron-updater instance
  * @param {(event: object) => void} options.onEvent tells the shell what happened
  */
 function createUpdater({ app, autoUpdater, onEvent }) {
