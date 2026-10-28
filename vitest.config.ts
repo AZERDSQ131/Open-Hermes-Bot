@@ -48,6 +48,14 @@ export default defineConfig({
           functions: 100,
           statements: 100,
         },
+        // What the setup says when the key of the host is missing, or when
+        // the API port answers nothing: every way that fails has its words.
+        'src/setupHelp.ts': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
         'src/turns.ts': {
           lines: 98,
           functions: 100,

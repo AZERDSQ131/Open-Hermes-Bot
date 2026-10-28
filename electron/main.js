@@ -508,9 +508,17 @@ function statusFromProbe(probe, connection) {
   // in the Hermes home of the machine. What to do about it is decided by the
   // caller, which is the only one that can read that home.
   if (probe.status === 401) return refusedStatus(connection, {});
+  // Nothing on the port is the API server being off, not Hermes being
+  // absent: the page says which of the two it is, and how to start it.
+  const nothingListens =
+    probe.status === 0 &&
+    /^(Nothing is listening on that port|No answer on the local port)$/.test(
+      String(probe.error ?? ''),
+    );
   return {
     state: 'error',
     message: probe.error || tunnelError || `HTTP ${probe.status || '?'}`,
+    reason: nothingListens ? 'api-server-off' : undefined,
     mode,
     label,
   };
@@ -527,16 +535,41 @@ function refusedStatus(connection, options) {
   };
 }
 
-/** The key in the Hermes home of the machine that runs Hermes. */
+// The read says which nothing it found, because the three have three
+// different answers: no home to read, a home with no key in it, a key too
+// short to be one. The command never fails for a missing line: it says so
+// and exits clean, so a failure that reaches the app is the way in, not the
+// contents. `NOREAD` is a file that is there and cannot be opened.
+const KEY_READ_SCRIPT = [
+  'F="$HOME/.hermes/.env"',
+  '[ -e "$F" ] || { echo NOFILE; exit 0; }',
+  '[ -r "$F" ] || { echo NOREAD; exit 0; }',
+  'V=$(grep -m1 -E \'^API_SERVER_KEY=\' "$F" | cut -d= -f2-)',
+  '[ -n "$V" ] || { echo NOKEY; exit 0; }',
+  'printf \'KEY=%s\\n\' "$V"',
+].join('\n');
+
+/**
+ * The key in the Hermes home of the machine that runs Hermes, and what the
+ * read found when it found none: `no-file`, `no-key`, `short-key`, or
+ * `unreadable` when the command itself did not run.
+ */
 async function readHostKey(connection) {
-  const result = await runHostCommand(
-    connection,
-    'grep -m1 -E \'^API_SERVER_KEY=\' "$HOME/.hermes/.env" 2>/dev/null | cut -d= -f2-',
-  );
-  if (!result.ok || !result.stdout.trim()) return { key: '', result };
-  const key = envKey(result.stdout);
-  // A key that is too short is the wreckage of a read, not a key.
-  return { key: key.length >= MIN_KEY_LENGTH ? key : '', result };
+  const result = await runHostCommand(connection, KEY_READ_SCRIPT);
+  if (!result.ok) return { key: '', reason: 'unreadable', result };
+  const said = String(result.stdout ?? '').trim();
+  if (said === 'NOFILE') return { key: '', reason: 'no-file', result };
+  if (said === 'NOKEY') return { key: '', reason: 'no-key', result };
+  // Anything that is not one of the three answers is a read that did not go
+  // the way it was written: nothing to trust, and the raw words to show.
+  if (!said.startsWith('KEY=')) {
+    return { key: '', reason: 'unreadable', result };
+  }
+  const key = envKey(said.slice('KEY='.length));
+  if (!key) return { key: '', reason: 'no-key', result };
+  // A key that is too short is not a key Hermes will start on.
+  if (key.length < MIN_KEY_LENGTH) return { key: '', reason: 'short-key', result };
+  return { key, result };
 }
 
 /**
@@ -781,10 +814,14 @@ ipcMain.handle('hermes:key:import', async (_event, payload) => {
   if (!read.key) {
     return {
       ok: false,
+      // Why the read found nothing, so the page can say what to do about it
+      // instead of echoing the shell.
+      reason: read.reason || 'no-key',
       error:
         read.result?.error ||
         stderrOf(read.result) ||
         'API_SERVER_KEY not found in ~/.hermes/.env',
+      details: stderrOf(read.result),
     };
   }
   storeSecret(read.key);

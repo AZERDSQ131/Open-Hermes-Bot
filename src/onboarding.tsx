@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { HermesConnectionMode, HermesStatus } from './hermes';
+import type { HermesBridge, HermesConnectionMode, HermesStatus } from './hermes';
 import { BLOUB_COLOR_OPTIONS } from './components/Bloub';
 import { ColorGrid, ShapeGrid } from './components/LogoControls';
 import { MoodBloub } from './components/MoodBloub';
@@ -7,6 +7,11 @@ import { BLOUB_SHAPES, type BloubShape } from './components/bloubFrames';
 import { toProfileId } from './components/CreateAgentDialog';
 import { avatarColor, profileColor } from './profileColor';
 import type { MoodId } from './moods';
+import { describeFailure, keyFailureHelp, type Help } from './setupHelp';
+import { SetupHelp } from './components/SetupHelp';
+
+/** What a read of the key answers, whether the bridge answered or threw. */
+type ImportedKey = Awaited<ReturnType<HermesBridge['importKey']>>;
 
 /**
  * The setup: the door the person walks through the first time the app opens.
@@ -198,6 +203,9 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     'none',
   );
   const [error, setError] = useState('');
+  // The same failure, said with what to do about it: the pages of the two
+  // connections show this one instead of the bare message when they have it.
+  const [help, setHelp] = useState<Help | null>(null);
   const [notice, setNotice] = useState('');
   /** A notice is good news by default; this one is only worth knowing. */
   const [noticeWarn, setNoticeWarn] = useState(false);
@@ -272,6 +280,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       setDirection(index > stepIndex ? 'forward' : 'back');
       setStepIndex(index);
       setError('');
+      setHelp(null);
       setNotice('');
     },
     [stepIndex],
@@ -294,6 +303,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       const port = Number.parseInt(apiPort, 10) || 8642;
       setBusy('handshake');
       setError('');
+      setHelp(null);
       setFailed(false);
       setChecks(emptyChecks());
       setChecks((current) => markCheck(current, 'reach', 'working'));
@@ -322,6 +332,18 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
           at === 'local'
             ? scanSilence(result.message, String(apiPort || '8642'))
             : (result.message ?? 'The host did not answer.'),
+        );
+        // A key in hand and nothing on the port is the API server being off:
+        // that has an answer, and the page gives it.
+        setHelp(
+          result.reason === 'api-server-off'
+            ? describeFailure({
+                kind: 'port',
+                mode: at,
+                host: at === 'ssh' ? where : '',
+                port: String(port),
+              })
+            : null,
         );
         setFailed(true);
         setBusy('none');
@@ -404,7 +426,10 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       if (!bridge?.importKey) return false;
       const result = await bridge
         .importKey({ mode: at, sshHost: where })
-        .catch((reason: Error) => ({ ok: false, error: reason.message }));
+        .catch((failure: Error): ImportedKey => ({
+          ok: false,
+          error: failure.message,
+        }));
       if (result.ok) {
         setHasKey(true);
         setApiKey('');
@@ -417,6 +442,16 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
         return true;
       }
       setError(result.error ?? 'The key could not be read from the server.');
+      // The read knows which nothing it found: the page turns that into the
+      // two lines that make a key, instead of repeating the shell.
+      setHelp(
+        keyFailureHelp(
+          result.reason,
+          at,
+          at === 'ssh' ? where : '',
+          result.details,
+        ),
+      );
       return false;
     },
     [bridge],
@@ -453,6 +488,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       if (busy !== 'none') return;
       setHost(name);
       setError('');
+      setHelp(null);
       setNotice('');
       if (!hasKey && !apiKey.trim()) {
         const imported = await importFor('ssh', name);
@@ -561,6 +597,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     if (!title) return { made: false };
     setBusy('bot');
     setError('');
+    setHelp(null);
     setNotice('');
     // A bot that is already there is corrected, not made again: the person
     // went back and changed its colour, its shape or its name.
@@ -928,6 +965,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                     onChange={() => {
                       setMode('local');
                       setError('');
+                      setHelp(null);
                       // Coming back to this Mac is coming back to a scan.
                       setScanned(false);
                     }}
@@ -946,6 +984,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                     onChange={() => {
                       setMode('ssh');
                       setError('');
+                      setHelp(null);
                     }}
                   />
                   <span className="onboarding-mode-copy">
@@ -1006,6 +1045,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                     onChange={(event) => {
                       setHost(event.target.value);
                       setError('');
+                      setHelp(null);
                     }}
                   />
                 </div>
@@ -1036,6 +1076,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                     onChange={(event) => {
                       setApiKey(event.target.value);
                       setError('');
+                      setHelp(null);
                       setNotice('');
                     }}
                   />
@@ -1139,19 +1180,24 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                 ))}
               </ul>
 
-              {error ? (
-                <div className="onboarding-actions">
-                  <span className="onboarding-error">{error}</span>
-                  <button
-                    type="button"
-                    className="onboarding-button is-quiet"
-                    disabled={busy !== 'none'}
-                    onClick={() =>
-                      void (mode === 'local' ? scanLocal() : runHandshake())
-                    }
-                  >
-                    Try again
-                  </button>
+              {help || error ? (
+                <div className="onboarding-failure">
+                  {help ? <SetupHelp help={help} /> : null}
+                  {help ? null : (
+                    <span className="onboarding-error">{error}</span>
+                  )}
+                  <div className="onboarding-actions">
+                    <button
+                      type="button"
+                      className="onboarding-button is-quiet"
+                      disabled={busy !== 'none'}
+                      onClick={() =>
+                        void (mode === 'local' ? scanLocal() : runHandshake())
+                      }
+                    >
+                      Try again
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </>
@@ -1176,6 +1222,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                   onChange={(event) => {
                     setBotName(event.target.value);
                     setError('');
+                    setHelp(null);
                   }}
                 />
               </div>

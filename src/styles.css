@@ -5259,6 +5259,96 @@ button:focus-visible {
   }
 }
 
+/* What the setup says when it met something only the person can fix. The
+   words are the page's, the commands are the host's: the block is drawn by
+   the first run and by the settings, so it lives on its own. */
+.setup-help {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  /* The page around it is centred; a paragraph that explains, and a
+     command that is copied, are read from the left. */
+  text-align: left;
+}
+
+.setup-help-title {
+  margin: 0 0 8px;
+  color: #e7e7ea;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.setup-help-line {
+  margin: 0 0 8px;
+  color: #8d8d96;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.setup-help-line:last-child {
+  margin-bottom: 0;
+}
+
+.setup-help-code {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.38);
+  color: #c9c9d1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.setup-help-details {
+  margin-top: 10px;
+}
+
+.setup-help-details summary {
+  color: #77777e;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.setup-help-details summary:hover {
+  color: #a5a5ac;
+}
+
+.setup-help-output {
+  margin: 8px 0 0;
+  max-height: 160px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.38);
+  color: #a5a5ac;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+/* The page of the setup: the error it always drew, or the block above. */
+.onboarding-failure {
+  width: 100%;
+  margin-top: 18px;
+}
+
+.onboarding-failure .onboarding-actions {
+  margin-top: 12px;
+}
+
+/* The settings draw the same block under the server card. */
+.settings-help {
+  margin-top: 18px;
+}
+
 .onboarding-error {
   color: #f0a09a;
   font-size: 13.5px;
