@@ -5,6 +5,7 @@ export type HermesConnectionState =
   | 'error';
 
 import type { UpdateState } from './updates';
+import type { KeyReadReason } from './setupHelp';
 
 /**
  * Where Hermes runs: on the machine the app runs on, or on another one,
@@ -23,6 +24,12 @@ export type HermesStatus = {
   /** What the person is told: "This Mac", or the name of their host. */
   label?: string;
   message?: string;
+  /**
+   * A failure the page can explain in its own words: `api-server-off` means
+   * the host answered nothing on the API port, which is not the same thing
+   * as Hermes being absent.
+   */
+  reason?: 'api-server-off';
 };
 
 export type HermesSettings = {
@@ -452,7 +459,15 @@ export type HermesBridge = {
     /** Where Hermes runs. */
     mode?: HermesConnectionMode;
     sshHost?: string;
-  }) => Promise<{ ok: boolean; error?: string; keyLength?: number }>;
+  }) => Promise<{
+    ok: boolean;
+    error?: string;
+    keyLength?: number;
+    /** Why the read found no key, when it found none. */
+    reason?: KeyReadReason;
+    /** The raw words of the command, when there are any worth showing. */
+    details?: string;
+  }>;
   /**
    * The hosts the person's `~/.ssh/config` already names, the way the setup
    * calls them — a machine the person does not have to name twice.

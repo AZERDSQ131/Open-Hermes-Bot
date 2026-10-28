@@ -1037,4 +1037,66 @@ describe('the setup', () => {
     );
     await waitFor(() => expect(onFinish).toHaveBeenCalled());
   });
+
+  it('explains a missing key instead of repeating the shell', async () => {
+    const bridge = makeBridge({
+      importKey: vi.fn(async () => ({
+        ok: false,
+        reason: 'no-key',
+        error: 'API_SERVER_KEY not found in ~/.hermes/.env',
+      })),
+    });
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    expect(await screen.findByText("Hermes' API server is off.")).toBeTruthy();
+    // The command that fixes it is on the page, not a file to edit by hand.
+    expect(
+      screen.getByText(/hermes config set API_SERVER_KEY/),
+    ).toBeTruthy();
+    expect(screen.getByText(/hermes gateway restart/)).toBeTruthy();
+    // What the shell said is replaced, not repeated under the answer.
+    expect(screen.queryByText(/API_SERVER_KEY not found/)).toBeNull();
+    expect(bridge.importKey).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'local' }),
+    );
+  });
+
+  it('says what the SSH cannot do, and keeps its words behind Details', async () => {
+    makeBridge({
+      importKey: vi.fn(async () => ({
+        ok: false,
+        reason: 'unreadable',
+        error: 'Permission denied (publickey)',
+        details: 'sign_and_send_pubkey: signing failed for ED25519-SK',
+      })),
+    });
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(await screen.findByRole('button', { name: /jetson/ }));
+    expect(
+      await screen.findByText('The key could not be read from jetson.'),
+    ).toBeTruthy();
+    expect(screen.getByText('Details')).toBeTruthy();
+    expect(screen.getByText(/sign_and_send_pubkey/)).toBeTruthy();
+  });
+
+  it('says the API server is off, not that Hermes is missing', async () => {
+    makeBridge({
+      test: vi.fn(async () => ({
+        state: 'error',
+        message: 'Nothing is listening on that port',
+        reason: 'api-server-off',
+      })),
+    });
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    expect(
+      await screen.findByText(
+        'Hermes is here, but its API server is not listening on 127.0.0.1:8642.',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(/hermes gateway restart/)).toBeTruthy();
+  });
 });

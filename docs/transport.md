@@ -54,6 +54,20 @@ settings say which machine it belongs to, and the next connect reads the key
 of the machine in front of the person. `electron/keys.js` holds those rules,
 tested to the line.
 
+The key is also the switch. Hermes' API server is off until the file holds
+one: `gateway/config_env.py` turns the platform on from the environment when
+`API_SERVER_KEY` is a secret of 16 characters or more, and nothing generates
+one. The desktop app Hermes ships with does not need the server, so a person
+who installed Hermes through it has no key. The app says so instead of echoing
+the shell: the read reports what it found (no file, no line, a key too short,
+an SSH that could not run), and `src/setupHelp.ts` turns that into the words
+and the commands, tested to the line. The commands go through
+`hermes config set`, which writes the key with Hermes' own env writer: the
+line is replaced rather than doubled, the file is created when there is none,
+and its mode is tightened to 0600, which an append by hand would not do.
+The first run and the settings draw the same block, so the two pages cannot
+drift apart; the raw output of a shell stays behind **Details**.
+
 ## The API
 
 Everything rides `http://127.0.0.1:<localPort>` in `ssh` mode and

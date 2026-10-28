@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type {
+  HermesBridge,
   HermesConnectionMode,
   HermesSettings,
   HermesStatus,
@@ -10,6 +11,11 @@ import { ModelsSettings } from './ModelsSettings';
 import { SkillsSettings } from './SkillsSettings';
 import { ToolsetsSettings } from './ToolsetsSettings';
 import { UpdatesSettings } from './UpdatesSettings';
+import { SetupHelp } from './SetupHelp';
+import { describeFailure, keyFailureHelp, type Help } from '../setupHelp';
+
+/** What a read of the key answers, whether the bridge answered or threw. */
+type ImportedKey = Awaited<ReturnType<HermesBridge['importKey']>>;
 
 /** The pages of the settings. */
 export type Section =
@@ -100,6 +106,9 @@ export function SettingsView({
     status: HermesStatus;
   } | null>(null);
   const [error, setError] = useState('');
+  // The same failure with what to do about it: shown in place of the bare
+  // line when the read could say why it found nothing.
+  const [help, setHelp] = useState<Help | null>(null);
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
@@ -198,6 +207,7 @@ export function SettingsView({
   function start(action: BusyAction) {
     setBusy(action);
     setError('');
+    setHelp(null);
     setNotice('');
   }
 
@@ -228,9 +238,13 @@ export function SettingsView({
     if (at === 'local' && !hasKey && !apiKey.trim()) {
       const imported = await bridge
         .importKey({ mode: at })
-        .catch((reason: Error) => ({ ok: false, error: reason.message }));
+        .catch((failure: Error): ImportedKey => ({
+          ok: false,
+          error: failure.message,
+        }));
       if (!imported.ok) {
         setError(imported.error ?? 'Could not read the key from this Mac');
+        setHelp(keyFailureHelp(imported.reason, at, '', imported.details));
         setBusy(null);
         return;
       }
@@ -271,6 +285,18 @@ export function SettingsView({
     if (afterConnect.state === 'error' && at === 'local') {
       setError(scanSilence(afterConnect.message, port || '8642'));
     }
+    // A key in hand and nothing on the port is the API server being off:
+    // that one has an answer, in either connection.
+    setHelp(
+      afterConnect.reason === 'api-server-off'
+        ? describeFailure({
+            kind: 'port',
+            mode: at,
+            host: at === 'ssh' ? where : '',
+            port: port || '8642',
+          })
+        : null,
+    );
     report(afterConnect);
     setBusy(null);
   }
@@ -293,9 +319,13 @@ export function SettingsView({
     if (!hasKey && !apiKey.trim()) {
       const imported = await bridge
         .importKey({ mode: at, sshHost: name })
-        .catch((reason: Error) => ({ ok: false, error: reason.message }));
+        .catch((failure: Error): ImportedKey => ({
+          ok: false,
+          error: failure.message,
+        }));
       if (!imported.ok) {
         setError(imported.error ?? `Could not read the key from ${name}`);
+        setHelp(keyFailureHelp(imported.reason, at, name, imported.details));
         setBusy(null);
         return;
       }
@@ -313,7 +343,10 @@ export function SettingsView({
     start('import');
     const result = await bridge
       .importKey({ mode, sshHost: host })
-      .catch((reason: Error) => ({ ok: false, error: reason.message }));
+      .catch((failure: Error): ImportedKey => ({
+        ok: false,
+        error: failure.message,
+      }));
     if (result.ok) {
       setHasKey(true);
       setKeyElsewhere('');
@@ -321,6 +354,14 @@ export function SettingsView({
       setNotice(`Key imported from ${host || 'the server'}.`);
     } else {
       setError(result.error ?? 'Could not read the key from the server');
+      setHelp(
+        keyFailureHelp(
+          result.reason,
+          mode,
+          mode === 'ssh' ? host : '',
+          result.details,
+        ),
+      );
     }
     setBusy(null);
   }
@@ -536,6 +577,7 @@ export function SettingsView({
                         onChange={() => {
                           setMode('local');
                           setError('');
+                          setHelp(null);
                           setNotice('');
                         }}
                       />
@@ -554,6 +596,7 @@ export function SettingsView({
                         onChange={() => {
                           setMode('ssh');
                           setError('');
+                          setHelp(null);
                           setNotice('');
                         }}
                       />
@@ -611,6 +654,7 @@ export function SettingsView({
                           onChange={(event) => {
                             setHost(event.target.value);
                             setError('');
+                            setHelp(null);
                             setNotice('');
                           }}
                         />
@@ -669,6 +713,7 @@ export function SettingsView({
                         onChange={(event) => {
                           setApiKey(event.target.value);
                           setError('');
+                          setHelp(null);
                           setNotice('');
                         }}
                       />
@@ -758,6 +803,7 @@ export function SettingsView({
                           onChange={(event) => {
                             setPort(event.target.value);
                             setError('');
+                            setHelp(null);
                             setNotice('');
                           }}
                         />
@@ -777,6 +823,7 @@ export function SettingsView({
                             onChange={(event) => {
                               setLocalPort(event.target.value);
                               setError('');
+                              setHelp(null);
                               setNotice('');
                             }}
                           />
@@ -831,6 +878,7 @@ export function SettingsView({
                         onClick={() => {
                           setAutoConnect((current) => !current);
                           setError('');
+                          setHelp(null);
                           setNotice('');
                         }}
                       >
@@ -848,6 +896,7 @@ export function SettingsView({
                           setLocalPort('18742');
                           setAutoConnect(false);
                           setError('');
+                          setHelp(null);
                           setNotice('Advanced settings reset — save to apply.');
                         }}
                       >
@@ -861,8 +910,14 @@ export function SettingsView({
                 ) : null}
               </section>
 
+              {help ? (
+                <div className="settings-help">
+                  <SetupHelp help={help} />
+                </div>
+              ) : null}
+
               <div className="settings-page-actions">
-                {feedback ? (
+                {feedback && !help ? (
                   <p className="settings-feedback" data-tone={feedback.tone}>
                     <span className="settings-feedback-dot" aria-hidden="true" />
                     {feedback.text}

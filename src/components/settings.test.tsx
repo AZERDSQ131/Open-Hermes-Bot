@@ -1143,4 +1143,63 @@ describe('the settings', () => {
       screen.getByRole('heading', { name: 'Connectors' }),
     ).toBeTruthy();
   });
+
+  it('explain a key the host does not have, instead of echoing the shell', async () => {
+    withBridge({
+      getSettings: vi.fn(async () => ({
+        mode: 'ssh',
+        configured: true,
+        sshHost: 'jetson',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: false,
+      })),
+      importKey: vi.fn(async () => ({
+        ok: false,
+        reason: 'no-key',
+        error: 'API_SERVER_KEY not found in the remote ~/.hermes/.env',
+      })),
+    });
+    renderSettings();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Import from jetson' }),
+    );
+    expect(await screen.findByText("Hermes' API server is off.")).toBeTruthy();
+    expect(screen.queryByText(/API_SERVER_KEY not found/)).toBeNull();
+    expect(
+      screen.getByText(/hermes config set API_SERVER_KEY/),
+    ).toBeTruthy();
+    // The lines are the host's to run, and the page says which host.
+    expect(screen.getByText(/Run these on jetson/)).toBeTruthy();
+  });
+
+  it('say when the key is in hand and the API server is not listening', async () => {
+    withBridge({
+      getSettings: vi.fn(async () => ({
+        mode: 'local',
+        configured: true,
+        sshHost: '',
+        apiPort: 8642,
+        localPort: 18742,
+        autoConnect: true,
+        hasKey: true,
+      })),
+      connect: vi.fn(async () => ({
+        state: 'error',
+        message: 'Nothing is listening on that port',
+        reason: 'api-server-off',
+      })),
+    });
+    renderSettings({ state: 'disconnected' });
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Scan & connect/ }),
+    );
+    expect(
+      await screen.findByText(
+        'Hermes is here, but its API server is not listening on 127.0.0.1:8642.',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(/hermes gateway restart/)).toBeTruthy();
+  });
 });

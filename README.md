@@ -77,6 +77,13 @@ run?**
   `~/.hermes/.env` over the SSH it already uses. The key stays in the login
   Keychain, under the app's own entry.
 
+The key is also the switch. Hermes' API server is off by default: it starts
+when that file holds an `API_SERVER_KEY` of 16 characters or more, and the
+desktop app Hermes ships with never needs one. When there is no key to read,
+the setup says what the server is and gives the lines that make a key
+and restart the gateway, instead of an `API_SERVER_KEY not found` from the
+shell.
+
 Then it shakes hands: the app reaches Hermes, asks it which bots exist, and
 shows them. Nothing else is needed: no account, no cloud, no key typed by
 hand. The setup can be run again from **Settings → Setup**, whenever Hermes
