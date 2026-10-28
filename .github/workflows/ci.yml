@@ -38,6 +38,9 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Typecheck the main process
+        run: npm run typecheck:electron
+
       - name: Typecheck and build
         run: npm run build
 

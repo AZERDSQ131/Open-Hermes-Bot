@@ -29,6 +29,7 @@ The day-to-day commands:
 |---|---|
 | `npm run dev` | the app, with hot reload |
 | `npm run build` | the typecheck and the production renderer build |
+| `npm run typecheck:electron` | the main process on its own: the shell, the SSH and the tunnel |
 | `npm test` | the tests |
 | `npm run test:coverage` | the tests, with the coverage — and the thresholds |
 | `npm run test:update` | the update, for real: two builds, a feed, a button |

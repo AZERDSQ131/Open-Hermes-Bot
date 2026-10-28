@@ -29,6 +29,10 @@ const CONNECTORS_TTL_MS = 15000;
  * `fresh` skips the answer that is kept, without starting a second read: the
  * page uses it after a service was connected, when the old list is a lie.
  */
+/**
+ * @param {() => Promise<{ ok?: boolean }>} read
+ * @param {{ ttlMs?: number, now?: () => number }} [options]
+ */
 function createConnectorsReader(read, options = {}) {
   const ttlMs = options.ttlMs ?? CONNECTORS_TTL_MS;
   const now = options.now ?? Date.now;
