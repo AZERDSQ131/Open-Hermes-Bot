@@ -191,6 +191,9 @@ export type HermesJob = {
   /** The shape of the schedule: a cron expression, or an interval. */
   schedule?: {
     kind?: string;
+    /** What a cron job carries, and what the host writes: `0 9 * * 1`. */
+    expr?: string;
+    /** The same thing under the name some versions use. */
     expression?: string;
     minutes?: number;
     display?: string;
