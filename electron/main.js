@@ -2809,7 +2809,15 @@ try:
         raise ValueError("the gateway did not report its profiles")
     profiles = []
     for raw in served:
-        name = str(raw).strip()
+        # The gateway names a served profile by its home rather than by a bare
+        # string: an entry is the record it publishes, with the home it runs
+        # from. The primary profile is the Hermes home itself, which is the
+        # bot the app already has and not one of the named ones.
+        if isinstance(raw, dict):
+            place = str(raw.get("home") or raw.get("profile_id") or "").strip()
+            name = "" if place in ("", str(home)) else Path(place).name
+        else:
+            name = str(raw).strip()
         if not name or name == "default":
             continue
         title = ""

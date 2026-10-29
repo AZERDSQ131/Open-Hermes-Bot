@@ -47,6 +47,13 @@ follow [semantic versioning](https://semver.org/).
 
 ### Fixed
 
+- **The bots a host serves, and the app not listing them.** Hermes names the
+  profiles it serves by their home now, in the record the control socket
+  publishes, and the app read each record as if it were a bare name: the
+  match failed, the list came back empty, and a host with three bots showed
+  none of them. The answer is read in both shapes, so the bots a host serves
+  are the bots the sidebar draws.
+
 - **A bot listed twice, and a group where half the members never spoke.** A
   bot is one row, but the primary profile arrived twice — the app draws it as
   its first bot, and the host can list it under its own name as well — so the
