@@ -23,6 +23,7 @@ function makeBridge(
     })),
     saveSettings: vi.fn(async () => ({ ok: true })),
     importKey: vi.fn(async () => ({ ok: true, keyLength: 64 })),
+    openApiServer: vi.fn(async () => ({ ok: true, keyLength: 64 })),
     test: vi.fn(async () => ({
       state: 'connected',
       version: '0.21.5',
@@ -314,6 +315,83 @@ describe('the setup', () => {
     expect(
       await screen.findByText(/API_SERVER_KEY from ~\/\.hermes\/\.env/),
     ).toBeTruthy();
+  });
+
+  it('offers to turn the API server on when this Mac has no key', async () => {
+    const bridge = makeBridge({
+      importKey: vi.fn(async () => ({
+        ok: false,
+        error: 'API_SERVER_KEY not found in ~/.hermes/.env',
+      })),
+    });
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    const open = await screen.findByRole('button', {
+      name: 'Turn the API server on',
+    });
+    // What it will do is said before it is pressed, including the cost of
+    // the restart and the promise about a key that is already there.
+    expect(
+      screen.getByText(/A key already there is never replaced/),
+    ).toBeTruthy();
+    await userEvent.click(open);
+    expect(bridge.openApiServer).toHaveBeenCalledWith({
+      mode: 'local',
+      sshHost: undefined,
+    });
+    // The failed scan never reached the host: it stopped at the missing key.
+    // With one in place the setup walks its own path, and the key it never
+    // saw is read back the way every key is read back.
+    await waitFor(() => expect(bridge.test).toHaveBeenCalledTimes(1));
+    expect(bridge.test).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'local' }),
+    );
+  });
+
+  it('says why the key could not be written, and offers nothing to press', async () => {
+    makeBridge({
+      importKey: vi.fn(async () => ({
+        ok: false,
+        error: 'API_SERVER_KEY not found in ~/.hermes/.env',
+      })),
+      openApiServer: vi.fn(async () => ({
+        ok: false,
+        error: 'API_SERVER_KEY is already set on this host, and is not replaced.',
+      })),
+    });
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Turn the API server on' }),
+    );
+    expect(
+      await screen.findByText(/already set on this host/),
+    ).toBeTruthy();
+    // The failure is no longer the missing key, so there is nothing left to
+    // open: the button goes away and the words stay.
+    expect(
+      screen.queryByRole('button', { name: 'Turn the API server on' }),
+    ).toBeNull();
+  });
+
+  it('offers no such button when the failure is the connection, not the key', async () => {
+    makeBridge({
+      test: vi.fn(async () => ({
+        state: 'error',
+        message: 'Nothing is listening on that port',
+      })),
+    });
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    expect(
+      await screen.findByText(/No Hermes answered on 127\.0\.0\.1:8642/),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Turn the API server on' }),
+    ).toBeNull();
   });
 
   it('scans again when the person asks for it', async () => {

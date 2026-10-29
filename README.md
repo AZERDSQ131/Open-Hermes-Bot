@@ -27,7 +27,7 @@ and the rules that decide which bot answers next.
 
 So the app runs no model and keeps no transcript: the conversation lives on the
 Hermes host, and closing the app, wiping the disk or moving to another machine
-changes nothing about it. The only secret on this machine is the Hermes API
+changes nothing about it. The only secret the app keeps is the Hermes API
 key, in the login Keychain.
 
 What the app owns is the room: the identity of the bots, the group protocol,

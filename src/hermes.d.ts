@@ -469,6 +469,14 @@ export type HermesBridge = {
     details?: string;
   }>;
   /**
+   * Asks Hermes to make the key its API server needs, on the host it runs
+   * from, and reads it back. Refuses when a key is already there.
+   */
+  openApiServer: (payload: {
+    mode?: HermesConnectionMode;
+    sshHost?: string;
+  }) => Promise<{ ok: boolean; error?: string; keyLength?: number }>;
+  /**
    * The hosts the person's `~/.ssh/config` already names, the way the setup
    * calls them — a machine the person does not have to name twice.
    */
