@@ -69,6 +69,14 @@ export default defineConfig({
           branches: 100,
           statements: 100,
         },
+        // The rules of a schedule: when it runs next, where it stands, and
+        // the one thing the page must not hide, a run the host is not doing.
+        'src/schedules.ts': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
         // The rules of the update: what is looked for, and what happens to
         // it. The bridge cannot be checked by hand.
         'electron/updater.js': {

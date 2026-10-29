@@ -39,6 +39,16 @@ if (process.env.VITE_DEMO !== '1') contextBridge.exposeInMainWorld('hermes', {
   toggleToolset: (payload) => ipcRenderer.invoke('hermes:toolsets:toggle', payload),
   /** The connectors of the host: the services a bot can reach. */
   connectors: (payload) => ipcRenderer.invoke('hermes:connectors', payload),
+  /** The schedules of a bot: what it runs on its own, on the host. */
+  jobs: (payload) => ipcRenderer.invoke('hermes:jobs', payload),
+  /** A schedule is paused on the host. */
+  pauseJob: (payload) => ipcRenderer.invoke('hermes:jobs:pause', payload),
+  /** A paused schedule is resumed on the host. */
+  resumeJob: (payload) => ipcRenderer.invoke('hermes:jobs:resume', payload),
+  /** A schedule is created on the host. */
+  createJob: (payload) => ipcRenderer.invoke('hermes:jobs:create', payload),
+  /** A schedule is asked to run now, on the host's next tick. */
+  runJob: (payload) => ipcRenderer.invoke('hermes:jobs:run', payload),
   /** The mark of a connector: the shell asks for it, and hands the bytes. */
   connectorLogo: (payload) =>
     ipcRenderer.invoke('hermes:connectors:logo', payload),

@@ -1735,6 +1735,102 @@ ipcMain.handle('hermes:connectors', (_event, payload) =>
   connectorsOfHost({ fresh: Boolean(payload?.fresh) }),
 );
 
+// The schedules of a bot: they live in the host's `cron/jobs.json`, and the
+// gateway serves them on the API this app already talks to, scoped to the
+// profile like the sessions. No shell, no Python boot: the gateway is the
+// one that owns them, and reading them is one request.
+ipcMain.handle('hermes:jobs', async (_event, payload) => {
+  const profile = String(payload?.profile ?? '');
+  const answer = await apiCall('/api/jobs?include_disabled=true', {
+    profile,
+    timeoutMs: 15000,
+  });
+  if (!answer.ok) {
+    return {
+      ok: false,
+      jobs: [],
+      error: apiErrorText(answer, 'The host did not answer with its schedules.'),
+      status: answer.status,
+    };
+  }
+  const list = answer.body?.jobs ?? answer.body?.data ?? answer.body;
+  return {
+    ok: true,
+    jobs: Array.isArray(list) ? list : [],
+    error: '',
+    status: answer.status,
+  };
+});
+
+// Pausing and resuming are the host's calls: the app asks, and the row it
+// draws afterwards is the one the host answered with on the next read.
+function jobAction(action) {
+  return async (_event, payload) => {
+    const jobId = String(payload?.jobId ?? '').trim();
+    if (!jobId) return { ok: false, error: 'A schedule needs an id' };
+    const answer = await apiCall(
+      `/api/jobs/${encodeURIComponent(jobId)}/${action}`,
+      { method: 'POST', profile: String(payload?.profile ?? ''), timeoutMs: 15000 },
+    );
+    if (!answer.ok) {
+      return {
+        ok: false,
+        error: apiErrorText(answer, `The host could not ${action} that schedule.`),
+      };
+    }
+    return { ok: true, error: '' };
+  };
+}
+
+ipcMain.handle('hermes:jobs:pause', jobAction('pause'));
+ipcMain.handle('hermes:jobs:resume', jobAction('resume'));
+
+// Creating and running now are the host's calls too. A create carries the
+// gateway's own body; its `400` says what is wrong with the draft, in words
+// the page shows as they are. A run is not run in the request: `trigger_job`
+// sets the next run to this moment, and the gateway's ticker fires it.
+ipcMain.handle('hermes:jobs:create', async (_event, payload) => {
+  const body = {
+    name: String(payload?.name ?? ''),
+    schedule: String(payload?.schedule ?? ''),
+    prompt: String(payload?.prompt ?? ''),
+    deliver: String(payload?.deliver ?? 'local'),
+  };
+  if (payload?.repeat !== undefined && payload?.repeat !== null) {
+    body.repeat = Number(payload.repeat);
+  }
+  const answer = await apiCall('/api/jobs', {
+    method: 'POST',
+    body,
+    profile: String(payload?.profile ?? ''),
+    timeoutMs: 30000,
+  });
+  if (!answer.ok) {
+    return {
+      ok: false,
+      error: apiErrorText(answer, 'The host did not create that schedule.'),
+      status: answer.status,
+    };
+  }
+  return { ok: true, job: answer.body?.job ?? null, error: '' };
+});
+
+ipcMain.handle('hermes:jobs:run', async (_event, payload) => {
+  const jobId = String(payload?.jobId ?? '').trim();
+  if (!jobId) return { ok: false, error: 'A schedule needs an id' };
+  const answer = await apiCall(
+    `/api/jobs/${encodeURIComponent(jobId)}/run`,
+    { method: 'POST', profile: String(payload?.profile ?? ''), timeoutMs: 30000 },
+  );
+  if (!answer.ok) {
+    return {
+      ok: false,
+      error: apiErrorText(answer, 'The host did not run that schedule.'),
+    };
+  }
+  return { ok: true, job: answer.body?.job ?? null, error: '' };
+});
+
 // ------------------------------------------------- the local MCP services
 //
 // A service the host knows by itself — the entries of the local MCP

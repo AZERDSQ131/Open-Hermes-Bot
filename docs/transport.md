@@ -86,6 +86,11 @@ bot's own gateway and checked against that bot's own key.
 | `DELETE /api/sessions/<id>` | Deletes a conversation, and its transcript. |
 | `GET /api/sessions/<id>/chat/stream` | A turn, as a stream of text deltas and tool calls. |
 | `GET /api/model/options` | The models the bot's providers offer. |
+| `GET /api/jobs?include_disabled=true` | The schedules a bot runs, paused and finished ones included. |
+| `POST /api/jobs` | Makes one. `{ name, schedule, prompt, deliver?, repeat? }` |
+| `POST /api/jobs/<id>/pause` | Turns one off, on the host. |
+| `POST /api/jobs/<id>/resume` | Turns one back on. |
+| `POST /api/jobs/<id>/run` | Asks for a run now. |
 
 The two reads of `/api/sessions` are the same call asked twice. The sidebar
 wants the conversations this app opened — a session carries the source that
@@ -93,6 +98,35 @@ opened it — so it asks for `api_server` and nothing else. The list of before
 wants the opposite: everything the profile holds, whoever wrote it. Rows that
 are already on screen are dropped where the answer is read, not where it is
 asked, so a host that ignores the filter changes nothing.
+
+The schedules ride the same prefix. A bot's jobs live in its own
+`cron/jobs.json`, and the gateway serves them there, so the page reads
+`/p/<profile>/api/jobs` for the bot it is showing and pauses or resumes
+one job at a time. Nothing of it is kept: the rows are read again after a
+change, because the host may move a next run while it answers.
+
+Creating one sends the gateway's own body, and its `400` is shown as it is:
+the host is the one that knows whether a phrase parses, and its words are
+better than a copy of its rules. A run is not run in the request either:
+`trigger_job` sets `next_run_at` to this moment and returns, and the
+gateway's ticker fires it on its next pass. That is why the page says a run
+was asked for rather than done, and why a paused job is not offered one: the
+same call turns it back on, so the switch is the honest way back.
+
+Reading a run is not a new call either. An agent run is a conversation:
+Hermes opens the session `cron_<job>_<YYYYMMDD>_<HHMMSS>` for it and titles
+it after the job and the hour, so the app finds the runs of a schedule in the
+same `/api/sessions` it already reads and opens one in the view it already
+has for a conversation it did not open. A script-only job writes no session:
+its output stays in `cron/output/<job>/` on the host, and the row says so
+rather than pretending there is nothing to read.
+
+The page also has one rule of its own. A job that was due and did not run
+means the scheduler is stopped, not that the schedule is broken: the
+gateway answers a request while its ticker does not, and a bot that has
+quietly stopped working is the thing this page exists to show. `501` is the
+other honest answer, a Hermes installed without its cron module, and it is
+said as that, not as a failed connection.
 
 A profile mints its own `API_SERVER_KEY` when it is created, and the gateway
 checks `/p/<name>/` against that key: a bot's turn cannot ride the primary

@@ -52,6 +52,17 @@ follow [semantic versioning](https://semver.org/).
   A service of the host's own catalogue is connected without a Nous account:
   the host installs it, the provider signs itself in through your browser,
   and the shell holds the port that comes back for as long as the flow runs.
+- **The schedules of a bot.** **Settings → Schedules** lists what a bot runs
+  on its own, read from the host: the words of the schedule and the
+  expression behind them, when the next run is due, what the last one did
+  and why it failed, and where the result goes. A schedule is made from the
+  same page, paused or resumed, and asked to run - asked, because the host
+  rearms it and its own ticker fires it, and the page says so. The runs are
+  read back too: a run is a conversation Hermes writes as a session of its
+  own, so a schedule that has run before counts them and opens one where
+  the app opens any conversation it did not start. A run that worked and a
+  delivery that failed are said apart, and a schedule that was due and did
+  not run says the scheduler is stopped rather than showing a healthy row.
 
 ### Fixed
 
