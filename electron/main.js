@@ -2195,7 +2195,7 @@ ipcMain.handle('hermes:sessions', async (_event, payload) => {
         id,
         title: String(row?.title ?? ''),
         messageCount: Number(row?.message_count ?? 0),
-        lastActive: Number(row?.last_active ?? 0),
+        lastActive: lastActiveMs(row?.last_active),
         archived: Boolean(row?.archived),
       });
     }
@@ -2213,6 +2213,18 @@ ipcMain.handle('hermes:sessions', async (_event, payload) => {
 // wrote them, and the window decides which ones are already on screen.
 const HISTORY_PAGE = 100;
 const HISTORY_PAGES = 5;
+
+/**
+ * When a session was last spoken in, in the milliseconds the window counts
+ * with. Hermes writes `last_active` as Unix seconds with a fraction, the way
+ * a SQLite stamp and a JSON number both survive the trip; reading it as
+ * milliseconds dates every conversation to January 1970.
+ */
+function lastActiveMs(value) {
+  const seconds = Number(value ?? 0);
+  if (!Number.isFinite(seconds) || seconds <= 0) return 0;
+  return seconds < 1e12 ? Math.round(seconds * 1000) : Math.round(seconds);
+}
 
 ipcMain.handle('hermes:history', async (_event, payload) => {
   const profile = payload?.profile;
@@ -2240,7 +2252,7 @@ ipcMain.handle('hermes:history', async (_event, payload) => {
         id,
         title: String(row?.title ?? ''),
         messageCount: Number(row?.message_count ?? 0),
-        lastActive: Number(row?.last_active ?? 0),
+        lastActive: lastActiveMs(row?.last_active),
         archived: Boolean(row?.archived),
       });
     }
