@@ -500,16 +500,22 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       });
       if (!opened.ok) {
         setOpenApiFailed(true);
+        // The repair's own words replace the block that sent the person here:
+        // that block is about a key that is missing, and this is the answer
+        // to pressing the button that was meant to make one.
+        setHelp(null);
         setError(opened.error ?? 'The key could not be written on the host.');
         setBusy('none');
         return;
       }
       setHasKey(true);
+      setHelp(null);
       setOpenApiFailed(false);
       setBusy('none');
       await runHandshake({ mode, host });
     } catch (reason) {
       setOpenApiFailed(true);
+      setHelp(null);
       setError(
         reason instanceof Error && reason.message
           ? reason.message
