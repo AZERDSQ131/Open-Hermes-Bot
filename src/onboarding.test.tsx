@@ -376,6 +376,35 @@ describe('the setup', () => {
     ).toBeNull();
   });
 
+  it('says why the repair failed, instead of keeping the help that sent it', async () => {
+    // The read says why it found no key, so the setup draws the block that
+    // explains a missing one, and the button that lifts it sits inside that
+    // block. The repair's answer has to take its place, or the screen keeps
+    // the explanation and hides the failure behind it.
+    makeBridge({
+      importKey: vi.fn(async () => ({
+        ok: false,
+        reason: 'no-key',
+        error: 'API_SERVER_KEY not found in ~/.hermes/.env',
+      })),
+      openApiServer: vi.fn(async () => ({
+        ok: false,
+        error: 'hermes was not found on this machine',
+      })),
+    });
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    expect(await screen.findByText(/API server is off/)).toBeTruthy();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Turn the API server on' }),
+    );
+    expect(
+      await screen.findByText(/hermes was not found on this machine/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/API server is off/)).toBeNull();
+  });
+
   it('offers no such button when the failure is the connection, not the key', async () => {
     makeBridge({
       test: vi.fn(async () => ({
