@@ -831,6 +831,77 @@ ipcMain.handle('hermes:key:import', async (_event, payload) => {
   return { ok: true, keyLength: read.key.length };
 });
 
+/**
+ * The first run dead-ends on one fact the app can neither explain away nor try
+ * again: Hermes' API server stays off until a key exists for it, and nothing
+ * on a fresh install makes one. The person is left with two commands to type
+ * in a terminal before the app can carry a single turn.
+ *
+ * These are those two commands, run where they belong. The key is made on the
+ * host and handed to Hermes' own configuration command, which writes it into
+ * the `.env` of its home with the permissions it already uses; the app never
+ * holds the value on the way, and never replaces a key that is there. The
+ * gateway is then asked to pick it up, and the door is tried again by the
+ * caller, in the open, once the key reads back.
+ */
+const OPEN_API_TIMEOUT_MS = 60000;
+
+/** Where the installer left `hermes`, since the shell's PATH is not this one. */
+const HERMES_ON_PATH = `H="$(command -v hermes 2>/dev/null || true)"
+if [ -z "$H" ]; then
+  for c in "$HOME/.hermes/hermes-agent/.hermes/bin/hermes" "$HOME/.local/bin/hermes" /opt/homebrew/bin/hermes /usr/local/bin/hermes; do
+    if [ -x "$c" ]; then H="$c"; break; fi
+  done
+fi
+if [ -z "$H" ]; then echo "hermes was not found on this machine" >&2; exit 127; fi`;
+
+// Made on the host: an openssl key, the same tool the app uses when it makes
+// a key for a bot it creates, and od when openssl is not there. The value is
+// handed to Hermes' own configuration command and never travels further.
+const OPEN_API_SCRIPT = `${HERMES_ON_PATH}
+K="$(openssl rand -hex 32 2>/dev/null || od -An -tx1 -N32 /dev/urandom | tr -d ' \\n')"
+[ -n "$K" ] || { echo "no key could be made here" >&2; exit 1; }
+"$H" config set API_SERVER_KEY "$K" >/dev/null || exit 1
+unset K
+"$H" gateway restart >/dev/null 2>&1 || kill -USR1 "$(cat "$HOME/.hermes/gateway.pid" 2>/dev/null)" 2>/dev/null || true
+echo opened`;
+
+async function openApiServer(connection) {
+  const existing = await readHostKey(connection);
+  if (existing.key) {
+    return {
+      ok: false,
+      error: 'API_SERVER_KEY is already set on this host, and is not replaced.',
+    };
+  }
+  const opened = await runHostCommand(connection, OPEN_API_SCRIPT, OPEN_API_TIMEOUT_MS);
+  if (!opened.ok || !/opened/.test(opened.stdout)) {
+    return {
+      ok: false,
+      error:
+        stderrOf(opened) || 'The key could not be written on the host.',
+    };
+  }
+  const read = await readHostKey(connection);
+  if (!read.key) {
+    return { ok: false, error: 'The key was written but did not read back.' };
+  }
+  storeSecret(read.key);
+  return { ok: true, keyLength: read.key.length };
+}
+
+ipcMain.handle('hermes:api:open', async (_event, payload) => {
+  const current = storedConnection();
+  const mode = payload?.mode ? normalizeMode(payload.mode) : current.mode;
+  const host = sanitizeHost(payload?.sshHost) || current.sshHost;
+  const connection = { mode, sshHost: host };
+  const opened = await openApiServer(connection);
+  if (!opened.ok) return opened;
+  // The key now in the pocket is the key of the machine that made it.
+  rememberKeyOrigin(connection);
+  return opened;
+});
+
 // The persons' machines have names they have already written once. Reading
 // them is a courtesy the setup lives on: a missing file says an empty list,
 // and nothing is asked of the SSH itself — it is a text file.

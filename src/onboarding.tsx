@@ -199,7 +199,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   const [apiKey, setApiKey] = useState('');
   const [hasKey, setHasKey] = useState(false);
   const [advanced, setAdvanced] = useState(false);
-  const [busy, setBusy] = useState<'none' | 'import' | 'handshake' | 'bot'>(
+  const [busy, setBusy] = useState<'none' | 'import' | 'handshake' | 'bot' | 'open-api'>(
     'none',
   );
   const [error, setError] = useState('');
@@ -477,6 +477,40 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
     }
     await runHandshake({ mode: 'local' });
   }, [apiKey, bridge, busy, hasKey, importFor, runHandshake]);
+
+  /**
+   * Hermes' API server stays off until a key exists for it, and a fresh
+   * install has none: nothing to paste, nothing to try. The shell asks Hermes
+   * to make one where it belongs, the gateway picks it up, and the setup
+   * walks the path it always walked. The key comes back through the read the
+   * setup already uses, never through this window.
+   */
+  const openApi = useCallback(async () => {
+    if (!bridge?.openApiServer || busy !== 'none') return;
+    setBusy('open-api');
+    setError('');
+    try {
+      const opened = await bridge.openApiServer({
+        mode,
+        sshHost: mode === 'ssh' ? host : undefined,
+      });
+      if (!opened.ok) {
+        setError(opened.error ?? 'The key could not be written on the host.');
+        setBusy('none');
+        return;
+      }
+      setHasKey(true);
+      setBusy('none');
+      await runHandshake({ mode, host });
+    } catch (reason) {
+      setError(
+        reason instanceof Error && reason.message
+          ? reason.message
+          : 'The key could not be written on the host.',
+      );
+      setBusy('none');
+    }
+  }, [bridge, busy, host, mode, runHandshake]);
 
   /**
    * A saved host is one click. The host is named, the key is read from the
@@ -1187,6 +1221,24 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                     <span className="onboarding-error">{error}</span>
                   )}
                   <div className="onboarding-actions">
+                    {/*
+                      The one failure the setup can lift by itself: the server
+                      is off because no key exists, and Hermes can be asked to
+                      make one. Every other failure is a host, a port or a
+                      tunnel, and stays a thing to look at.
+                    */}
+                    {/API_SERVER_KEY not found/.test(error) ? (
+                      <button
+                        type="button"
+                        className="onboarding-button"
+                        disabled={busy !== 'none'}
+                        onClick={() => void openApi()}
+                      >
+                        {busy === 'open-api'
+                          ? 'Turning it on…'
+                          : 'Turn the API server on'}
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       className="onboarding-button is-quiet"
@@ -1198,6 +1250,15 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                       Try again
                     </button>
                   </div>
+                  {/API_SERVER_KEY not found/.test(error) ? (
+                    <p className="onboarding-api-hint">
+                      Writes a key into the .env of the Hermes home with
+                      Hermes&apos; own command, has the gateway pick it up, and
+                      reads the key back. A key already there is never
+                      replaced. The messaging bots drop for a few seconds while
+                      the gateway restarts.
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
             </>

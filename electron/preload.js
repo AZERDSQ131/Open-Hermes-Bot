@@ -7,6 +7,7 @@ if (process.env.VITE_DEMO !== '1') contextBridge.exposeInMainWorld('hermes', {
   getSettings: () => ipcRenderer.invoke('hermes:settings:get'),
   saveSettings: (payload) => ipcRenderer.invoke('hermes:settings:save', payload),
   importKey: (payload) => ipcRenderer.invoke('hermes:key:import', payload),
+  openApiServer: (payload) => ipcRenderer.invoke('hermes:api:open', payload),
   sshHosts: () => ipcRenderer.invoke('hermes:ssh:hosts'),
   setOnboarding: (payload) =>
     ipcRenderer.invoke('hermes:onboarding:set', payload),

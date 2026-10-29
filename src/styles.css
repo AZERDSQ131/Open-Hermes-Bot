@@ -4877,6 +4877,16 @@ button:focus-visible {
   font-size: 12.5px;
 }
 
+/* What the button above it does, said before it is pressed: one line about
+   the key, one about the gateway dropping its bots for a few seconds. */
+.onboarding-api-hint {
+  width: 100%;
+  margin-top: 8px;
+  color: #8d8d96;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
 /* Where the key would be, on this Mac there is no key to fill in: only
    the word of where the app will find one. */
 .onboarding-key-guide {

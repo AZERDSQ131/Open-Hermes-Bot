@@ -28,8 +28,14 @@ host you named and GitHub.
 The key of a bot — the `API_SERVER_KEY` of its profile — is read from
 `$HOME/.hermes/profiles/<profile>/.env` on the machine that runs Hermes, over
 the connection the app already has, and is kept in memory for the length of
-the session. The app never writes it. In `local` mode that file is on this
-machine already, and the app reads it from here.
+the session. The app never replaces a key: one that is there is the person's,
+and it stays. In `local` mode that file is on this machine already, and the
+app reads it from here.
+
+When there is no key at all, Hermes' API server stays off and the app can
+carry nothing. The setup then offers one button, described under *What the app
+does to the host*: the key is made on the host where it belongs, by Hermes'
+own command, and the app only reads it back.
 
 **Read it from this Mac** and **Read it from \<host\>** read
 `API_SERVER_KEY` from the `.env` of the Hermes home, over SSH when the host
@@ -66,6 +72,15 @@ recording goes down a pipe, never down an argument.
 
 Worth knowing, because it is the app's own doing and not Hermes':
 
+- **Turning the API server on, when the person presses that button.** It runs
+  `hermes config set API_SERVER_KEY "$(openssl rand -hex 32)"` and then
+  `hermes gateway restart` on the machine that runs Hermes. The key is made by
+  the host's own `openssl`, written into the `.env` of the Hermes home by
+  Hermes' own command with the permissions it already uses, and read back the
+  ordinary way: it never passes through the window, and the app does not
+  write the file itself. A key already in the `.env` is never replaced; the
+  button does not appear. The gateway restarts, so the messaging bots drop for
+  a few seconds.
 - **Creating a bot copies the primary profile.** Its `config.yaml`, its
   `SOUL.md`, its `MEMORY.md` and `USER.md`, and its `skills` are copied into
   the new bot's profile. So is the primary `.env`, minus the API key, the
