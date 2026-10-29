@@ -394,6 +394,28 @@ describe('the setup', () => {
     ).toBeNull();
   });
 
+  it('offers the repair when a shut door answers as a connection failure', async () => {
+    // The first run of a machine that never had a key: the API server was
+    // never started, so the scan gets no answer at all and never hears the
+    // words "API_SERVER_KEY". The button is offered all the same, because
+    // what it needs to know is that there is no key, not how the door said so.
+    makeBridge({
+      importKey: vi.fn(async () => ({
+        ok: false,
+        error: 'No Hermes answered on 127.0.0.1:8642',
+      })),
+    });
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await chooseMode('local');
+    expect(
+      await screen.findByText(/No Hermes answered on 127\.0\.0\.1:8642/),
+    ).toBeTruthy();
+    expect(
+      await screen.findByRole('button', { name: 'Turn the API server on' }),
+    ).toBeTruthy();
+  });
+
   it('scans again when the person asks for it', async () => {
     const bridge = makeBridge({
       test: vi

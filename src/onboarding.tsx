@@ -198,6 +198,9 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   const [localPort, setLocalPort] = useState('18742');
   const [apiKey, setApiKey] = useState('');
   const [hasKey, setHasKey] = useState(false);
+  // A repair that already failed is not offered again: the message says what
+  // went wrong, and pressing the same button would ask the same question.
+  const [openApiFailed, setOpenApiFailed] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [busy, setBusy] = useState<'none' | 'import' | 'handshake' | 'bot' | 'open-api'>(
     'none',
@@ -432,6 +435,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
         }));
       if (result.ok) {
         setHasKey(true);
+        setOpenApiFailed(false);
         setApiKey('');
         setNoticeWarn(false);
         setNotice(
@@ -495,14 +499,17 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
         sshHost: mode === 'ssh' ? host : undefined,
       });
       if (!opened.ok) {
+        setOpenApiFailed(true);
         setError(opened.error ?? 'The key could not be written on the host.');
         setBusy('none');
         return;
       }
       setHasKey(true);
+      setOpenApiFailed(false);
       setBusy('none');
       await runHandshake({ mode, host });
     } catch (reason) {
+      setOpenApiFailed(true);
       setError(
         reason instanceof Error && reason.message
           ? reason.message
@@ -760,6 +767,12 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
 
   const isLast = stepIndex === STEPS.length - 1;
   const testing = step === 'setup' && !connected;
+  // The one failure the setup can lift by itself: the door is shut because
+  // there is no key in the Hermes home. That is read from the key's absence,
+  // not from the words of the error, because a shut door says "No Hermes
+  // answered" just as often as it says the key is missing, and the first run
+  // of a machine that never had a key is exactly that case.
+  const canOpenApi = mode === 'local' && !hasKey && !openApiFailed;
   // The pages that pick a shape or a colour advance on the click itself:
   // there is nothing left for a button to say. Once the bot is made, the
   // person can come back to correct it: the button says so again.
@@ -1227,7 +1240,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                       make one. Every other failure is a host, a port or a
                       tunnel, and stays a thing to look at.
                     */}
-                    {/API_SERVER_KEY not found/.test(error) ? (
+                    {canOpenApi ? (
                       <button
                         type="button"
                         className="onboarding-button"
@@ -1250,7 +1263,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                       Try again
                     </button>
                   </div>
-                  {/API_SERVER_KEY not found/.test(error) ? (
+                  {canOpenApi ? (
                     <p className="onboarding-api-hint">
                       Writes a key into the .env of the Hermes home with
                       Hermes&apos; own command, has the gateway pick it up, and
