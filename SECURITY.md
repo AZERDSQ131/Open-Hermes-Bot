@@ -80,7 +80,8 @@ Worth knowing, because it is the app's own doing and not Hermes':
   ordinary way: it never passes through the window, and the app does not
   write the file itself. A key already in the `.env` is never replaced; the
   button does not appear. The gateway restarts, so the messaging bots drop for
-  a few seconds.
+  about half a minute, and a desktop client that was talking to the old
+  process may need to be opened again.
 - **Creating a bot copies the primary profile.** Its `config.yaml`, its
   `SOUL.md`, its `MEMORY.md` and `USER.md`, and its `skills` are copied into
   the new bot's profile. So is the primary `.env`, minus the API key, the

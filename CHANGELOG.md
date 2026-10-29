@@ -13,8 +13,8 @@ follow [semantic versioning](https://semver.org/).
   terminal. It now offers one button: Hermes makes a key in the `.env` of its
   own home, the gateway picks it up, the key is read back the ordinary way,
   and the setup carries on without a relaunch. A key already there is never
-  replaced, and the few seconds the messaging bots are down are said before
-  the button is pressed.
+  replaced, and the half minute the messaging bots are down is said before the
+  button is pressed.
 
 - **The conversations of before.** The sidebar lists the sessions Hermes
   already holds and the app did not open — the ones the CLI wrote, another

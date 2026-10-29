@@ -1268,8 +1268,8 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                       Writes a key into the .env of the Hermes home with
                       Hermes&apos; own command, has the gateway pick it up, and
                       reads the key back. A key already there is never
-                      replaced. Hermes takes the key when it restarts, so the
-                      few seconds the messaging bots are down, and the work it
+                      replaced. Hermes takes the key when it restarts, so half
+                      a minute without the messaging bots, and the work it
                       finishes first, are part of the wait.
                     </p>
                   ) : null}
