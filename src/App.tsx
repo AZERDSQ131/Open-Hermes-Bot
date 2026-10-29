@@ -61,6 +61,7 @@ import {
   type PastGroup,
   type PastSession,
 } from './history';
+import type { ScheduleRun } from './schedules';
 import {
   extractReaction,
   REACTION_PROMPT,
@@ -1444,6 +1445,46 @@ export default function App() {
     );
     selectThread(owner.id);
     void loadHistory(threads.filter((thread) => !thread.members));
+  }
+
+  /**
+   * A run of a schedule, read where the app reads every conversation it did
+   * not open: the past view. Hermes writes a run as its own session, titled
+   * after the job and the hour, so there is nothing new to draw; the room it
+   * belongs to is the bot that owns the schedule.
+   */
+  function openRun(profileName: string, run: ScheduleRun) {
+    const key = profileKey(profileName);
+    const owner = threads.find(
+      (thread) => !thread.members && profileKey(thread.profile) === key,
+    );
+    setSettingsOpen(false);
+    setContextMenu(null);
+    setSidebarOpen(false);
+    void openPastConversation(
+      {
+        key,
+        name: owner?.name ?? (profileName || 'Chief of Staff'),
+        profile: profileName,
+        avatar:
+          owner?.avatar && owner.avatar.kind !== 'group'
+            ? owner.avatar
+            : {
+                color: avatarColor(undefined, profileName || 'default'),
+                shape: 'cercle',
+                variant: 'neutral',
+              },
+        sessions: [],
+      },
+      {
+        id: run.id,
+        title: run.title,
+        profile: profileName,
+        messageCount: run.messages,
+        lastActive: run.at || Date.now(),
+        archived: false,
+      },
+    );
   }
 
   function openSettings(section: Section = 'connection') {
@@ -3901,6 +3942,7 @@ export default function App() {
             setSettingsOpen(false);
             setOnboardingOpen(true);
           }}
+          onOpenRun={openRun}
         />
       ) : null}
 

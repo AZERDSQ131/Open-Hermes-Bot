@@ -139,6 +139,46 @@ function createDemoHost(now: number) {
       past: true,
     });
   });
+  // Two runs of the demo schedules: an agent run is a conversation of its
+  // own, so the Schedules page reads them back like any other session.
+  sessions.push({
+    id: 'cron_demo-morning_20261028_080000',
+    title: 'The morning read · Oct 28 08:00',
+    profile: '',
+    messageCount: 3,
+    lastActive: now - 26 * HOUR,
+    archived: false,
+    past: true,
+  });
+  sessions.push({
+    id: 'cron_demo-morning_20261027_080000',
+    title: 'The morning read · Oct 27 08:00',
+    profile: '',
+    messageCount: 4,
+    lastActive: now - 50 * HOUR,
+    archived: false,
+    past: true,
+  });
+  sessions.push({
+    id: 'cron_demo-notes_20261028_020000',
+    title: 'Nightly notes · Oct 28 02:00',
+    profile: '',
+    messageCount: 3,
+    lastActive: now - 32 * HOUR,
+    archived: false,
+    past: true,
+  });
+
+  sessions.push({
+    id: 'cron_demo-inbox_20261028_170000',
+    title: 'Inbox on Fridays · Oct 28 17:00',
+    profile: '',
+    messageCount: 2,
+    lastActive: now - 18 * HOUR,
+    archived: false,
+    past: true,
+  });
+
   // One archived row and one group row the section must not list.
   sessions.push({
     id: 'past:archived',
@@ -160,6 +200,27 @@ function createDemoHost(now: number) {
   });
 
   const transcripts = new Map<string, HermesMessage[]>();
+  // What a run wrote, so the page can be read back without a gateway: the
+  // prompt the schedule carries, and what the bot answered.
+  const runAt = now - 26 * HOUR;
+  transcripts.set('cron_demo-morning_20261028_080000', [
+    {
+      role: 'user',
+      content: 'Read the inbox, answer what can be answered, and leave the rest.',
+      timestamp: runAt,
+    },
+    {
+      role: 'assistant',
+      content:
+        'Four messages, two answered, one is a receipt and needs nothing, and one is from the accountant and asks for a date I do not have. I have left that one for you.',
+      timestamp: runAt + 40 * 1000,
+    },
+    {
+      role: 'assistant',
+      content: 'Handed to Nova, whose chat carries it.',
+      timestamp: runAt + 45 * 1000,
+    },
+  ]);
   const asSession = (session: DemoSession): HermesSession => ({
     id: session.id,
     title: session.title,
@@ -364,6 +425,62 @@ export function createDemoBridge(now: number = Date.now()): HermesBridge {
     connectors: async () => ({ catalog: [], toolkit: [], accounts: [] }),
     skills: async () => ({ ok: true, skills: [] }),
     toolsets: async () => ({ ok: true, tools: [] }),
+    // The schedules of the demo host: one coming, one paused, one that
+    // failed last night. The page is worth seeing with all three.
+    jobs: async () => {
+      const soon = Date.now() + 2 * 3_600_000;
+      const yesterday = Date.now() - 26 * 3_600_000;
+      return {
+        ok: true,
+        status: 200,
+        jobs: [
+          {
+            id: 'demo-morning',
+            name: 'The morning read',
+            schedule_display: 'every day at 08:00',
+            state: 'scheduled',
+            enabled: true,
+            next_run_at: new Date(soon).toISOString(),
+            last_run_at: new Date(yesterday).toISOString(),
+            last_status: 'ok',
+            // The run worked and the result reached nobody: the page keeps
+            // that apart from a failed run, and the demo shows it.
+            last_delivery_error: "nova's gateway did not answer",
+            deliver: 'bot-chat:nova',
+            repeat: { completed: 41 },
+          },
+          {
+            id: 'demo-inbox',
+            name: 'Inbox on Fridays',
+            schedule_display: 'every friday at 17:00',
+            state: 'paused',
+            enabled: false,
+            next_run_at: new Date(soon).toISOString(),
+            last_run_at: new Date(yesterday).toISOString(),
+            last_status: 'ok',
+            deliver: 'local',
+            repeat: { completed: 6 },
+          },
+          {
+            id: 'demo-notes',
+            name: 'Nightly notes',
+            schedule_display: 'every night at 02:00',
+            state: 'scheduled',
+            enabled: true,
+            next_run_at: new Date(soon).toISOString(),
+            last_run_at: new Date(yesterday).toISOString(),
+            last_status: 'error',
+            last_error: 'the model answered 429',
+            deliver: 'local',
+            repeat: { completed: 3 },
+          },
+        ],
+      };
+    },
+    pauseJob: async () => ({ ok: true }),
+    resumeJob: async () => ({ ok: true }),
+    createJob: async () => ({ ok: true, job: { id: 'demo-new' } }),
+    runJob: async () => ({ ok: true, job: { id: 'demo-morning' } }),
     toggleSkill: async () => ({ ok: true }),
     toggleToolset: async () => ({ ok: true }),
     updateState: async () => ({ ok: true, state: 'idle' as const }),

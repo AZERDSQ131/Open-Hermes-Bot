@@ -177,6 +177,41 @@ export type HermesSkill = {
   usage?: number;
 };
 
+/**
+ * One schedule, as the host answers with it.
+ *
+ * The shape is Hermes' own: the fields are the ones the gateway's
+ * `/api/jobs` serves, and the app only reads them. Anything missing is
+ * missing because that host does not write it.
+ */
+export type HermesJob = {
+  id?: string;
+  name?: string;
+  prompt?: string;
+  /** The shape of the schedule: a cron expression, or an interval. */
+  schedule?: {
+    kind?: string;
+    expression?: string;
+    minutes?: number;
+    display?: string;
+  };
+  /** The same thing in the host's words, already written. */
+  schedule_display?: string;
+  /** `scheduled`, `paused`, `completed`, `error`. */
+  state?: string;
+  enabled?: boolean;
+  /** ISO 8601, with the host's offset. */
+  next_run_at?: string;
+  last_run_at?: string;
+  last_status?: string;
+  last_error?: string;
+  /** The run worked and the result reached nobody: kept apart on purpose. */
+  last_delivery_error?: string;
+  deliver?: string;
+  no_agent?: boolean;
+  repeat?: { times?: number | null; completed?: number };
+};
+
 /** A tool the host offers: what a bot can use besides Hermes itself. */
 export type HermesToolset = {
   name: string;
@@ -374,6 +409,62 @@ export type HermesBridge = {
     enabled: boolean;
     profile?: string;
   }) => Promise<{ ok: boolean; error?: string }>;
+  /**
+   * The schedules of a bot: what it runs on its own, on the host.
+   *
+   * They live in the host's `cron/jobs.json`, and the gateway serves them on
+   * the API the app already talks to. The app keeps none of it.
+   */
+  jobs: (payload?: { profile?: string }) => Promise<{
+    ok: boolean;
+    jobs: HermesJob[];
+    error?: string;
+    /** The HTTP status, when the host answered with one: 501 is a host
+     * without the cron module, 0 is a host that did not answer at all. */
+    status?: number;
+  }>;
+  /** A schedule is paused on the host, where the scheduler runs it. */
+  pauseJob: (payload: {
+    jobId: string;
+    profile?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  /** A paused schedule is resumed on the host. */
+  resumeJob: (payload: {
+    jobId: string;
+    profile?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  /**
+   * A schedule is created on the host, where it will run.
+   *
+   * The body is the one the gateway takes: `name`, `schedule`, `prompt`,
+   * `deliver`, and `repeat` when it is a series. A `400` carries the host's
+   * own words for what is wrong with it, and those are shown as they are.
+   */
+  createJob: (payload: {
+    name: string;
+    schedule: string;
+    prompt: string;
+    deliver: string;
+    repeat?: number;
+    profile?: string;
+  }) => Promise<{
+    ok: boolean;
+    job?: HermesJob;
+    error?: string;
+    status?: number;
+  }>;
+  /**
+   * A schedule is asked to run now.
+   *
+   * The host does not run it in the request: it sets the next run to this
+   * moment and returns, and the gateway's ticker fires it. That is why the
+   * call is quick, and why the row says the run is asked for rather than
+   * done.
+   */
+  runJob: (payload: {
+    jobId: string;
+    profile?: string;
+  }) => Promise<{ ok: boolean; job?: HermesJob; error?: string }>;
   /** The connectors of the host: the services a bot can reach. */
   connectors: (payload?: { fresh?: boolean }) => Promise<HermesConnectorList>;
   /**

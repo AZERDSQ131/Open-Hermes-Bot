@@ -56,6 +56,7 @@ it, which is the normal state of a fresh install.
 | `src/updates.ts` | what an update means, in words |
 | `src/components/UpdateButton.tsx` | the next version, in the round face at the foot of the sidebar |
 | `src/connectors.ts` | the connectors of the host: how they are read, and how they are named |
+| `src/schedules.ts` | the schedules of a bot: when one runs next, where it stands, and the run the host is not doing |
 | `src/modelPrefs.tsx` | what the person chose, and where it is kept |
 | `src/recording.ts` | the microphone, and the bytes it produces |
 | `docs/` | how the app is put together — read these before changing it |

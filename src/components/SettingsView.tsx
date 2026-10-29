@@ -12,7 +12,9 @@ import { SkillsSettings } from './SkillsSettings';
 import { ToolsetsSettings } from './ToolsetsSettings';
 import { UpdatesSettings } from './UpdatesSettings';
 import { SetupHelp } from './SetupHelp';
+import { SchedulesSettings } from './SchedulesSettings';
 import { describeFailure, keyFailureHelp, type Help } from '../setupHelp';
+import type { ScheduleRun } from '../schedules';
 
 /** What a read of the key answers, whether the bridge answered or threw. */
 type ImportedKey = Awaited<ReturnType<HermesBridge['importKey']>>;
@@ -23,6 +25,7 @@ export type Section =
   | 'models'
   | 'updates'
   | 'setup'
+  | 'schedules'
   | 'connectors'
   | 'skills'
   | 'tools';
@@ -33,6 +36,11 @@ type SettingsViewProps = {
   onStatusChange: (status: HermesStatus) => void;
   /** Opens the guided setup again, from the beginning. */
   onRunSetup: () => void;
+  /**
+   * Reads a run of a schedule where the app reads every conversation it did
+   * not open: the past view, with the bot it belongs to.
+   */
+  onOpenRun?: (profile: string, run: ScheduleRun) => void;
   /** The page to open on. */
   section?: Section;
 };
@@ -80,6 +88,7 @@ export function SettingsView({
   onClose,
   onStatusChange,
   onRunSetup,
+  onOpenRun,
   section: opened,
 }: SettingsViewProps) {
   const bridge = window.hermes;
@@ -467,6 +476,16 @@ export function SettingsView({
             onClick={() => setSection('setup')}
           >
             Setup
+          </button>
+          <button
+            type="button"
+            className={`settings-nav-item ${
+              section === 'schedules' ? 'is-active' : ''
+            }`}
+            aria-current={section === 'schedules' ? 'page' : undefined}
+            onClick={() => setSection('schedules')}
+          >
+            Schedules
           </button>
           <span className="settings-nav-group">Apps</span>
           <button
@@ -989,6 +1008,8 @@ export function SettingsView({
             </div>
           ) : section === 'updates' ? (
             <UpdatesSettings />
+          ) : section === 'schedules' ? (
+            <SchedulesSettings onOpenRun={onOpenRun} />
           ) : section === 'connectors' ? (
             <ConnectorsSettings />
           ) : section === 'skills' ? (

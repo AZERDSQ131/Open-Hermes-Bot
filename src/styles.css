@@ -433,6 +433,176 @@ button:focus-visible {
   color: #e8a06a;
 }
 
+/* A schedule row says more than a skill does, and the whole of it matters:
+   the reason a delivery failed is the point of the row, so it wraps instead
+   of ending in an ellipsis. */
+.schedule-row .capability-description {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1.45;
+}
+
+/* A schedule and its runs: the runs sit under the row, indented, because
+   they are the same thing read at more depth. Each row is its own block now,
+   so the divider moves to the entry. */
+/* The runs sit under the schedule, on their own line: a count that rides a
+   sentence that wraps starts a line with a separator of its own. */
+.schedule-runs-link {
+  align-self: flex-start;
+  margin-top: 3px;
+  white-space: nowrap;
+}
+
+.schedule-entry + .schedule-entry {
+  border-top: 1px solid var(--divider);
+}
+
+.schedule-entry .capability-row {
+  border-top: 0;
+}
+
+.schedule-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 16px 10px 16px;
+}
+
+.schedule-run-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #c8c8cf;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.schedule-run-row:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.schedule-run-row:disabled {
+  cursor: default;
+}
+
+.schedule-run-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-run-when {
+  flex: 0 0 auto;
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+
+/* A run asked for, not performed: it sits with the switch, quiet. The slot
+   holds its width on every row, so the state and the switch line up down
+   the list whether or not a row can be run. */
+.schedule-run-slot {
+  display: flex;
+  flex: 0 0 auto;
+  min-width: 62px;
+  justify-content: flex-end;
+}
+
+.capability-row .schedule-run {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.schedule-row .schedule-state {
+  min-width: 70px;
+  text-align: right;
+}
+
+/* The form of a new schedule: the fields breathe, the note under them says
+   whose clock is being read. */
+.schedule-form {
+  gap: 14px;
+  padding: 4px 16px 16px;
+  border-top: 1px solid var(--divider);
+}
+
+/* Two columns, not as many as fit: a form of five fields read as a form. */
+.schedule-form .settings-field-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.schedule-form textarea,
+.schedule-form select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 8px;
+  outline: none;
+  background: #1a1a1d;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.schedule-form select {
+  height: 34px;
+  padding: 0 8px;
+}
+
+.schedule-form textarea {
+  min-height: 78px;
+  padding: 9px 11px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.schedule-form textarea:focus,
+.schedule-form select:focus {
+  border-color: rgba(255, 255, 255, 0.26);
+  background: #1e1e21;
+}
+
+.schedule-form textarea::placeholder {
+  color: #61616a;
+}
+
+/* A schedule, by where it stands: the colour is the whole signal. */
+.schedule-state.is-scheduled {
+  color: #7fd1ae;
+}
+
+.schedule-state.is-paused {
+  color: var(--text-3);
+}
+
+.schedule-state.is-done {
+  color: var(--text-3);
+}
+
+.schedule-state.is-failed {
+  color: #ff9a92;
+}
+
+/* The one line the page says when the host's scheduler is not ticking: a
+   bot that has quietly stopped working is worth a colour of its own. */
+.schedule-late {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(232, 160, 106, 0.1);
+  color: #e8a06a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .settings-action.is-small {
   flex: 0 0 auto;
   height: 28px;
