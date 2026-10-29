@@ -41,6 +41,36 @@ There is also a phone: `mobile/` is an Expo app with the same conversations.
 It is paired with a small bridge on the Hermes host and reached over Tailscale;
 [docs/mobile.md](docs/mobile.md) says how.
 
+## Models: a subscription or an API key
+
+The app never asks for a model key. The model belongs to Hermes: its
+credentials live on the host, and the app only shows the models Hermes
+offers and the one a bot answers on.
+
+So a subscription works, as long as Hermes can sign in with it. Hermes has an
+OAuth login, with no API key, for several consumer plans:
+
+- **Nous Portal**: `hermes setup --portal` on a fresh install, or `hermes
+  model` → *Nous Portal*. One login for 300+ models, billed to the Nous
+  subscription.
+- **ChatGPT, or a Codex plan**: `hermes model` → *ChatGPT or Codex
+  Subscription*, a device-code login, on the Codex models.
+- **Claude Max**: `hermes model` → *Anthropic OAuth*. It needs Max with
+  purchased extra usage credits, because Hermes draws on that extra usage and
+  not on the allowance the plan includes; it does not work on Claude Pro.
+- **SuperGrok, or X Premium+**: `hermes model` → *xAI Grok OAuth*.
+
+Every other provider is an API key in `~/.hermes/.env` on the host, the way
+Hermes already documents it: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+`GOOGLE_API_KEY` for Gemini (whose consumer plans have no OAuth path), and the
+rest. `hermes model` lists what the host is set up for, and [Hermes' provider
+docs](https://hermes-agent.nousresearch.com/docs/integrations/providers) say
+which plan pays for what.
+
+The one key the app does hold is Hermes' own `API_SERVER_KEY`: the door to the
+API server on the host, not a model key, and it costs nothing. The setup reads
+it, or asks for it, and never asks for anything else.
+
 ## Install
 
 Grab the `.dmg` from the [releases](https://github.com/AZERDSQ131/Open-Hermes-Bot/releases),

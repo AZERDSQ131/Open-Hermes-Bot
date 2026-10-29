@@ -160,6 +160,18 @@ describe('the setup', () => {
     expect(screen.getByText('The tunnel is open')).toBeTruthy();
   });
 
+  it("says the key it asks for is Hermes' own, not a model's", async () => {
+    makeBridge();
+    renderSetup();
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    const whereTheModelLives = /its key, or the subscription Hermes signs in with/;
+    expect(screen.getByText(whereTheModelLives)).toBeTruthy();
+    // The other connection asks for no key at all: the sentence is what tells
+    // a person on this Mac where the model is configured.
+    await userEvent.click(screen.getByRole('radio', { name: /This Mac/ }));
+    expect(screen.getByText(whereTheModelLives)).toBeTruthy();
+  });
+
   it('asks where Hermes runs before anything else', async () => {
     makeBridge();
     renderSetup();

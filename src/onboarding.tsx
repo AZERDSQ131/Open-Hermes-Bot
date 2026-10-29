@@ -1136,6 +1136,17 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
                 </div>
               )}
 
+              {/*
+                The key asked for here opens Hermes' API server, not a model.
+                A person arriving with a subscription looks for a field to
+                paste it into, so the page says where the model lives: on the
+                host, in Hermes' own configuration.
+              */}
+              <p className="onboarding-key-guide">
+                The model is not asked here: its key, or the subscription
+                Hermes signs in with, stays in Hermes, on the host.
+              </p>
+
               {mode === 'ssh' ? (
                 <div className="onboarding-actions">
                   <button
