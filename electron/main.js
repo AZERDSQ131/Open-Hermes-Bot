@@ -886,8 +886,41 @@ async function openApiServer(connection) {
   if (!read.key) {
     return { ok: false, error: 'The key was written but did not read back.' };
   }
+  // Hermes takes the key when it restarts, and a restart waits for the work it
+  // is on to finish: a turn on another channel can hold it for minutes, and
+  // until then the gateway answers with the key it booted with. Storing this
+  // one before the server accepts it would leave the app holding a key the
+  // host refuses, so it is held back until the door opens.
+  const port =
+    connection.mode === 'local'
+      ? storedConnection().apiPort
+      : storedConnection().localPort;
+  const accepted = await waitForKey(read.key, port);
+  if (!accepted?.ok) {
+    return {
+      ok: false,
+      error:
+        'The key is written, but Hermes has not picked it up yet: it finishes the work it is on before it restarts, and until it does the gateway still answers with the old key. Try again in a moment.',
+    };
+  }
   storeSecret(read.key);
   return { ok: true, keyLength: read.key.length };
+}
+
+/**
+ * The door, tried until it opens or the wait runs out. A refusal is not an
+ * answer here: the gateway refuses every key but its own while it waits to
+ * restart, so a 401 says "not yet" and a 200 says "now".
+ */
+async function waitForKey(apiKey, port, timeoutMs = 60000) {
+  const started = Date.now();
+  let last = null;
+  while (Date.now() - started < timeoutMs) {
+    last = await probeHealth(apiKey, port);
+    if (last.ok) return last;
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  return last;
 }
 
 ipcMain.handle('hermes:api:open', async (_event, payload) => {
