@@ -8,6 +8,14 @@ follow [semantic versioning](https://semver.org/).
 
 ### Added
 
+- **The subscription question, answered where it is asked.** The README now
+  says whether the app needs an API key or can use a subscription, which
+  plans Hermes signs in to with OAuth (`hermes model`, and `hermes setup
+  --portal` for Nous Portal), what still needs a key in the host's `.env`, and
+  that the one key the app holds is Hermes' own `API_SERVER_KEY`, not a model
+  key. The setup says the same thing on the page that asks for that key, so
+  nobody hunts for a field to paste a model key into.
+
 - **A setup that can open the door it needs.** When `API_SERVER_KEY` is
   missing, Hermes' API server is off and the setup could only ask for a
   terminal. It now offers one button: Hermes makes a key in the `.env` of its
