@@ -897,12 +897,12 @@ async function openApiServer(connection) {
     connection.mode === 'local'
       ? storedConnection().apiPort
       : storedConnection().localPort;
-  const accepted = await waitForKey(read.key, port);
+  const accepted = await waitForKey(read.key, port, 300000);
   if (!accepted?.ok) {
     return {
       ok: false,
       error:
-        'The key is written, but Hermes has not picked it up yet: it finishes the work it is on before it restarts, and until it does the gateway still answers with the old key. Try again in a moment.',
+        'The key is written, but Hermes has not picked it up yet: it finishes the work it is on before it reloads, and a turn can hold that for a few minutes. Try again once it is idle.',
     };
   }
   storeSecret(read.key);
@@ -914,7 +914,7 @@ async function openApiServer(connection) {
  * answer here: the gateway refuses every key but its own while it waits to
  * restart, so a 401 says "not yet" and a 200 says "now".
  */
-async function waitForKey(apiKey, port, timeoutMs = 60000) {
+async function waitForKey(apiKey, port, timeoutMs) {
   const started = Date.now();
   let last = null;
   while (Date.now() - started < timeoutMs) {
