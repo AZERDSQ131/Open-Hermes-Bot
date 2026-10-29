@@ -863,7 +863,9 @@ K="$(openssl rand -hex 32 2>/dev/null || od -An -tx1 -N32 /dev/urandom | tr -d '
 [ -n "$K" ] || { echo "no key could be made here" >&2; exit 1; }
 "$H" config set API_SERVER_KEY "$K" >/dev/null || exit 1
 unset K
-"$H" gateway restart >/dev/null 2>&1 || kill -USR1 "$(cat "$HOME/.hermes/gateway.pid" 2>/dev/null)" 2>/dev/null || true
+# The restart is asked for and left to happen: the CLI can wait on the gateway
+# it just replaced, and this command must not. The door is tried below.
+( "$H" gateway restart || kill -USR1 "$(cat "$HOME/.hermes/gateway.pid" 2>/dev/null)" 2>/dev/null ) >/dev/null 2>&1 &
 echo opened`;
 
 async function openApiServer(connection) {
