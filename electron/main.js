@@ -858,14 +858,23 @@ if [ -z "$H" ]; then echo "hermes was not found on this machine" >&2; exit 127; 
 // Made on the host: an openssl key, the same tool the app uses when it makes
 // a key for a bot it creates, and od when openssl is not there. The value is
 // handed to Hermes' own configuration command and never travels further.
+// The reload is asked for with the signal launchd answers in seconds, not with
+// the CLI, which stops the gateway and starts another: that path took fifty
+// seconds on a Mac where the bots are the thing people are talking to. The
+// pid file is a record, so the number is read out of it rather than sent as is.
 const OPEN_API_SCRIPT = `${HERMES_ON_PATH}
 K="$(openssl rand -hex 32 2>/dev/null || od -An -tx1 -N32 /dev/urandom | tr -d ' \\n')"
 [ -n "$K" ] || { echo "no key could be made here" >&2; exit 1; }
 "$H" config set API_SERVER_KEY "$K" >/dev/null || exit 1
 unset K
-# The restart is asked for and left to happen: the CLI can wait on the gateway
-# it just replaced, and this command must not. The door is tried below.
-( "$H" gateway restart || kill -USR1 "$(cat "$HOME/.hermes/gateway.pid" 2>/dev/null)" 2>/dev/null ) >/dev/null 2>&1 &
+PID="$(sed -n 's/.*"pid"[[:space:]]*:[[:space:]]*\\([0-9][0-9]*\\).*/\\1/p' "$HOME/.hermes/gateway.pid" 2>/dev/null)"
+if [ -n "$PID" ] && kill -USR1 "$PID" 2>/dev/null; then
+  echo opened
+  exit 0
+fi
+# No launchd, or a pid file that names nothing: the CLI is the long way round,
+# and it is left to run on its own.
+( "$H" gateway restart ) >/dev/null 2>&1 &
 echo opened`;
 
 async function openApiServer(connection) {
