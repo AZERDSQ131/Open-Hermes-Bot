@@ -47,6 +47,12 @@ follow [semantic versioning](https://semver.org/).
 
 ### Fixed
 
+- **Every conversation dated 1970.** Hermes writes when a session was last
+  spoken in as Unix seconds, and the app read that number as milliseconds: the
+  history list dated every row to January 1970, and a schedule's runs read as
+  twenty thousand days old. The stamp is converted once, where the host's
+  answer is read, so every list counts from the same clock.
+
 - **The bots a host serves, and the app not listing them.** Hermes names the
   profiles it serves by their home now, in the record the control socket
   publishes, and the app read each record as if it were a bare name: the
