@@ -87,7 +87,10 @@ export function scheduleText(job: HermesJob): string {
   if (!shape || typeof shape !== 'object') return '';
   const display = word((shape as { display?: unknown }).display);
   if (display) return display;
-  const expression = word((shape as { expression?: unknown }).expression);
+  const expression = word(
+    (shape as { expr?: unknown; expression?: unknown }).expr ??
+      (shape as { expression?: unknown }).expression,
+  );
   if (expression) return expression;
   const minutes = count((shape as { minutes?: unknown }).minutes);
   if (minutes) {
@@ -144,7 +147,13 @@ export function scheduleState(job: HermesJob): ScheduleState {
 export function scheduleExpression(job: HermesJob): string {
   const shape = job?.schedule;
   if (!shape || typeof shape !== 'object') return '';
-  return word((shape as { expression?: unknown }).expression);
+  // A cron job carries `expr` on the host the page was written against; the
+  // other name is read too, because a host that answered with it is not one
+  // the app should draw a row with an empty field for.
+  return word(
+    (shape as { expr?: unknown }).expr ??
+      (shape as { expression?: unknown }).expression,
+  );
 }
 
 /** Milliseconds since the epoch, or 0 when the host gave no usable date. */

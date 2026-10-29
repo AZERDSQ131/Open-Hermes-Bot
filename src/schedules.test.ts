@@ -68,6 +68,27 @@ describe('when a schedule runs', () => {
     expect(scheduleExpression({ schedule: null as never })).toBe('');
   });
 
+  it("reads the expression the host actually writes: `expr`", () => {
+    // What a gateway answers for `0 9 * * 1`, read from a real one: the
+    // expression is `expr`, and a page that only knew `expression` drew the
+    // row with an empty field and never said so.
+    const answered = {
+      id: '5571a7c4406a',
+      schedule_display: '0 9 * * 1',
+      schedule: { kind: 'cron', expr: '0 9 * * 1', display: '0 9 * * 1' },
+    };
+    expect(scheduleExpression(answered)).toBe('0 9 * * 1');
+    // The display line is the host's own words, and it is what the row reads
+    // first: the expression is only there for the person who asks.
+    expect(scheduleText(answered)).toBe('0 9 * * 1');
+    // Both names at once: the host's wins, and neither is guessed at.
+    expect(
+      scheduleExpression({
+        schedule: { expr: '0 9 * * 1', expression: '0 8 * * 1' },
+      }),
+    ).toBe('0 9 * * 1');
+  });
+
   it('writes an interval of whole days, hours or minutes', () => {
     expect(scheduleText({ schedule: { minutes: 2880 } })).toBe('every 2d');
     expect(scheduleText({ schedule: { minutes: 180 } })).toBe('every 3h');
