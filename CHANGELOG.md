@@ -6,6 +6,8 @@ follow [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-10-30
+
 ### Added
 
 - **The subscription question, answered where it is asked.** The README now
@@ -156,6 +158,12 @@ follow [semantic versioning](https://semver.org/).
   and it opens them. The marks on the right are the connectors of the host,
   and they open their page.
 
+- **A new version is taken by hand.** An ad-hoc signature names one build and
+  not the next, and Squirrel.Mac will not install a version whose signature
+  does not match the one running. The app still finds the new version and
+  still downloads it, but the install is refused. To move to a new version,
+  take the new `.dmg` from the releases page and put the app in its place.
+
 ### Fixed
 
 - **A bot that was made is a bot you can see.** A link that dropped while
@@ -173,6 +181,13 @@ follow [semantic versioning](https://semver.org/).
 - **The bot of the setup is in the sidebar.** The bot the person made during
   the setup is carried by hand until the server lists it, instead of waiting
   for the list to catch up.
+- **An app macOS does not call damaged.** The 1.1.0 build shipped with no code
+  signature at all: the machine that built it had no certificate to sign
+  with, and electron-builder skipped the signing without saying so. macOS
+  does not open an app whose signature does not validate — it calls it
+  damaged, and the person is told the download is broken. Every build now
+  carries a signature, the same ad-hoc one locally and on the build machine,
+  and the release stops if the signature is missing.
 
 ## [1.1.0] — 2026-10-22
 
