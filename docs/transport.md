@@ -91,6 +91,17 @@ bot's own gateway and checked against that bot's own key.
 | `POST /api/jobs/<id>/pause` | Turns one off, on the host. |
 | `POST /api/jobs/<id>/resume` | Turns one back on. |
 | `POST /api/jobs/<id>/run` | Asks for a run now. |
+| `POST /v1/runs/<id>/approval` | Answers the command a turn is holding: `{ request_id, execution_generation?, choice }`. |
+
+A turn that wants to run something dangerous stops and says so: the stream
+carries `approval.request` with the command, the reason and the answers the
+host offers, and nothing else happens until one is posted back. The answer
+rides the run's authority route rather than `/api/`, and that route is strict
+about the body - `request_id`, `choice`, and `execution_generation` only when
+the prompt was fenced with one. Any other set of keys is refused, so the app
+sends exactly those. A held prompt is not silence: the stream is quiet because
+the turn is waiting, and the card stays up until the host answers or the turn
+ends.
 
 The two reads of `/api/sessions` are the same call asked twice. The sidebar
 wants the conversations this app opened — a session carries the source that

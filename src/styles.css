@@ -2096,6 +2096,187 @@ button:focus-visible {
   margin: 0 auto;
 }
 
+/* The command a bot is holding, right above the composer. It is a question
+ * the person answers in place, so it keeps the composer's width and reads as
+ * part of it: one panel, one line of command, one row of answers. */
+.approval-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 16px 18px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #2a2a2e, #242427);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.32);
+  animation: approval-in 180ms ease;
+}
+
+.approval-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.approval-stack .approval-card {
+  margin-bottom: 0;
+}
+
+@keyframes approval-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.approval-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.approval-mark {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(232, 163, 63, 0.16);
+  color: #e8a33f;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.approval-title {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.approval-title strong {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+
+.approval-sub {
+  color: #9a9aa2;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.approval-command {
+  max-height: 96px;
+  margin: 0;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #e7e7ea;
+  font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.approval-prompt {
+  margin-right: 7px;
+  color: #6f6f76;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.approval-command code {
+  font: inherit;
+}
+
+.approval-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.approval-allows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.approval-button {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  color: #d9d9de;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.004em;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.approval-button:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.approval-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.approval-button.is-primary {
+  border-color: transparent;
+  background: var(--bubble-user);
+  color: #1b1b1d;
+  font-weight: 600;
+}
+
+.approval-button.is-primary:hover:not(:disabled) {
+  border-color: transparent;
+  background: #ffffff;
+  color: #1b1b1d;
+}
+
+.approval-button.is-deny {
+  margin-left: auto;
+  border-color: rgba(217, 109, 95, 0.32);
+  color: #e59a8f;
+}
+
+.approval-button.is-deny:hover:not(:disabled) {
+  border-color: rgba(217, 109, 95, 0.48);
+  background: rgba(217, 109, 95, 0.14);
+  color: #f4b0a6;
+}
+
+.approval-error {
+  margin: 0;
+  color: #e08c80;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .attachment-row {
   display: flex;
   flex-wrap: wrap;

@@ -288,6 +288,16 @@ export type HermesChatResult = {
 
 export type HermesChatDelta = { requestId: string; text: string };
 export type HermesChatTool = { requestId: string; tool: string };
+/** A command the host is holding, still in its wire shape. */
+export type HermesChatApproval = {
+  requestId: string;
+  approval: Record<string, unknown>;
+};
+/** The host closed the request: answered, or timed out. */
+export type HermesChatApprovalSettled = {
+  requestId: string;
+  approvalId: string;
+};
 
 /** What the app knows about its own next version. */
 export type HermesUpdateInfo = {
@@ -533,8 +543,22 @@ export type HermesBridge = {
   }) => Promise<HermesChatResult>;
   /** Stop a turn in flight; used when a newer message replaces it. */
   cancelChat: (requestId: string) => Promise<{ ok: boolean }>;
+  /** Answer a command the host is holding: once, session, always, or deny. */
+  respondApproval: (payload: {
+    runId: string;
+    approvalId?: string;
+    executionGeneration?: number | null;
+    choice: string;
+    profile?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
   onChatDelta: (callback: (delta: HermesChatDelta) => void) => () => void;
   onChatTool: (callback: (tool: HermesChatTool) => void) => () => void;
+  onChatApproval: (
+    callback: (event: HermesChatApproval) => void,
+  ) => () => void;
+  onChatApprovalSettled: (
+    callback: (event: HermesChatApprovalSettled) => void,
+  ) => () => void;
   /** A bot that was made is served by the gateway, or still is not. */
   onBotReady: (callback: (event: HermesBotReady) => void) => () => void;
   getSettings: () => Promise<HermesSettings>;
