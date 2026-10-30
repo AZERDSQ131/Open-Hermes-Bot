@@ -9,6 +9,14 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { AgentAvatar } from './components/AgentAvatar';
+import { ApprovalCard } from './components/ApprovalCard';
+import {
+  readApproval,
+  withApproval,
+  withoutApproval,
+  type ApprovalChoice,
+  type ApprovalRequest,
+} from './approvals';
 import { threadMood } from './moods';
 import { botShape } from './components/Bloub';
 import { type BloubShape } from './components/bloubFrames';
@@ -106,6 +114,7 @@ import {
   type AvatarSpec,
   type GroupMember,
   type Message,
+  type PendingApproval,
   type Reaction,
   type SingleAvatar,
   type Thread,
@@ -761,6 +770,13 @@ export default function App() {
   // replaces the bot in the sidebar.
   const shownMessages = pastOpen ? pastMessages : activeThread.messages;
 
+  // Every command a bot is holding in this conversation: the bot's own, and
+  // in a group one per member that asked. Each card names who is waiting.
+  const pendingApprovals = useMemo<PendingApproval[]>(
+    () => activeThread.approvals ?? [],
+    [activeThread],
+  );
+
   // A conversation is read back from the server when it is opened: the app
   // keeps no copy of it, so what the room said is where Hermes put it.
   useEffect(() => {
@@ -1085,9 +1101,66 @@ export default function App() {
       applyLive(requestId, (live) => ({ ...live, tool }));
     });
 
+    // A command the bot is holding. The turn is paused until it is answered,
+    // so the card belongs to the thread that asked, not to the composer.
+    const offApproval = bridge.onChatApproval?.(
+      ({ requestId, approval }) => {
+        const parsed = readApproval(approval, requestId);
+        if (!parsed) return;
+        // The thread owns the card, not the live row: a group member's turn
+        // can finish its stream while the host is still waiting on the answer.
+        if (
+          applySingle(requestId, (thread) => ({
+            ...thread,
+            approvals: withApproval(thread.approvals, {
+              approval: parsed,
+              botName: thread.avatar.kind === 'group' ? undefined : thread.name,
+              profile: thread.profile,
+            }),
+          }))
+        ) {
+          return;
+        }
+        const threadId = groupRequests.current.get(requestId);
+        if (!threadId) return;
+        const member = groupRuntimes.current
+          .get(threadId)
+          ?.active.get(requestId)?.member;
+        setThreads((current) =>
+          current.map((thread) =>
+            thread.id === threadId
+              ? {
+                  ...thread,
+                  approvals: withApproval(thread.approvals, {
+                    approval: parsed,
+                    botName: member?.name,
+                    profile: member?.profile,
+                  }),
+                }
+              : thread,
+          ),
+        );
+      },
+    );
+    // Answered here, or given up on the host: either way the card is stale.
+    const offApprovalSettled = bridge.onChatApprovalSettled?.(
+      ({ requestId }) => {
+        setThreads((current) =>
+          current.map((thread) => {
+            const next = withoutApproval(thread.approvals, requestId);
+            return next === thread.approvals
+              ? thread
+              : { ...thread, approvals: next };
+          }),
+        );
+      },
+    );
+
     return () => {
       offDelta?.();
       offTool?.();
+      offApproval?.();
+      offApprovalSettled?.();
     };
   }, []);
 
@@ -2849,6 +2922,41 @@ export default function App() {
     sendMessage();
   }
 
+  // The answer to a command the bot is holding. A yes clears the card at once;
+  // a failure keeps it, with the host's words in it, so the person can retry
+  // instead of watching a paused turn die behind their back.
+  const respondToApproval = useCallback(
+    async (
+      approval: ApprovalRequest,
+      choice: ApprovalChoice,
+      profile?: string,
+    ) => {
+      const bridge = window.hermes;
+      if (!bridge?.respondApproval) {
+        return { ok: false, error: 'This build cannot answer approvals.' };
+      }
+      const result = await bridge.respondApproval({
+        runId: approval.runId,
+        approvalId: approval.approvalId,
+        executionGeneration: approval.executionGeneration,
+        choice,
+        profile: profile ?? activeThread?.profile,
+      });
+      if (result?.ok) {
+        setThreads((current) =>
+          current.map((thread) => {
+            const next = withoutApproval(thread.approvals, approval.requestId);
+            return next === thread.approvals
+              ? thread
+              : { ...thread, approvals: next };
+          }),
+        );
+      }
+      return result ?? { ok: false, error: 'The host did not answer.' };
+    },
+    [activeThread?.profile],
+  );
+
   function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (mentionMatch) {
       const count = mentionMatch.suggestions.length;
@@ -3673,6 +3781,20 @@ export default function App() {
 
         <div className="composer-dock">
           <div className="composer-inner">
+            {pendingApprovals.length ? (
+              <div className="approval-stack">
+                {pendingApprovals.map(({ approval, botName, profile }) => (
+                  <ApprovalCard
+                    key={approval.requestId}
+                    approval={approval}
+                    botName={botName}
+                    onRespond={(choice) =>
+                      respondToApproval(approval, choice, profile)
+                    }
+                  />
+                ))}
+              </div>
+            ) : null}
             <form
               className={`composer ${attachments.length ? 'has-attachments' : ''}`}
               onSubmit={handleSubmit}

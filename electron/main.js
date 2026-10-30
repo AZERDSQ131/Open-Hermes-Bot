@@ -3352,11 +3352,15 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
   // that keeps painting is not quiet, and is only stopped at the ceiling.
   let silent = false;
   let toolRunning = false;
+  // A held approval is not silence. The turn is paused on the host until the
+  // person answers, so the clock must not kill it while the card is up.
+  let awaitingApproval = false;
   const hardStop = setTimeout(() => controller.abort(), TURN_LIMIT_MS);
   let silenceTimer = null;
   const armSilence = () => {
     clearTimeout(silenceTimer);
     silenceTimer = setTimeout(() => {
+      if (awaitingApproval) return armSilence();
       silent = true;
       controller.abort();
     }, silenceWindow({ toolRunning }));
@@ -3419,9 +3423,11 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
         }
 
         if (name === 'assistant.delta' && parsed?.delta) {
+          awaitingApproval = false;
           text += parsed.delta;
           send('hermes:chat:delta', { text: parsed.delta });
         } else if (name === 'tool.started' && parsed?.tool_name) {
+          awaitingApproval = false;
           toolRunning = true;
           send('hermes:chat:tool', { tool: parsed.tool_name });
         } else if (
@@ -3429,6 +3435,18 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
           name === 'tool.failed'
         ) {
           toolRunning = false;
+        } else if (name === 'approval.request') {
+          // The turn is paused until this is answered: the window draws the
+          // command and posts the choice back against the run it names.
+          awaitingApproval = true;
+          send('hermes:chat:approval', { approval: parsed });
+        } else if (name === 'approval.settled') {
+          // Answered here, or timed out on the host: the card is stale either
+          // way, and the next turn's answer must not be read as this one's.
+          awaitingApproval = false;
+          send('hermes:chat:approval-settled', {
+            approvalId: String(parsed?.request_id ?? ''),
+          });
         } else if (name === 'assistant.completed') {
           const final = parsed?.message?.content ?? parsed?.text ?? parsed?.content;
           if (typeof final === 'string' && !text) text = final;
@@ -3486,6 +3504,42 @@ ipcMain.handle('hermes:chat:cancel', (_event, requestId) => {
   if (!controller) return { ok: false };
   controller.canceled = true;
   controller.abort();
+  return { ok: true };
+});
+
+// The answer to a command a bot is holding. Hermes keeps the run paused until
+// this lands, so a failure is said in the card rather than swallowed: the
+// person can try again without the turn dying behind their back.
+ipcMain.handle('hermes:chat:approve', async (_event, payload) => {
+  const runId = String(payload?.runId ?? '').trim();
+  const choice = String(payload?.choice ?? '').trim();
+  if (!runId) return { ok: false, error: 'No run to answer' };
+  if (!['once', 'session', 'always', 'deny'].includes(choice)) {
+    return { ok: false, error: 'Unknown answer' };
+  }
+  // The request inside the run: the authority path matches it against the
+  // prompt it is holding, and takes the generation the prompt was fenced with.
+  const approvalId = String(payload?.approvalId ?? '').trim();
+  const body = { request_id: approvalId, choice };
+  // The authority path refuses a body with any other key set, so the
+  // generation only rides along when the event actually carried one.
+  const generation = payload?.executionGeneration;
+  if (Number.isInteger(generation)) body.execution_generation = generation;
+  const answer = await apiCall(
+    `/v1/runs/${encodeURIComponent(runId)}/approval`,
+    {
+      method: 'POST',
+      body,
+      profile: String(payload?.profile ?? ''),
+      timeoutMs: 20000,
+    },
+  );
+  if (!answer.ok) {
+    return {
+      ok: false,
+      error: apiErrorText(answer, 'The host did not take that answer.'),
+    };
+  }
   return { ok: true };
 });
 

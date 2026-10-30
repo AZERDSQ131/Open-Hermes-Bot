@@ -1,4 +1,5 @@
 import type { BloubShape, BloubVariant } from './components/bloubFrames';
+import type { ApprovalRequest } from './approvals';
 
 export type BotStyle = {
   color: string;
@@ -34,6 +35,15 @@ export type Reaction = {
   emoji: string;
   /** The bot that left it; absent when the bot is not named. */
   by?: string;
+};
+
+/** A command a bot is holding, and who is waiting on it. */
+export type PendingApproval = {
+  approval: ApprovalRequest;
+  /** The bot, or the group member that asked. */
+  botName?: string;
+  /** The profile the answer is posted under. */
+  profile?: string;
 };
 
 /**
@@ -105,6 +115,12 @@ export type Thread = {
   streaming?: string;
   /** Tool the bot is using right now, if any. */
   tool?: string;
+  /**
+   * The commands bots are holding for an answer. A turn is paused until each
+   * is answered, and the card lives with the thread: in a group the member
+   * that asked is named on it.
+   */
+  approvals?: PendingApproval[];
   avatar: AvatarSpec;
   preview: string;
   time: string;

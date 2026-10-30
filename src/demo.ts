@@ -286,6 +286,11 @@ function createDemoHost(now: number) {
 export function createDemoBridge(now: number = Date.now()): HermesBridge {
   const host = createDemoHost(now);
   const listeners = new Set<(delta: { requestId: string; text: string }) => void>();
+  const approvalListeners = new Set<
+    (event: { requestId: string; approval: Record<string, unknown> }) => void
+  >();
+  /** When the demo last asked about a command, so a group asks once. */
+  let lastAskedAt = 0;
 
   const own = (profile: string) =>
     host.sessions
@@ -384,9 +389,46 @@ export function createDemoBridge(now: number = Date.now()): HermesBridge {
       // room already has the whole line when the window commits it.
       const requestId = String(payload?.requestId ?? '');
       for (const listener of listeners) listener({ requestId, text: result.text });
+      // A turn the demo bot would not run without asking. The card is drawn
+      // from this exactly as it is drawn from a real `approval.request`. A
+      // group asks every member in parallel, so one card stands for the turn.
+      const message = String(payload?.message ?? '');
+      const now = Date.now();
+      if (
+        /build|clean|nettoie|supprime|\brm\b/i.test(message) &&
+        now - lastAskedAt > 1000
+      ) {
+        lastAskedAt = now;
+        for (const listener of approvalListeners) {
+          listener({
+            requestId,
+            approval: {
+              event: 'approval.request',
+              run_id: `demo-run-${requestId}`,
+              request_id: 'demo-approval',
+              command: 'rm -rf build && npm run build',
+              description:
+                'Clear the build output, then rebuild the app from the current sources.',
+              execution_generation: 1,
+              choices: ['once', 'session', 'always', 'deny'],
+            },
+          });
+        }
+      }
       return result;
     },
     cancelChat: async () => ({ ok: true }),
+    respondApproval: async () => ({ ok: true }),
+    onChatApproval: (
+      listener: (event: {
+        requestId: string;
+        approval: Record<string, unknown>;
+      }) => void,
+    ) => {
+      approvalListeners.add(listener);
+      return () => approvalListeners.delete(listener);
+    },
+    onChatApprovalSettled: () => () => undefined,
     onChatDelta: (listener: (delta: { requestId: string; text: string }) => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
