@@ -130,6 +130,10 @@ the notes, and publish it:
 gh release edit v1.1.0 --draft=false --title "Hermes Bot 1.1.0" --notes "…"
 ```
 
+The run also checks that the app carries a signature. That check must be green
+before you publish the draft: an app whose signature does not validate is
+"damaged" to macOS, and it will not open for the person who installs it.
+
 An installed app finds the new version by itself: it looks at the releases
 page, downloads the build in the background and takes over when the person
 closes the app.
@@ -157,3 +161,8 @@ was published.
 - **The name is `Hermes Bot`**, everywhere: the window, the bundle, the
   prompts the models read, the settings. If you rename something, rename it
   everywhere.
+- **The app is signed ad-hoc.** `mac.identity` is `"-"`, so every build — CI
+  or local — carries the same signature, and the update has something to
+  anchor on. Take it out and electron-builder skips the signing without
+  failing: the app ships unsigned, and macOS calls it "damaged" and refuses
+  to open it.

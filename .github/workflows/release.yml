@@ -35,3 +35,24 @@ jobs:
           # The token that lets the build attach the files to the release.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run dist:publish
+
+      - name: Check the app carries a signature
+        # electron-builder does not fail when it cannot find an identity to
+        # sign with: it skips the signing and ships the app anyway. macOS
+        # calls an app whose signature does not validate "damaged" and
+        # refuses to open it, so the person gets an app that will not start.
+        # The build stops here instead: the release stays a draft until
+        # someone publishes it, and the person publishing it sees a red run.
+        run: |
+          set -euo pipefail
+          checked=0
+          for app in release/mac*/"Hermes Bot.app"; do
+            [ -d "$app" ] || continue
+            checked=$((checked + 1))
+            echo "checking the signature of $app"
+            codesign --verify --deep --strict "$app"
+          done
+          if [ "$checked" -eq 0 ]; then
+            echo "no packaged app was found to check"
+            exit 1
+          fi
