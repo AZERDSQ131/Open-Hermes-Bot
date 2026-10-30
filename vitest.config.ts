@@ -134,6 +134,14 @@ export default defineConfig({
           branches: 100,
           statements: 100,
         },
+        // What a finished turn says out loud, and what it leaves to the
+        // window: a notification is only worth it when nothing is in front.
+        'electron/notify.js': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
         // The key of the host, and the moment it stops being the key: a
         // refusal that cannot be recovered from is a dead end.
         'electron/keys.js': {
@@ -169,6 +177,7 @@ export default defineConfig({
         'electron/logos.js',
         'electron/keys.js',
         'electron/stream.js',
+        'electron/notify.js',
         'electron/models.js',
         'electron/connectors.js',
         'electron/mcp.js',

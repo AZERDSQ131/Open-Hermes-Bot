@@ -1236,6 +1236,39 @@ describe('the rest of the conversation', () => {
     expect((await screen.findAllByText(/terminal/)).length).toBeGreaterThan(0);
   });
 
+  it('comes back to the conversation a notification was about', async () => {
+    let onOpen: ((event: { threadId: string }) => void) | null = null;
+    const bridge = makeBridge({
+      onChatDelta: vi.fn(() => () => undefined),
+      onNotificationOpen: vi.fn((callback) => {
+        onOpen = callback;
+        return () => undefined;
+      }),
+      sendChat: vi.fn(async () => ({ ok: true, text: 'Done' })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Do it');
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(bridge.sendChat).toHaveBeenCalled());
+    const sent = bridge.sendChat.mock.calls[0]?.[0] as
+      | { threadId?: string; botName?: string }
+      | undefined;
+    // The turn carries where it came from: a notification cannot find the
+    // conversation on its own once the turn is over.
+    expect(sent?.threadId).toBeTruthy();
+    expect(sent?.botName).toBe('Bob');
+
+    await userEvent.click(screen.getByText('Alice'));
+    expect(await screen.findByLabelText('Message Alice')).toBeTruthy();
+
+    await act(async () => {
+      onOpen?.({ threadId: sent?.threadId ?? '' });
+    });
+    expect(await screen.findByLabelText('Message Bob')).toBeTruthy();
+  });
+
   it('closes the editor of the logo with the escape', async () => {
     const bridge = makeBridge();
     await renderApp(bridge);

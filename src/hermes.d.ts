@@ -538,6 +538,10 @@ export type HermesBridge = {
     profile?: string;
     model?: string;
     provider?: string;
+    /** The bot, or the group member, for the notification of a finished turn. */
+    botName?: string;
+    /** The conversation, so a clicked notification opens the right one. */
+    threadId?: string;
     /** Appended to the system prompt for this turn only. */
     instructions?: string;
   }) => Promise<HermesChatResult>;
@@ -558,6 +562,10 @@ export type HermesBridge = {
   ) => () => void;
   onChatApprovalSettled: (
     callback: (event: HermesChatApprovalSettled) => void,
+  ) => () => void;
+  /** A notification was clicked: the conversation it was about. */
+  onNotificationOpen: (
+    callback: (event: { threadId: string }) => void,
   ) => () => void;
   /** A bot that was made is served by the gateway, or still is not. */
   onBotReady: (callback: (event: HermesBotReady) => void) => () => void;
