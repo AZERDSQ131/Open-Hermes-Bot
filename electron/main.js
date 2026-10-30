@@ -7,6 +7,7 @@ const {
   app,
   BrowserWindow,
   Menu,
+  Notification,
   shell,
   ipcMain,
 } = require('electron');
@@ -42,6 +43,7 @@ const {
   settleStreamTurn,
   silenceWindow,
 } = require('./stream.js');
+const { notificationBody, shouldAnnounce } = require('./notify.js');
 const { modelRef } = require('./models.js');
 
 app.setName('Hermes Bot');
@@ -3304,6 +3306,12 @@ const chatRequests = new Map();
 // event long before the turn would end, so the app can stop waiting instead of
 // sitting on a request that the server keeps retrying.
 ipcMain.handle('hermes:chat:send', async (event, payload) => {
+  const result = await runChatTurn(event, payload);
+  announceTurnEnd(payload, result);
+  return result;
+});
+
+async function runChatTurn(event, payload) {
   if (!isLive()) await ensureConnected();
   // A bot that was made a moment ago is not served yet: the person is waiting
   // for the answer anyway, so the wait belongs here.
@@ -3494,7 +3502,43 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
     clearTimeout(silenceTimer);
     chatRequests.delete(requestId);
   }
-});
+}
+
+// A turn that ends while the window is not in front is easy to miss: a build
+// that ran for minutes, an answer that arrived after the person looked away.
+// The app says so the way the system does, and a click brings the conversation
+// back - the thread id travels with the turn so the click knows where to go.
+function announceTurnEnd(payload, result) {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (!win) return;
+  const view = {
+    supported: Notification.isSupported(),
+    focused: win.isFocused(),
+    minimized: win.isMinimized(),
+  };
+  if (!shouldAnnounce(result, view)) return;
+  const name = String(payload?.botName ?? '').trim() || 'Hermes Bot';
+  const notification = new Notification({
+    title: name,
+    body: notificationBody(result.text),
+  });
+  notification.on('click', () => {
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+    win.webContents.send('hermes:notification:open', {
+      threadId: String(payload?.threadId ?? ''),
+    });
+  });
+  if (process.env.HERMES_BOT_DEBUG) {
+    console.log('[notify] asked for', name, {
+      focused: view.focused,
+      minimized: view.minimized,
+    });
+    notification.on('show', () => console.log('[notify] shown'));
+  }
+  notification.show();
+}
 
 // Abandon a turn: the renderer has a newer message for the same conversation.
 // Closing the stream also tells Hermes to interrupt the run, so the next turn

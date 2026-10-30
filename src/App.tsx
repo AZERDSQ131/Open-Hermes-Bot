@@ -1164,6 +1164,26 @@ export default function App() {
     };
   }, []);
 
+  // A notification was clicked: the conversation that turn belonged to comes
+  // back in front, read. It is the app's own call, not the host's, so it is
+  // listened for on its own.
+  useEffect(() => {
+    const bridge = window.hermes;
+    if (!bridge?.onNotificationOpen) return;
+    return bridge.onNotificationOpen(({ threadId }) => {
+      if (!threadId) return;
+      setActiveId(threadId);
+      setPastOpen(null);
+      setThreads((current) =>
+        current.map((thread) =>
+          thread.id === threadId && thread.unread
+            ? { ...thread, unread: false }
+            : thread,
+        ),
+      );
+    });
+  }, []);
+
   // A bot that was made is served by the gateway a moment later: the sidebar
   // is rebuilt then, so the bot stops being the one that is only expected.
   // A bot the gateway cannot serve is flagged, so the UI can say it is
@@ -2388,6 +2408,8 @@ export default function App() {
                 profile: member.profile,
                 model: modelPick?.model,
                 provider: modelPick?.provider,
+                botName: member.name,
+                threadId,
                 instructions,
               });
 
@@ -2795,6 +2817,8 @@ export default function App() {
           profile: thread.profile,
           model: pick?.model,
           provider: pick?.provider,
+          botName: thread.name,
+          threadId,
           instructions: REACTION_PROMPT,
         });
 

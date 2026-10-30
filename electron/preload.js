@@ -96,6 +96,12 @@ if (process.env.VITE_DEMO !== '1') contextBridge.exposeInMainWorld('hermes', {
     ipcRenderer.on('hermes:chat:tool', listener);
     return () => ipcRenderer.removeListener('hermes:chat:tool', listener);
   },
+  /** A notification was clicked: the conversation it was about. */
+  onNotificationOpen: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('hermes:notification:open', listener);
+    return () => ipcRenderer.removeListener('hermes:notification:open', listener);
+  },
   /** A bot that was made: the gateway serves it now, or still does not. */
   onBotReady: (callback) => {
     const listener = (_event, data) => callback(data);
