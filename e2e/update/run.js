@@ -263,8 +263,9 @@ async function main() {
   app.on('error', (error) => log(`the app could not be started: ${error.message}`));
   app.unref();
 
+  let socket = null;
   try {
-    const socket = await openSocket();
+    socket = await openSocket();
 
     // The page of the app, and the page of the settings.
     await until('the app to show itself', async () => {
@@ -279,7 +280,7 @@ async function main() {
       await until('the entry of the settings', async () => {
         // A node does not travel the bridge: ask for a word, not a thing.
         return (
-          (await say(socket, "document.querySelector('.settings-entry') !== null")) === true
+          (await say(socket, "document.querySelector('button.footer-host') !== null")) === true
         );
       });
     } catch {
@@ -292,7 +293,7 @@ async function main() {
     const openedSettings = await say(
       socket,
       `(() => {
-        const entry = document.querySelector('.settings-entry');
+        const entry = document.querySelector('button.footer-host');
         if (!entry) return 'not found';
         entry.click();
         return 'clicked';
@@ -361,8 +362,15 @@ async function main() {
     log('THE UPDATE WORKS: the app became 1.1.0.');
   } finally {
     await feed.close();
+    // The socket to the app is a handle of its own: left open, it keeps the
+    // process alive after a failure, and the run hangs instead of saying.
     try {
-      execFileSync('/usr/bin/pkill', ['-f', 'grok-bot-auto-update/e2e/apps']);
+      socket?.close();
+    } catch {
+      // The socket is already gone.
+    }
+    try {
+      execFileSync('/usr/bin/pkill', ['-f', path.join(APPS, APP_NAME)]);
     } catch {
       // The app is already gone.
     }
