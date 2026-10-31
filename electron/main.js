@@ -3542,6 +3542,8 @@ async function runChatTurn(event, payload) {
       // runs a tool for half an hour is not a turn that died. Watch the run
       // instead of apologising for it.
       if (silent && runId) {
+        // The listening ceiling was about the stream; watching has its own.
+        clearTimeout(hardStop);
         return await watchRun(runId, {
           profile: payload?.profile,
           send,
