@@ -179,14 +179,14 @@ export function ChatScreen({ route, navigation }: Props) {
 
           <Pressable
             onPress={() => tapBubble(message)}
-            onLongPress={() => setActive(message)}
+            onLongPress={mine ? undefined : () => setActive(message)}
             delayLongPress={260}
             style={[
               styles.bubble,
               mine ? styles.bubbleUser : styles.bubbleBot,
               isGroup && styles.bubbleGroup,
             ]}
-            accessibilityHint="Long press for tapback, copy or delete"
+            accessibilityHint={mine ? undefined : 'Long press or double tap for a tapback'}
           >
             {message.kind === 'attachment' && message.attachment ? (
               <View style={styles.attachment}>
@@ -220,8 +220,8 @@ export function ChatScreen({ route, navigation }: Props) {
           {message.reaction ? (
             <Pressable
               style={styles.tapback}
-              onPress={() => setActive(message)}
-              accessibilityLabel="Change the tapback"
+              onPress={mine ? undefined : () => setActive(message)}
+              accessibilityLabel={mine ? undefined : 'Change the tapback'}
             >
               <Text style={styles.tapbackEmoji}>{message.reaction.emoji}</Text>
               <Text style={styles.tapbackCount}>{message.reaction.count}</Text>
