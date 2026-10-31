@@ -325,7 +325,7 @@ const styles = createStyles({
     height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 999,
     backgroundColor: '#e5484d',
   },
   stopGlyph: { width: 12, height: 12, borderRadius: 2, backgroundColor: '#fff' },
