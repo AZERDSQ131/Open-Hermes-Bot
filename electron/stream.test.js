@@ -8,6 +8,8 @@ const {
   MODEL_SILENCE_MS,
   TOOL_SILENCE_MS,
   TURN_LIMIT_MS,
+  NOTHING_CAME_BACK,
+  quietNotice,
   exitReasonWords,
   settleStreamTurn,
   silenceWindow,
@@ -162,5 +164,24 @@ describe('the end of a turn', () => {
   it('reads a stream with no terminal status as finished, as before', () => {
     expect(settleStreamTurn({ text: 'ok' })).toEqual({ ok: true, text: 'ok' });
     expect(settleStreamTurn({})).toEqual({ ok: true, text: '' });
+  });
+});
+
+describe('what the app says when it stops waiting', () => {
+  it('blames the quota only when nothing was running', () => {
+    expect(quietNotice({})).toBe(NOTHING_CAME_BACK);
+    expect(quietNotice({ tool: '   ' })).toBe(NOTHING_CAME_BACK);
+    expect(quietNotice(undefined)).toBe(NOTHING_CAME_BACK);
+  });
+
+  it('says the host is still working when a tool was running', () => {
+    expect(quietNotice({ tool: 'terminal', quietMs: 600_000 })).toBe(
+      'the host is still working on this turn (terminal, nothing new for 10 min) - it carries on even though the app stopped listening',
+    );
+  });
+
+  it('never says less than a minute', () => {
+    expect(quietNotice({ tool: 'terminal', quietMs: 0 })).toContain('nothing new for 1 min');
+    expect(quietNotice({ tool: 'terminal' })).toContain('nothing new for 1 min');
   });
 });

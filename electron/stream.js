@@ -97,6 +97,22 @@ function exitReasonWords(reason) {
   return `Hermes stopped it (${code})`;
 }
 
+/** Said when the app waited and nothing at all came back. */
+const NOTHING_CAME_BACK =
+  'nothing came back from the host for a long time - the model may be out of quota, or the server cannot reach it';
+
+/**
+ * What to say when the app stops waiting. A tool that runs is not a dead
+ * host: the turn is still going, and blaming the quota there sends people to
+ * look in the wrong place.
+ */
+function quietNotice(options) {
+  const tool = String(options?.tool ?? '').trim();
+  if (!tool) return NOTHING_CAME_BACK;
+  const minutes = Math.max(1, Math.round(Number(options?.quietMs ?? 0) / 60_000));
+  return `the host is still working on this turn (${tool}, nothing new for ${minutes} min) - it carries on even though the app stopped listening`;
+}
+
 /**
  * What a streamed turn settles to. A finished turn is its answer; a cancelled
  * one is cancelled; a turn that stopped early keeps the text it wrote and
@@ -119,7 +135,9 @@ module.exports = {
   MODEL_SILENCE_MS,
   TOOL_SILENCE_MS,
   TURN_LIMIT_MS,
+  NOTHING_CAME_BACK,
   silenceWindow,
+  quietNotice,
   exitReasonWords,
   settleStreamTurn,
 };

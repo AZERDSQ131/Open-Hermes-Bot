@@ -78,6 +78,7 @@ import {
 import {
   attachGroupReaction,
   attachReaction,
+  elapsedLabel,
   isQuotaFailure,
   retryWhileDependenciesInstall,
   withTurnNote,
@@ -463,6 +464,25 @@ export default function App() {
   // The model preferences live on the server, with the primary profile.
   const { prefs, update: updatePrefs } = useModelPrefs();
   const [threads, setThreads] = useState<Thread[]>(() => [chiefOfStaffThread()]);
+  // When a turn started, so the waiting line can count: a bot that waits on a
+  // tool for ten minutes must not look like an app that died.
+  const turnStartedAt = useRef(new Map<string, number>());
+  const [, setClock] = useState(0);
+  useEffect(() => {
+    for (const thread of threads) {
+      if (thread.thinking && !turnStartedAt.current.has(thread.id)) {
+        turnStartedAt.current.set(thread.id, Date.now());
+      }
+      if (!thread.thinking) turnStartedAt.current.delete(thread.id);
+    }
+    if (!threads.some((thread) => thread.thinking)) return;
+    const tick = setInterval(() => setClock((count) => count + 1), 1000);
+    return () => clearInterval(tick);
+  }, [threads]);
+  const waitedFor = (id: string) => {
+    const startedAt = turnStartedAt.current.get(id);
+    return startedAt ? elapsedLabel(Date.now() - startedAt) : '';
+  };
   const [activeId, setActiveId] = useState('');
   // A reply lands after the person may have moved on: unread is decided against
   // the thread that is open now, not the one that was open at send time.
@@ -3792,6 +3812,7 @@ export default function App() {
                         {activeThread.tool
                           ? `Using ${activeThread.tool}…`
                           : 'Thinking'}
+                        {waitedFor(activeThread.id) ? ` · ${waitedFor(activeThread.id)}` : ''}
                       </span>
                     </div>
                   )

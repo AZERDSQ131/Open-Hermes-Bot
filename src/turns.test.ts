@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   attachGroupReaction,
   attachReaction,
+  elapsedLabel,
   isInstallingDependencies,
   isQuotaFailure,
   retryWhileDependenciesInstall,
@@ -233,5 +234,21 @@ describe('a turn that stopped before the end', () => {
   it('adds nothing when there is nothing to say', () => {
     const answered = [line('all done', 'a')];
     expect(withTurnNote(answered, '   ', 'n')).toBe(answered);
+  });
+});
+
+describe('how long a turn has waited', () => {
+  it('counts in seconds, then minutes, then hours', () => {
+    expect(elapsedLabel(0)).toBe('0s');
+    expect(elapsedLabel(12_000)).toBe('12s');
+    expect(elapsedLabel(59_999)).toBe('59s');
+    expect(elapsedLabel(60_000)).toBe('1 min');
+    expect(elapsedLabel(9 * 60_000)).toBe('9 min');
+    expect(elapsedLabel(3_600_000)).toBe('1 h 00');
+    expect(elapsedLabel(3_900_000)).toBe('1 h 05');
+  });
+
+  it('never counts backwards', () => {
+    expect(elapsedLabel(-5_000)).toBe('0s');
   });
 });

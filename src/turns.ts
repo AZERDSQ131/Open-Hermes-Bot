@@ -13,6 +13,18 @@ const DEPENDENCY_RETRIES = 2;
 
 export type ChatOutcome = { ok: boolean; error?: string; canceled?: boolean };
 
+/**
+ * How long a turn has been running, in words a person reads at a glance. A
+ * turn that waits on a tool for ten minutes must not look like a dead app.
+ */
+export function elapsedLabel(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`;
+}
+
 /** Is the model out of quota? */
 export function isQuotaFailure(message?: string): boolean {
   return Boolean(message && QUOTA_ERROR.test(message));
