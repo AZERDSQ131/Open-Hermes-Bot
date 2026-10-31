@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -27,7 +27,7 @@ export function EmojiPicker({
   onPick: (emoji: string) => void;
 }) {
   const [value, setValue] = useState('');
-  const field = useRef<TextInput>(null);
+  const field = useRef<ComponentRef<typeof TextInput>>(null);
   const emoji = value.trim();
 
   useEffect(() => {
