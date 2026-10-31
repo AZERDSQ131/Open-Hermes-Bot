@@ -8,7 +8,7 @@ import {
   type KeyboardTypeOptions,
 } from 'react-native';
 import { ChevronIcon, CloseIcon } from './Icons';
-import { GlassButton } from './GlassButton';
+import { GlassButton, GlassSurface } from './GlassButton';
 import { C, INK, box, createStyles } from '../theme';
 
 /** The head of a sheet: what it is, what it says, and the way out. */
@@ -100,25 +100,28 @@ export function PrimaryButton({
   tone?: 'paper' | 'danger' | 'quiet';
 }) {
   return (
-    <Pressable
-      style={[
-        styles.button,
-        tone === 'danger' && styles.buttonDanger,
-        tone === 'quiet' && styles.buttonQuiet,
-      ]}
-      onPress={onPress}
-      accessibilityRole="button"
+    <GlassSurface
+      tint={
+        tone === 'paper'
+          ? C.paper
+          : tone === 'danger'
+            ? 'rgba(255,95,87,0.16)'
+            : 'rgba(255,255,255,0.07)'
+      }
+      style={styles.button}
     >
-      <Text
-        style={[
-          styles.buttonText,
-          tone === 'danger' && { color: '#ff6961' },
-          tone === 'quiet' && { color: C.text },
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
+      <Pressable style={styles.buttonPress} onPress={onPress} accessibilityRole="button">
+        <Text
+          style={[
+            styles.buttonText,
+            tone === 'danger' && { color: '#ff6961' },
+            tone === 'quiet' && { color: C.text },
+          ]}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    </GlassSurface>
   );
 }
 
@@ -257,15 +260,8 @@ const styles = createStyles({
   rowMeta: { marginTop: 1, color: '#808087', fontSize: 9 },
   rowValue: { color: '#82828a', fontSize: 11 },
 
-  button: {
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: C.paper,
-  },
-  buttonDanger: { backgroundColor: C.card },
-  buttonQuiet: { backgroundColor: C.card },
+  button: { height: 44, borderRadius: 12 },
+  buttonPress: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   buttonText: { color: '#1b1b19', fontSize: 14, fontWeight: '600' },
 
   hint: { marginTop: 7, color: '#7c7c83', fontSize: 10, lineHeight: 14 },
