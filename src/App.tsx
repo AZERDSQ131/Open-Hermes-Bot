@@ -81,6 +81,7 @@ import {
   elapsedLabel,
   isQuotaFailure,
   retryWhileDependenciesInstall,
+  toolWords,
   withTurnNote,
 } from './turns';
 import {
@@ -3822,7 +3823,7 @@ export default function App() {
                         {activeThread.watching
                           ? 'Watching the host…'
                           : activeThread.tool
-                            ? `Using ${activeThread.tool}…`
+                            ? `Using ${toolWords(activeThread.tool)}…`
                             : 'Thinking'}
                         {waitedFor(activeThread.id) ? ` · ${waitedFor(activeThread.id)}` : ''}
                       </span>

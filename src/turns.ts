@@ -25,6 +25,29 @@ export function elapsedLabel(ms: number): string {
   return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`;
 }
 
+/**
+ * The tool a turn is using, in words a person reads without a manual.
+ * `process_manage` is what the bot calls a background command; saying the
+ * internal name is accurate and useless.
+ */
+const TOOL_WORDS: Record<string, string> = {
+  terminal: 'the terminal',
+  process_manage: 'a background command',
+  execute_code: 'code',
+  read_file: 'files',
+  write_file: 'files',
+  patch: 'files',
+  search_files: 'files',
+  web_search: 'the web',
+  web_extract: 'the web',
+  browser_exec: 'the browser',
+  vision_analyze: 'an image',
+};
+
+export function toolWords(tool: string): string {
+  return TOOL_WORDS[tool] ?? tool;
+}
+
 /** Is the model out of quota? */
 export function isQuotaFailure(message?: string): boolean {
   return Boolean(message && QUOTA_ERROR.test(message));
