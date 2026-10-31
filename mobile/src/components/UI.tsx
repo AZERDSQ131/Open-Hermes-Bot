@@ -8,7 +8,8 @@ import {
   type KeyboardTypeOptions,
 } from 'react-native';
 import { ChevronIcon, CloseIcon } from './Icons';
-import { C, INK, createStyles } from '../theme';
+import { GlassButton } from './GlassButton';
+import { C, INK, box, createStyles } from '../theme';
 
 /** The head of a sheet: what it is, what it says, and the way out. */
 export function SheetHeader({
@@ -28,7 +29,7 @@ export function SheetHeader({
         <Text style={styles.headTitle}>{title}</Text>
         {sub ? <Text style={styles.headSub}>{sub}</Text> : null}
       </View>
-      <Pressable style={styles.close} onPress={back ?? onClose} accessibilityLabel={back ? 'Back' : 'Close'}>
+      <GlassButton size={box(26)} label={back ? 'Back' : 'Close'} onPress={back ?? onClose}>
         {back ? (
           <View style={{ transform: [{ rotate: '180deg' }] }}>
             <ChevronIcon size={14} color="#a8a8af" />
@@ -36,7 +37,7 @@ export function SheetHeader({
         ) : (
           <CloseIcon />
         )}
-      </Pressable>
+      </GlassButton>
     </View>
   );
 }
@@ -230,14 +231,6 @@ const styles = createStyles({
   headCopy: { flex: 1 },
   headTitle: { color: C.text, fontSize: 19, fontWeight: '600', letterSpacing: -0.48 },
   headSub: { marginTop: 3, color: '#8a8a91', fontSize: 11, lineHeight: 15 },
-  close: {
-    width: 26,
-    height: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 13,
-    backgroundColor: '#34343a',
-  },
 
   section: {
     paddingTop: 10,
