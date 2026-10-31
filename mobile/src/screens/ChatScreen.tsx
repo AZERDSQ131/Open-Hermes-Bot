@@ -17,10 +17,10 @@ import { Bloub, BloubGroup } from '../components/Bloub';
 import { BackIcon, FileIcon, MicIcon, MoreIcon, PhotoIcon } from '../components/Icons';
 import { Composer, type Outgoing } from '../components/Composer';
 import { TypingDots } from '../components/TypingDots';
+import { ReactionBar } from '../components/ReactionBar';
 import { BotSheet } from './BotSheet';
 import { ConversationSheet } from './ConversationSheet';
 import { GroupDetailsSheet } from './GroupDetailsSheet';
-import { MessageSheet } from './MessageSheet';
 import { CHAT_EVENTS, type Bot, type Message } from '../data';
 import { useStore } from '../store';
 import type { RootStackParamList } from '../nav';
@@ -64,6 +64,7 @@ export function ChatScreen({ route, navigation }: Props) {
     botById,
     prefs,
     send,
+    react,
     markRead,
     threadById,
   } = useStore();
@@ -144,6 +145,11 @@ export function ChatScreen({ route, navigation }: Props) {
 
   function tapBubble(message: Message) {
     if (message.from === 'user') return;
+    if (active?.id === message.id) {
+      lastTap.current = null;
+      setActive(null);
+      return;
+    }
     const now = Date.now();
     if (lastTap.current?.id === message.id && now - lastTap.current.at < 320) {
       lastTap.current = null;
@@ -175,6 +181,18 @@ export function ChatScreen({ route, navigation }: Props) {
         ) : null}
 
         <View style={[styles.bubbleWrap, mine && styles.bubbleWrapUser]}>
+          {active?.id === message.id && !mine ? (
+            <View style={styles.reactionLayer}>
+              <ReactionBar
+                selected={message.reaction?.emoji}
+                onPick={(emoji) => {
+                  react(threadId, message.id, emoji);
+                  setActive(null);
+                }}
+              />
+            </View>
+          ) : null}
+
           {isGroup && !mine && author ? <Text style={styles.author}>{author.name}</Text> : null}
 
           <Pressable
@@ -277,6 +295,7 @@ export function ChatScreen({ route, navigation }: Props) {
           // A scroll puts the keyboard away: the turn is read, not typed.
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={() => setActive(null)}
           onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
         >
           {meta ? (
@@ -331,12 +350,6 @@ export function ChatScreen({ route, navigation }: Props) {
         threadId={thread.id}
         onLeave={() => navigation.goBack()}
       />
-      <MessageSheet
-        visible={active !== null}
-        onClose={() => setActive(null)}
-        threadId={thread.id}
-        message={active}
-      />
     </View>
   );
 }
@@ -374,6 +387,13 @@ const styles = createStyles({
   msgGroup: { flexDirection: 'row', alignItems: 'flex-start', gap: 7 },
   msgAvatar: { marginTop: 16 },
   bubbleWrap: { flexShrink: 1, maxWidth: '86%', alignItems: 'flex-start' },
+  reactionLayer: {
+    position: 'absolute',
+    left: 0,
+    bottom: '100%',
+    marginBottom: 6,
+    zIndex: 20,
+  },
   bubbleWrapUser: { alignItems: 'flex-end', maxWidth: '80%' },
 
   bubble: { maxWidth: '100%', paddingVertical: 9, paddingHorizontal: 12, borderRadius: 16 },
