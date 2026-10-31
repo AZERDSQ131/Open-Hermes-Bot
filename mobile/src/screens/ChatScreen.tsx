@@ -18,6 +18,7 @@ import { BackIcon, FileIcon, MicIcon, MoreIcon, PhotoIcon } from '../components/
 import { Composer, type Outgoing } from '../components/Composer';
 import { TypingDots } from '../components/TypingDots';
 import { ReactionBar } from '../components/ReactionBar';
+import { EmojiPicker } from '../components/EmojiPicker';
 import { BotSheet } from './BotSheet';
 import { ConversationSheet } from './ConversationSheet';
 import { GroupDetailsSheet } from './GroupDetailsSheet';
@@ -73,6 +74,7 @@ export function ChatScreen({ route, navigation }: Props) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [botOpen, setBotOpen] = useState(false);
   const [active, setActive] = useState<Message | null>(null);
+  const [emojiPicker, setEmojiPicker] = useState(false);
   const scroll = useRef<ScrollViewInstance>(null);
   // A second tap on the same bubble, inside this window, is a tapback.
   const lastTap = useRef<{ id: string; at: number } | null>(null);
@@ -185,6 +187,7 @@ export function ChatScreen({ route, navigation }: Props) {
             <View style={styles.reactionLayer}>
               <ReactionBar
                 selected={message.reaction?.emoji}
+                onMore={() => setEmojiPicker(true)}
                 onPick={(emoji) => {
                   react(threadId, message.id, emoji);
                   setActive(null);
@@ -349,6 +352,16 @@ export function ChatScreen({ route, navigation }: Props) {
         onClose={() => setDetailsOpen(false)}
         threadId={thread.id}
         onLeave={() => navigation.goBack()}
+      />
+      <EmojiPicker
+        visible={emojiPicker && active !== null}
+        onClose={() => setEmojiPicker(false)}
+        onPick={(emoji) => {
+          if (!active) return;
+          react(threadId, active.id, emoji);
+          setActive(null);
+          setEmojiPicker(false);
+        }}
       />
     </View>
   );
