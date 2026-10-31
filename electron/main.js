@@ -3386,6 +3386,9 @@ async function runChatTurn(event, payload) {
   // Ephemeral per-turn instructions: Hermes appends them to the system prompt
   // and leaves the stored conversation untouched.
   if (payload?.instructions) body.system_message = String(payload.instructions);
+  // How hard the model thinks this turn. Absent means the host decides, which
+  // is what every turn did before the window offered the choice.
+  if (payload?.reasoning) body.model_options = { reasoning: payload.reasoning };
 
   /** @type {AbortController & { canceled?: boolean }} */
   const controller = new AbortController();

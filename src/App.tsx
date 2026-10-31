@@ -17,6 +17,7 @@ import {
   type ApprovalChoice,
   type ApprovalRequest,
 } from './approvals';
+import { reasoningFor } from './effort';
 import { threadMood } from './moods';
 import { botShape } from './components/Bloub';
 import { type BloubShape } from './components/bloubFrames';
@@ -81,7 +82,7 @@ import {
   elapsedLabel,
   isQuotaFailure,
   retryWhileDependenciesInstall,
-  toolWords,
+  waitingLabel,
   withTurnNote,
 } from './turns';
 import {
@@ -2850,6 +2851,7 @@ export default function App() {
           botName: thread.name,
           threadId,
           instructions: REACTION_PROMPT,
+          reasoning: reasoningFor(thread.effort),
         });
 
       let result = await retryWhileDependenciesInstall(
@@ -3804,10 +3806,29 @@ export default function App() {
                       </div>
                     )
                   ) : streamingText.trim() ? (
-                    <div className="message-row assistant">
-                      <div className="bubble-wrap bubble-wrap-assistant">
-                        <div className="bubble bubble-assistant is-streaming">
-                          {streamingText}
+                    <div className="streaming-block">
+                      <div className="thinking-row is-compact">
+                        <AgentAvatar
+                          avatar={activeThread.avatar}
+                          size={38}
+                          className="thinking-avatar"
+                          showBadge={false}
+                        />
+                        <span className="thinking-label">
+                          {waitingLabel({
+                            watching: activeThread.watching,
+                            tool: activeThread.tool,
+                            effort: activeThread.effort,
+                            writing: true,
+                          })}
+                          {waitedFor(activeThread.id) ? ` · ${waitedFor(activeThread.id)}` : ''}
+                        </span>
+                      </div>
+                      <div className="message-row assistant">
+                        <div className="bubble-wrap bubble-wrap-assistant">
+                          <div className="bubble bubble-assistant is-streaming">
+                            {streamingText}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -3820,11 +3841,11 @@ export default function App() {
                         showBadge={false}
                       />
                       <span className="thinking-label">
-                        {activeThread.watching
-                          ? 'Watching the host…'
-                          : activeThread.tool
-                            ? `Using ${toolWords(activeThread.tool)}…`
-                            : 'Thinking'}
+                        {waitingLabel({
+                          watching: activeThread.watching,
+                          tool: activeThread.tool,
+                          effort: activeThread.effort,
+                        })}
                         {waitedFor(activeThread.id) ? ` · ${waitedFor(activeThread.id)}` : ''}
                       </span>
                     </div>
@@ -4037,6 +4058,14 @@ export default function App() {
                   fallbackLabel={activeFallbackLabel}
                   disabled={activeThread.thinking}
                   connected={hermesStatus.state === 'connected'}
+                  effort={activeThread.effort}
+                  onEffortChange={(effort) =>
+                    setThreads((current) =>
+                      current.map((thread) =>
+                        thread.id === activeThread.id ? { ...thread, effort } : thread,
+                      ),
+                    )
+                  }
                   onChange={(pick) => {
                     if (pick.model) {
                       updatePrefs(

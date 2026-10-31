@@ -1995,6 +1995,15 @@ button:focus-visible {
   margin-bottom: 10px;
 }
 
+.streaming-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.thinking-row.is-compact {
+  padding: 2px 0 10px;
+}
+
 .thinking-row {
   display: flex;
   align-items: center;
@@ -4809,6 +4818,76 @@ button:focus-visible {
 
 .model-option:hover {
   background: rgba(242, 239, 229, 0.06);
+}
+
+/* The thinking choice lives at the foot of the model menu: it is a property of
+   how the picked model runs, not a setting of its own. The highlight is one
+   pill that slides to the choice, so changing it reads as a move, not a jump. */
+.model-effort {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid rgba(242, 239, 229, 0.08);
+}
+
+.model-effort-label {
+  flex-shrink: 0;
+  color: #8b8a83;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.effort-row {
+  position: relative;
+  display: flex;
+  flex: 1;
+  padding: 2px;
+  border-radius: 9px;
+  background: rgba(242, 239, 229, 0.05);
+}
+
+.effort-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / var(--effort-count, 3));
+  border-radius: 7px;
+  background: rgba(242, 239, 229, 0.12);
+  transform: translateX(calc(var(--effort-index, 0) * 100%));
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.effort-pill {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  padding: 5px 2px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #a5a39a;
+  font-family: inherit;
+  font-size: 11.5px;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+
+.effort-pill:hover {
+  color: #f2efe5;
+}
+
+.effort-pill.is-active {
+  color: #f2efe5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .effort-thumb {
+    transition: none;
+  }
 }
 
 .model-option.is-active {

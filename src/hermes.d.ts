@@ -546,6 +546,8 @@ export type HermesBridge = {
     threadId?: string;
     /** Appended to the system prompt for this turn only. */
     instructions?: string;
+    /** How hard the model thinks this turn; absent means the host decides. */
+    reasoning?: { enabled?: boolean; effort?: string };
   }) => Promise<HermesChatResult>;
   /** Stop a turn in flight; used when a newer message replaces it. */
   cancelChat: (requestId: string) => Promise<{ ok: boolean }>;
