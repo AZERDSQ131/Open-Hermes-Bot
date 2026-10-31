@@ -48,6 +48,24 @@ export function toolWords(tool: string): string {
   return TOOL_WORDS[tool] ?? tool;
 }
 
+/**
+ * What the waiting line says while a turn runs, in the order the turn lives it:
+ * watching the host, using a tool, writing the answer, or thinking first. A
+ * turn with thinking turned off never says it is thinking: that would be a lie
+ * the person can see through.
+ */
+export function waitingLabel(turn: {
+  watching?: boolean;
+  tool?: string;
+  effort?: string;
+  writing?: boolean;
+}): string {
+  if (turn.watching) return 'Watching the host…';
+  if (turn.tool) return `Using ${toolWords(turn.tool)}…`;
+  if (turn.writing) return 'Writing';
+  return turn.effort === 'off' ? 'Writing' : 'Thinking';
+}
+
 /** Is the model out of quota? */
 export function isQuotaFailure(message?: string): boolean {
   return Boolean(message && QUOTA_ERROR.test(message));

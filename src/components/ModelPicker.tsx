@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { EFFORT_CHOICES, EFFORT_HINTS, effortIndex, type Effort } from '../effort';
 import type { HermesModel } from '../hermes';
 import {
   defaultModelPick,
@@ -31,6 +32,9 @@ type ModelPickerProps = {
     provider?: string;
     label?: string;
   }) => void;
+  /** How hard this conversation's model thinks; absent means the model decides. */
+  effort?: string;
+  onEffortChange?: (effort: Effort | undefined) => void;
 };
 
 type Pick = { model?: string; provider?: string; label?: string };
@@ -44,6 +48,8 @@ export function ModelPicker({
   disabled,
   connected = true,
   onChange,
+  effort,
+  onEffortChange,
 }: ModelPickerProps) {
   const bridge = window.hermes;
   const [open, setOpen] = useState(false);
@@ -283,6 +289,42 @@ export function ModelPicker({
                   No authenticated provider offers a model yet.
                 </p>
               ) : null}
+            </div>
+          ) : null}
+
+          {onEffortChange ? (
+            <div className="model-effort">
+              <span className="model-effort-label">Thinking</span>
+              <div
+                className="effort-row"
+                role="group"
+                aria-label="Thinking"
+                style={
+                  {
+                    '--effort-index': effortIndex(effort),
+                    '--effort-count': EFFORT_CHOICES.length,
+                  } as CSSProperties
+                }
+              >
+                <span className="effort-thumb" aria-hidden="true" />
+                {EFFORT_CHOICES.map((choice) => {
+                  const active = (effort || 'auto') === choice.id;
+                  return (
+                    <button
+                      type="button"
+                      key={choice.id}
+                      className={`effort-pill ${active ? 'is-active' : ''}`}
+                      aria-pressed={active}
+                      title={EFFORT_HINTS[choice.id]}
+                      onClick={() =>
+                        onEffortChange(choice.id === 'auto' ? undefined : choice.id)
+                      }
+                    >
+                      {choice.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ) : null}
         </div>
