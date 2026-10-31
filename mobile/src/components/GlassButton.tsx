@@ -50,7 +50,7 @@ export function GlassButton({
   label,
   onPress,
   children,
-  size = 36,
+  size = 42,
 }: {
   label: string;
   onPress: () => void;
