@@ -310,8 +310,8 @@ const styles = createStyles({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    paddingHorizontal: 10,
-    borderRadius: 10,
+    paddingHorizontal: 12,
+    borderRadius: 999,
   },
   searchInput: { flex: 1, color: C.text, fontSize: 12, padding: 0 },
 
