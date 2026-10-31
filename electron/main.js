@@ -45,6 +45,7 @@ const {
   silenceWindow,
 } = require('./stream.js');
 const { notificationBody, shouldAnnounce } = require('./notify.js');
+const { WATCH_POLL_MS, WATCH_LIMIT_MS, runFinished, runOutcome } = require('./watch.js');
 const { modelRef } = require('./models.js');
 
 app.setName('Hermes Bot');
@@ -3312,6 +3313,33 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
   return result;
 });
 
+/**
+ * The stream went quiet while the host kept the run. Rather than telling the
+ * person the turn died, the app asks the host how that run is doing, and
+ * brings the answer back when there is one. A build that takes forty minutes
+ * still ends with its result.
+ */
+async function watchRun(runId, { profile, send, canceled }) {
+  send('hermes:chat:watch', { runId });
+  const until = Date.now() + WATCH_LIMIT_MS;
+  while (Date.now() < until) {
+    await new Promise((resolve) => setTimeout(resolve, WATCH_POLL_MS));
+    if (canceled()) return { ok: false, canceled: true };
+    const result = await apiCall(`/v1/runs/${encodeURIComponent(runId)}`, {
+      profile,
+      timeoutMs: 15000,
+    });
+    if (!result.ok) continue;
+    const run = result.body;
+    if (!runFinished(run)) continue;
+    return runOutcome(run);
+  }
+  return {
+    ok: false,
+    error: 'The bot is still working on this turn - the app stopped watching after two hours.',
+  };
+}
+
 async function runChatTurn(event, payload) {
   if (!isLive()) await ensureConnected();
   // A bot that was made a moment ago is not served yet: the person is waiting
@@ -3365,6 +3393,9 @@ async function runChatTurn(event, payload) {
   // person answers, so the clock must not kill it while the card is up.
   let awaitingApproval = false;
   let activeTool = '';
+  // The run the host opened for this turn: what the app watches when the
+  // stream goes quiet but the work goes on.
+  let runId = '';
   const hardStop = setTimeout(() => controller.abort(), TURN_LIMIT_MS);
   let silenceTimer = null;
   const armSilence = () => {
@@ -3459,6 +3490,8 @@ async function runChatTurn(event, payload) {
           send('hermes:chat:approval-settled', {
             approvalId: String(parsed?.request_id ?? ''),
           });
+        } else if (name === 'run.started') {
+          runId = String(parsed?.run_id ?? '');
         } else if (name === 'assistant.completed') {
           const final = parsed?.message?.content ?? parsed?.text ?? parsed?.content;
           if (typeof final === 'string' && !text) text = final;
@@ -3492,6 +3525,16 @@ async function runChatTurn(event, payload) {
   } catch (error) {
     if (error.name === 'AbortError') {
       if (controller.canceled) return { ok: false, canceled: true };
+      // The stream went quiet but the host may well be working: a turn that
+      // runs a tool for half an hour is not a turn that died. Watch the run
+      // instead of apologising for it.
+      if (silent && runId) {
+        return await watchRun(runId, {
+          profile: payload?.profile,
+          send,
+          canceled: () => Boolean(controller.canceled),
+        });
+      }
       return settleStreamTurn({
         text,
         status: 'failed',

@@ -434,6 +434,7 @@ export function createDemoBridge(now: number = Date.now()): HermesBridge {
       return () => listeners.delete(listener);
     },
     onChatTool: () => () => undefined,
+    onChatWatch: () => () => undefined,
     onBotReady: () => () => undefined,
     models: async () => ({
       ok: true,

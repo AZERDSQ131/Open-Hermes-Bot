@@ -1175,12 +1175,18 @@ export default function App() {
         );
       },
     );
+    // The stream went quiet but the host kept the run: the app stops
+    // listening and says so, instead of pretending the turn died.
+    const offWatch = bridge.onChatWatch?.(({ requestId }) => {
+      applySingle(requestId, (thread) => ({ ...thread, watching: true, tool: undefined }));
+    });
 
     return () => {
       offDelta?.();
       offTool?.();
       offApproval?.();
       offApprovalSettled?.();
+      offWatch?.();
     };
   }, []);
 
@@ -2275,6 +2281,7 @@ export default function App() {
         ...item,
         thinking: false,
         streaming: undefined,
+        watching: false,
         live: [],
         messages: [
           ...item.messages,
@@ -2647,6 +2654,7 @@ export default function App() {
       thinking: false,
       streaming: undefined,
       tool: undefined,
+      watching: false,
       live: [],
       sessions,
       preview: lastLine
@@ -2763,6 +2771,7 @@ export default function App() {
                 thinking: false,
                 streaming: undefined,
                 tool: undefined,
+                watching: false,
                 unread: threadId !== activeIdRef.current,
                 messages: [
                   ...item.messages,
@@ -2937,6 +2946,7 @@ export default function App() {
               thinking: false,
               streaming: undefined,
               tool: undefined,
+              watching: false,
               preview: reply
                 ? reply.replace(/\s+/g, ' ').slice(0, 90)
                 : item.preview,
@@ -3809,9 +3819,11 @@ export default function App() {
                         showBadge={false}
                       />
                       <span className="thinking-label">
-                        {activeThread.tool
-                          ? `Using ${activeThread.tool}…`
-                          : 'Thinking'}
+                        {activeThread.watching
+                          ? 'Watching the host…'
+                          : activeThread.tool
+                            ? `Using ${activeThread.tool}…`
+                            : 'Thinking'}
                         {waitedFor(activeThread.id) ? ` · ${waitedFor(activeThread.id)}` : ''}
                       </span>
                     </div>

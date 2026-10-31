@@ -96,6 +96,12 @@ if (process.env.VITE_DEMO !== '1') contextBridge.exposeInMainWorld('hermes', {
     ipcRenderer.on('hermes:chat:tool', listener);
     return () => ipcRenderer.removeListener('hermes:chat:tool', listener);
   },
+  /** The stream went quiet but the host kept the run: the app watches it. */
+  onChatWatch: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('hermes:chat:watch', listener);
+    return () => ipcRenderer.removeListener('hermes:chat:watch', listener);
+  },
   /** A notification was clicked: the conversation it was about. */
   onNotificationOpen: (callback) => {
     const listener = (_event, data) => callback(data);

@@ -121,6 +121,8 @@ export type Thread = {
    * that asked is named on it.
    */
   approvals?: PendingApproval[];
+  /** The app stopped listening and watches the run instead. */
+  watching?: boolean;
   avatar: AvatarSpec;
   preview: string;
   time: string;
