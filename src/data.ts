@@ -65,6 +65,8 @@ export type Message =
       text: string;
       /** Emoji the agent tapped on this message; never sent back to Hermes. */
       reaction?: string;
+      /** This line was typed while the turn was running, and joined it. */
+      steered?: boolean;
       /** Group chat: the bot that wrote this line. */
       authorId?: string;
       authorName?: string;

@@ -72,6 +72,7 @@ if (process.env.VITE_DEMO !== '1') contextBridge.exposeInMainWorld('hermes', {
   openLink: (url) => ipcRenderer.invoke('hermes:open', url),
   sendChat: (payload) => ipcRenderer.invoke('hermes:chat:send', payload),
   cancelChat: (requestId) => ipcRenderer.invoke('hermes:chat:cancel', requestId),
+  steerRun: (payload) => ipcRenderer.invoke('hermes:chat:steer', payload),
   /** The answer to a command a bot is holding. */
   respondApproval: (payload) =>
     ipcRenderer.invoke('hermes:chat:approve', payload),
