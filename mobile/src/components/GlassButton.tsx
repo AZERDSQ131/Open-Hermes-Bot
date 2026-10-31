@@ -53,18 +53,25 @@ export function GlassButtonGroup({
 export function GlassSurface({
   children,
   style,
+  tint,
 }: {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** The colour the pane takes, when it is not the neutral glass. */
+  tint?: string;
 }) {
   if (!LIQUID) {
-    return <View style={[styles.surface, style]}>{children}</View>;
+    return (
+      <View style={[styles.surface, style, tint ? { backgroundColor: tint } : null]}>
+        {children}
+      </View>
+    );
   }
   return (
     <GlassView
       glassEffectStyle="regular"
       colorScheme="dark"
-      tintColor="rgba(42,42,48,0.32)"
+      tintColor={tint ?? 'rgba(42,42,48,0.32)'}
       style={style}
     >
       {children}

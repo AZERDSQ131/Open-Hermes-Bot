@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Pressable } from 'react-native';
+import { GlassSurface } from './GlassButton';
 import { C, box, createStyles } from '../theme';
 
 const TRACK = box(38);
@@ -28,10 +29,8 @@ export function Toggle({
     }).start();
   }, [at, on]);
 
-  const trackColor = at.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#3b3b41', C.green],
-  });
+  // The track is a pane of glass; the green comes up inside it when it is on.
+  const green = at.interpolate({ inputRange: [0, 1], outputRange: [0, 0.9] });
   const translateX = at.interpolate({ inputRange: [0, 1], outputRange: [0, TRAVEL] });
 
   return (
@@ -41,15 +40,25 @@ export function Toggle({
       accessibilityState={{ checked: on }}
       accessibilityLabel={label}
     >
-      <Animated.View style={[styles.track, { backgroundColor: trackColor }]}>
+      <GlassSurface style={styles.track}>
+        <Animated.View style={[styles.fill, { opacity: green }]} />
         <Animated.View style={[styles.knob, { transform: [{ translateX }] }]} />
-      </Animated.View>
+      </GlassSurface>
     </Pressable>
   );
 }
 
 const styles = createStyles({
   track: { width: 38, height: 23, borderRadius: 12 },
+  fill: {
+    position: 'absolute',
+    top: 1,
+    left: 1,
+    right: 1,
+    bottom: 1,
+    borderRadius: 11,
+    backgroundColor: C.green,
+  },
   knob: {
     position: 'absolute',
     top: 2,
