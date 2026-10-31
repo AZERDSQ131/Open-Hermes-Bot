@@ -112,7 +112,6 @@ type Store = {
 
   send: (threadId: string, payload: Outgoing) => void;
   react: (threadId: string, messageId: string, emoji: string) => void;
-  removeMessage: (threadId: string, messageId: string) => void;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -806,13 +805,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const removeMessage = useCallback<Store['removeMessage']>((threadId, messageId) => {
-    setMessages((current) => ({
-      ...current,
-      [threadId]: (current[threadId] ?? []).filter((message) => message.id !== messageId),
-    }));
-  }, []);
-
   const value = useMemo<Store>(
     () => ({
       bots,
@@ -844,7 +836,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       clearThread,
       send,
       react,
-      removeMessage,
     }),
     [
       addBot,
@@ -864,7 +855,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       react,
       refresh,
       removeBot,
-      removeMessage,
       removeThread,
       send,
       setModel,
