@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { Attachment, Bot, MessageKind, Thread } from '../data';
 import { ATTACHMENTS } from '../data';
 import { useStore } from '../store';
-import { C, INK, createStyles } from '../theme';
+import { C, INK, box, createStyles } from '../theme';
 import { ArrowUpIcon, AttachIcon, CameraIcon, CloseIcon, FileIcon, MicIcon, PhotoIcon } from './Icons';
 import { Sheet } from './Sheet';
 import { GlassButton, GlassSurface } from './GlassButton';
@@ -137,7 +137,12 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
         ) : null}
 
         <GlassSurface style={styles.composer}>
-          <GlassButton size={37} label="Attach a file" onPress={() => setAttaching(true)}>
+          <GlassButton
+            size={box(37)}
+            tint={C.field2}
+            label="Attach a file"
+            onPress={() => setAttaching(true)}
+          >
             <AttachIcon />
           </GlassButton>
           <TextInput
@@ -151,19 +156,20 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
             blurOnSubmit={false}
           />
           {draft.trim() ? (
-            <GlassButton size={37} label="Send" onPress={send}>
-              <ArrowUpIcon color="#f2efe5" />
+            <GlassButton size={box(37)} tint={C.paper} label="Send" onPress={send}>
+              <ArrowUpIcon />
             </GlassButton>
           ) : (
             <GlassButton
-              size={37}
+              size={box(37)}
+              tint={C.paper}
               label="Dictate"
               onPress={() => {
                 setSeconds(0);
                 setRecording(true);
               }}
             >
-              <MicIcon color="#f2efe5" />
+              <MicIcon />
             </GlassButton>
           )}
         </GlassSurface>
