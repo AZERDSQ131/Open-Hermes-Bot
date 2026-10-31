@@ -1991,6 +1991,16 @@ button:focus-visible {
   padding: 2px 0 10px;
 }
 
+/* A line typed while the turn was running, under the bubble it belongs to. */
+.message-steered {
+  display: block;
+  margin-top: 4px;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: rgba(242, 239, 229, 0.42);
+  text-align: right;
+}
+
 .group-live .message-row {
   margin-bottom: 10px;
 }

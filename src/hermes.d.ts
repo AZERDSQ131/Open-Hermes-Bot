@@ -551,6 +551,11 @@ export type HermesBridge = {
   }) => Promise<HermesChatResult>;
   /** Stop a turn in flight; used when a newer message replaces it. */
   cancelChat: (requestId: string) => Promise<{ ok: boolean }>;
+  /** Add a line to the turn already running, instead of killing it. */
+  steerRun: (payload: {
+    requestId: string;
+    text: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
   /** Answer a command the host is holding: once, session, always, or deny. */
   respondApproval: (payload: {
     runId: string;
