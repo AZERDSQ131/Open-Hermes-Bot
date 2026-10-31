@@ -6,6 +6,7 @@ import {
   isInstallingDependencies,
   isQuotaFailure,
   retryWhileDependenciesInstall,
+  toolWords,
   withTurnNote,
 } from './turns';
 import type { Message } from './data';
@@ -250,5 +251,19 @@ describe('how long a turn has waited', () => {
 
   it('never counts backwards', () => {
     expect(elapsedLabel(-5_000)).toBe('0s');
+  });
+});
+
+describe('naming the tool a turn is using', () => {
+  it('says what a person would say, not what the bridge calls it', () => {
+    expect(toolWords('terminal')).toBe('the terminal');
+    expect(toolWords('process_manage')).toBe('a background command');
+    expect(toolWords('read_file')).toBe('files');
+    expect(toolWords('web_search')).toBe('the web');
+    expect(toolWords('browser_exec')).toBe('the browser');
+  });
+
+  it('keeps a name it does not know, rather than inventing one', () => {
+    expect(toolWords('mcp__github__create_pr')).toBe('mcp__github__create_pr');
   });
 });
