@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView,
+  Animated,
+  Easing,
+  Keyboard,
   Platform,
   Pressable,
   ScrollView,
@@ -71,6 +73,36 @@ export function ChatScreen({ route, navigation }: Props) {
   const [botOpen, setBotOpen] = useState(false);
   const [active, setActive] = useState<Message | null>(null);
   const scroll = useRef<ScrollViewInstance>(null);
+
+  // The keyboard lifts the body itself, on the native driver. The composer
+  // used to wait for KeyboardAvoidingView's layout animation, which runs on
+  // the JS thread for the keyboard's whole duration; a transform meets the
+  // keyboard at once instead.
+  const rise = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const show = Keyboard.addListener('keyboardWillShow', (event) => {
+      Animated.timing(rise, {
+        toValue: -event.endCoordinates.height,
+        duration: 160,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    });
+    const hide = Keyboard.addListener('keyboardWillHide', () => {
+      Animated.timing(rise, {
+        toValue: 0,
+        duration: 150,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [rise]);
 
   const thread = threadById(route.params.threadId);
   const threadId = route.params.threadId;
@@ -185,11 +217,7 @@ export function ChatScreen({ route, navigation }: Props) {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.nav}>
           <Pressable style={styles.navIcon} onPress={() => navigation.goBack()} accessibilityLabel="Back">
             <BackIcon />
@@ -225,6 +253,8 @@ export function ChatScreen({ route, navigation }: Props) {
           </Pressable>
         </View>
 
+        <View style={styles.stageClip}>
+          <Animated.View style={[styles.stage, { transform: [{ translateY: rise }] }]}>
         <ScrollView
           ref={scroll}
           style={styles.body}
@@ -259,7 +289,8 @@ export function ChatScreen({ route, navigation }: Props) {
         </ScrollView>
 
         <Composer thread={thread} bots={bots} onSend={delivery} />
-      </View>
+          </Animated.View>
+        </View>
 
       {/* The bot itself, from its face at the top of the conversation. */}
       <BotSheet
@@ -292,7 +323,7 @@ export function ChatScreen({ route, navigation }: Props) {
         threadId={thread.id}
         message={active}
       />
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -316,6 +347,8 @@ const styles = createStyles({
   chatName: { color: C.text, fontSize: 14.5, fontWeight: '600', letterSpacing: -0.23 },
   chatSub: { color: '#83838a', fontSize: 10 },
 
+  stageClip: { flex: 1, overflow: 'hidden' },
+  stage: { flex: 1 },
   body: { flex: 1 },
   bodyContent: { paddingHorizontal: 13, paddingTop: 13, paddingBottom: 2 },
   event: { marginBottom: 14, color: INK.faint, fontSize: 9, textAlign: 'center' },
