@@ -9,7 +9,6 @@ import {
 } from 'expo-audio';
 import type { Attachment, Bot, MessageKind, Thread } from '../data';
 import { ATTACHMENTS } from '../data';
-import { useStore } from '../store';
 import { C, INK, box, createStyles } from '../theme';
 import { ArrowUpIcon, AttachIcon, CameraIcon, CloseIcon, FileIcon, MicIcon, PhotoIcon } from './Icons';
 import { Sheet } from './Sheet';
