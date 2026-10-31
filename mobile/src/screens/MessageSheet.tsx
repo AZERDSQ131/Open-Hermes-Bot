@@ -1,9 +1,6 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
+import { Pressable, Text, View } from 'react-native';
 import { Sheet } from '../components/Sheet';
-import { Hint, Row, SheetHeader } from '../components/UI';
-import { CopyIcon, TrashIcon } from '../components/Icons';
+import { SheetHeader } from '../components/UI';
 import type { Message } from '../data';
 import { useStore } from '../store';
 import { C, createStyles } from '../theme';
@@ -11,8 +8,11 @@ import { C, createStyles } from '../theme';
 const EMOJI = ['👍', '❤️', '🎯', '👀'];
 
 /**
- * What a hand can do to a bubble: a tapback, a copy, or nothing at all. The
- * tapback is the same four the round uses; pressing it again takes it back.
+ * A tapback on what the bot said. Long press or double tap opens it; the
+ * four marks are the round's, and pressing the same one again takes it back.
+ *
+ * Nothing else is offered: the bot's message is answered, and your own
+ * messages are not a place for marks at all.
  */
 export function MessageSheet({
   visible,
@@ -25,16 +25,15 @@ export function MessageSheet({
   threadId: string;
   message: Message | null;
 }) {
-  const { react, removeMessage } = useStore();
-  const [copied, setCopied] = useState(false);
+  const { react } = useStore();
 
-  if (!message) return null;
+  if (!message || message.from === 'user') return null;
 
   return (
     <Sheet visible={visible} onClose={onClose}>
       <SheetHeader
-        title="Message"
-        sub={message.from === 'user' ? 'Yours' : 'The bot’s'}
+        title="React"
+        sub="A tapback on the bot’s message"
         onClose={onClose}
       />
 
@@ -54,31 +53,7 @@ export function MessageSheet({
         ))}
       </View>
 
-      <View style={styles.actions}>
-        <Row
-          name={copied ? 'Copied' : 'Copy the text'}
-          chevron={false}
-          onPress={async () => {
-            await Clipboard.setStringAsync(message.text);
-            setCopied(true);
-          }}
-          right={<CopyIcon />}
-        />
-        <View style={styles.line} />
-        <Row
-          name="Delete"
-          chevron={false}
-          onPress={() => {
-            removeMessage(threadId, message.id);
-            onClose();
-          }}
-          right={<TrashIcon />}
-        />
-      </View>
-
-      <View style={styles.hint}>
-        <Hint>Nothing is stored: a tapback and a delete live until the app closes.</Hint>
-      </View>
+      <Text style={styles.hint}>A tapback lives until the app closes.</Text>
     </Sheet>
   );
 }
@@ -95,7 +70,5 @@ const styles = createStyles({
   },
   emojiOn: { borderWidth: 1, borderColor: C.paper },
   emoji: { fontSize: 20 },
-  actions: { marginTop: 14, marginHorizontal: 12, borderRadius: 13, backgroundColor: C.cardRaised, overflow: 'hidden' },
-  line: { height: 1, backgroundColor: C.hairline },
-  hint: { paddingHorizontal: 16 },
+  hint: { marginTop: 12, paddingHorizontal: 16, color: '#7c7c83', fontSize: 10 },
 });
