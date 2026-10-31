@@ -2,11 +2,12 @@ import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
-const { WATCH_POLL_MS, WATCH_LIMIT_MS, runFinished, runOutcome } = require('./watch.js');
+const { WATCH_POLL_MS, WATCH_MISS_LIMIT, WATCH_LIMIT_MS, runFinished, runOutcome } = require('./watch.js');
 
 describe('watching a run the app stopped listening to', () => {
   it('waits long enough to be worth it, and no longer', () => {
     expect(WATCH_POLL_MS).toBe(5_000);
+    expect(WATCH_MISS_LIMIT).toBe(5);
     expect(WATCH_LIMIT_MS).toBe(2 * 60 * 60 * 1000);
   });
 
