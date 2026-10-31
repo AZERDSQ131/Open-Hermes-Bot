@@ -6,6 +6,7 @@ import { useStore } from '../store';
 import { C, INK, createStyles } from '../theme';
 import { ArrowUpIcon, AttachIcon, CameraIcon, CloseIcon, FileIcon, MicIcon, PhotoIcon } from './Icons';
 import { Sheet } from './Sheet';
+import { GlassSurface } from './GlassButton';
 import { Bloub } from './Bloub';
 import { Row, SheetHeader } from './UI';
 
@@ -135,7 +136,7 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
           </View>
         ) : null}
 
-        <View style={styles.composer}>
+        <GlassSurface style={styles.composer}>
           <Pressable
             style={[styles.button, styles.attach]}
             onPress={() => setAttaching(true)}
@@ -173,7 +174,7 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
               <MicIcon />
             </Pressable>
           )}
-        </View>
+        </GlassSurface>
       </View>
 
       <Sheet visible={attaching} onClose={() => setAttaching(false)}>
@@ -219,13 +220,10 @@ const styles = createStyles({
     gap: 4,
     minHeight: 50,
     padding: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
     borderRadius: 25,
-    backgroundColor: C.field,
   },
   button: { width: 37, height: 37, alignItems: 'center', justifyContent: 'center', borderRadius: 19 },
-  attach: { backgroundColor: C.field2 },
+  attach: { backgroundColor: 'rgba(255,255,255,0.10)' },
   cream: { backgroundColor: C.paper },
   input: { flex: 1, paddingHorizontal: 3, color: C.text, fontSize: 13 },
 
