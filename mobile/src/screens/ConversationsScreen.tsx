@@ -150,7 +150,12 @@ export function ConversationsScreen() {
         </View>
       ) : null}
 
-      <ScrollView style={styles.recent} contentContainerStyle={styles.recentBody}>
+      <ScrollView
+        style={styles.recent}
+        contentContainerStyle={styles.recentBody}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.sectionLabel}>
           <Text style={styles.sectionText}>Recent</Text>
           <Text style={styles.sectionCount}>{recent.length}</Text>
