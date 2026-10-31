@@ -3387,9 +3387,12 @@ async function runChatTurn(event, payload) {
   // and leaves the stored conversation untouched.
   if (payload?.instructions) body.system_message = String(payload.instructions);
 
-  /** @type {AbortController & { canceled?: boolean }} */
+  /** @type {AbortController & { canceled?: boolean, runId?: string, profile?: string }} */
   const controller = new AbortController();
   const requestId = String(payload?.requestId ?? '');
+  // What stopping this turn needs: the run it opened on the host, and the
+  // profile that run belongs to.
+  controller.profile = payload?.profile;
   // A new message in the same thread cancels the previous turn by request id.
   if (requestId) chatRequests.set(requestId, controller);
   const send = (channel, data) => {
@@ -3505,6 +3508,7 @@ async function runChatTurn(event, payload) {
           });
         } else if (name === 'run.started') {
           runId = String(parsed?.run_id ?? '');
+          controller.runId = runId;
         } else if (name === 'assistant.completed') {
           const final = parsed?.message?.content ?? parsed?.text ?? parsed?.content;
           if (typeof final === 'string' && !text) text = final;
@@ -3602,15 +3606,23 @@ function announceTurnEnd(payload, result) {
   notification.show();
 }
 
-// Abandon a turn: the renderer has a newer message for the same conversation.
-// Closing the stream also tells Hermes to interrupt the run, so the next turn
-// does not race a run that is still writing into the session.
-ipcMain.handle('hermes:chat:cancel', (_event, requestId) => {
+// Abandon a turn: the renderer has a newer message for the same conversation,
+// or the person pressed Stop. Dropping the stream is only half of it - the
+// host keeps the run until it is told, and a run nobody listens to still
+// writes into the session and still burns tokens. So: stop the run too.
+ipcMain.handle('hermes:chat:cancel', async (_event, requestId) => {
   const controller = chatRequests.get(String(requestId ?? ''));
   if (!controller) return { ok: false };
   controller.canceled = true;
   controller.abort();
-  return { ok: true };
+  const runId = String(controller.runId ?? '');
+  if (!runId) return { ok: true, stopped: false };
+  const result = await apiCall(`/v1/runs/${encodeURIComponent(runId)}/stop`, {
+    method: 'POST',
+    profile: controller.profile,
+    timeoutMs: 10000,
+  });
+  return { ok: true, stopped: result.ok };
 });
 
 // The answer to a command a bot is holding. Hermes keeps the run paused until

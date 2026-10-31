@@ -192,6 +192,21 @@ export function StarIcon({
   );
 }
 
+/** Stopping a turn: the square every player has used. */
+export function StopIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      className={className}
+      {...base}
+    >
+      <rect x="5.4" y="5.4" width="13.2" height="13.2" rx="2.6" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function ArrowUpIcon({ size = 18, className }: IconProps) {
   return (
     <svg
