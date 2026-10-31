@@ -142,6 +142,14 @@ export default defineConfig({
           branches: 100,
           statements: 100,
         },
+        // A turn that outlives its stream: the app watches the run instead of
+        // calling it dead, and the rule of when to stop watching.
+        'electron/watch.js': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
         // The key of the host, and the moment it stops being the key: a
         // refusal that cannot be recovered from is a dead end.
         'electron/keys.js': {
@@ -178,6 +186,7 @@ export default defineConfig({
         'electron/keys.js',
         'electron/stream.js',
         'electron/notify.js',
+        'electron/watch.js',
         'electron/models.js',
         'electron/connectors.js',
         'electron/mcp.js',

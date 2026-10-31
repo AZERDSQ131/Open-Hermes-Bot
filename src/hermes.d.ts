@@ -298,6 +298,8 @@ export type HermesChatApprovalSettled = {
   requestId: string;
   approvalId: string;
 };
+/** The app stopped listening and watches the run instead. */
+export type HermesChatWatch = { requestId: string; runId: string };
 
 /** What the app knows about its own next version. */
 export type HermesUpdateInfo = {
@@ -563,6 +565,8 @@ export type HermesBridge = {
   onChatApprovalSettled: (
     callback: (event: HermesChatApprovalSettled) => void,
   ) => () => void;
+  /** The stream went quiet but the host kept the run: the app watches it. */
+  onChatWatch: (callback: (watch: HermesChatWatch) => void) => () => void;
   /** A notification was clicked: the conversation it was about. */
   onNotificationOpen: (
     callback: (event: { threadId: string }) => void,
