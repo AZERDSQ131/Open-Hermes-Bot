@@ -260,7 +260,7 @@ const styles = createStyles({
   rowMeta: { marginTop: 1, color: '#808087', fontSize: 9 },
   rowValue: { color: '#82828a', fontSize: 11 },
 
-  button: { height: 44, borderRadius: 12 },
+  button: { height: 44, borderRadius: 999 },
   buttonPress: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   buttonText: { color: '#1b1b19', fontSize: 14, fontWeight: '600' },
 
