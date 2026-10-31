@@ -159,11 +159,11 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
           </View>
           <Text style={styles.time}>{clock(seconds)}</Text>
           <Pressable
-            style={[styles.round, styles.sendButton]}
-            accessibilityLabel="Send dictation"
+            style={styles.stop}
+            accessibilityLabel="Stop and send the voice note"
             onPress={() => void stopRecording(true)}
           >
-            <ArrowUpIcon size={17} />
+            <View style={styles.stopGlyph} />
           </Pressable>
         </View>
         <Text style={styles.note}>
@@ -324,7 +324,15 @@ const styles = createStyles({
   },
   round: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19 },
   cancel: { backgroundColor: '#3a3234' },
-  sendButton: { backgroundColor: C.paper },
+  stop: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: '#e5484d',
+  },
+  stopGlyph: { width: 12, height: 12, borderRadius: 2, backgroundColor: '#fff' },
   waveform: {
     flex: 1,
     flexDirection: 'row',
