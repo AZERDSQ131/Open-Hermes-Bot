@@ -48,7 +48,6 @@ type ComposerProps = {
  * voice note, and an @ opens the roster of the round.
  */
 export function Composer({ thread, bots, onSend }: ComposerProps) {
-  const { prefs } = useStore();
   const [draft, setDraft] = useState('');
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -167,9 +166,7 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
           </Pressable>
         </View>
         <Text style={styles.note}>
-          {prefs.voice === 'host'
-            ? 'Transcribed by your Hermes host · nothing leaves the machine'
-            : 'Transcribed on this device · nothing leaves the phone'}
+          Recorded on this phone · the turn carries the note, not the audio
         </Text>
       </View>
     );
