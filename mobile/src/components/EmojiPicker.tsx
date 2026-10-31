@@ -15,9 +15,9 @@ import { createStyles } from '../theme';
 /**
  * One mark, from the phone's own keyboard and its emoji page. The field
  * keeps a single grapheme — a family, a flag or a skin tone is one mark —
- * so a slip of the thumb never puts a sentence where an emoji belongs.
+ * and keeps the one just typed, so a second mark replaces the first.
  */
-function firstEmoji(value: string): string {
+function singleEmoji(value: string): string {
   const text = value.trim();
   if (!text) return '';
   const Segmenter = (Intl as unknown as {
@@ -27,24 +27,19 @@ function firstEmoji(value: string): string {
     ) => { segment: (input: string) => Iterable<{ segment: string }> };
   }).Segmenter;
   if (Segmenter) {
-    const [first] = new Segmenter(undefined, { granularity: 'grapheme' }).segment(text);
-    return first?.segment ?? '';
+    const segments = [...new Segmenter(undefined, { granularity: 'grapheme' }).segment(text)];
+    return segments[segments.length - 1]?.segment ?? '';
   }
-  // A runtime without Segmenter: take the first one, and the modifiers that
+  // A runtime without Segmenter: take the last one, and the modifiers that
   // belong to it — a variation selector, a skin tone, a joined sequence.
   const chars = Array.from(text);
-  let first = chars[0] ?? '';
-  for (let index = 1; index < chars.length; index += 1) {
-    const char = chars[index];
-    const joined =
-      char === '\uFE0F' ||
-      char === '\u200D' ||
-      (char >= '\u{1F3FB}' && char <= '\u{1F3FF}') ||
-      chars[index - 1] === '\u200D';
-    if (!joined) break;
-    first += char;
-  }
-  return first;
+  const modifier = (char: string) =>
+    char === '\uFE0F' ||
+    (char >= '\u{1F3FB}' && char <= '\u{1F3FF}');
+  let start = chars.length - 1;
+  if (start > 0 && modifier(chars[start])) start -= 1;
+  while (start >= 2 && chars[start - 1] === '\u200D') start -= 2;
+  return chars.slice(start).join('');
 }
 export function EmojiPicker({
   visible,
@@ -89,11 +84,12 @@ export function EmojiPicker({
           <TextInput
             ref={field}
             value={value}
-            onChangeText={(next) => setValue(firstEmoji(next))}
+            onChangeText={(next) => setValue(singleEmoji(next))}
             placeholder="🙂"
             placeholderTextColor="#7c7c83"
             style={styles.field}
             autoFocus
+            selectTextOnFocus
             returnKeyType="done"
             onSubmitEditing={pick}
             accessibilityLabel="Emoji"
