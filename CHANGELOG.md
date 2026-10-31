@@ -6,6 +6,45 @@ follow [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-10-31
+
+### Added
+
+- **The command a bot is holding, answered in the app.** A turn that wants to
+  run something dangerous stops on the host and waits for an answer, and the
+  app used to drop the event: no card, no way to answer, and a paused turn read
+  as silence until the window killed it. The command, the reason and the
+  answers Hermes offers now sit above the composer, one card per command held,
+  and the choice is posted back against the run it names. A refused answer
+  keeps the card up with the host's words instead of losing the turn, a held
+  approval no longer counts as silence, and a group holds one card per member
+  that asked, named.
+
+- **A finished turn, announced when the window is behind.** A turn can run for
+  minutes, and the answer lands whenever it lands; a person who moved to
+  another app saw nothing. The window now says so the way the system does — the
+  bot's name, and the first line of the answer on one line — and a click brings
+  that conversation back in front and marks it read. It stays quiet for a
+  window that is in front, for a turn that failed, and for one that said
+  nothing.
+
+- **A turn that outlives its stream.** A turn that waits on a tool for half an
+  hour is not a dead turn, and the app treated it as one: it stopped listening,
+  said the answer never came, while the host kept working. The app keeps the
+  `run_id` the host sends, watches that run every five seconds once the stream
+  goes quiet, says so on the waiting line, and brings the answer back as a
+  normal turn — notification included. A cancelled turn stays cancelled, a host
+  that stops answering ends the watch after five tries, and a run that never
+  ends stops being watched after two hours.
+
+### Changed
+
+- **The waiting line says what the turn is doing.** It counts the wait next to
+  the tool (`Using the terminal… · 4 min`), names tools in the words a person
+  reads rather than the names the bridge uses (`a background command`, `files`),
+  and says the host is still working when it stops waiting with a tool running,
+  instead of blaming the quota or the network for a turn that is fine.
+
 ## [1.2.0] — 2026-10-30
 
 ### Added
