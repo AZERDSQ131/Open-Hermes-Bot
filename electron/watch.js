@@ -6,6 +6,9 @@
 /** How often the app asks the host how a watched run is doing. */
 const WATCH_POLL_MS = 5_000;
 
+/** How many unanswered polls in a row before the host counts as gone. */
+const WATCH_MISS_LIMIT = 5;
+
 /** How long it is worth watching before calling it lost for good. */
 const WATCH_LIMIT_MS = 2 * 60 * 60 * 1000;
 
@@ -30,6 +33,7 @@ function runOutcome(run) {
 
 module.exports = {
   WATCH_POLL_MS,
+  WATCH_MISS_LIMIT,
   WATCH_LIMIT_MS,
   runFinished,
   runOutcome,

@@ -45,7 +45,7 @@ const {
   silenceWindow,
 } = require('./stream.js');
 const { notificationBody, shouldAnnounce } = require('./notify.js');
-const { WATCH_POLL_MS, WATCH_LIMIT_MS, runFinished, runOutcome } = require('./watch.js');
+const { WATCH_POLL_MS, WATCH_MISS_LIMIT, WATCH_LIMIT_MS, runFinished, runOutcome } = require('./watch.js');
 const { modelRef } = require('./models.js');
 
 app.setName('Hermes Bot');
@@ -3322,6 +3322,7 @@ ipcMain.handle('hermes:chat:send', async (event, payload) => {
 async function watchRun(runId, { profile, send, canceled }) {
   send('hermes:chat:watch', { runId });
   const until = Date.now() + WATCH_LIMIT_MS;
+  let misses = 0;
   while (Date.now() < until) {
     await new Promise((resolve) => setTimeout(resolve, WATCH_POLL_MS));
     if (canceled()) return { ok: false, canceled: true };
@@ -3329,7 +3330,19 @@ async function watchRun(runId, { profile, send, canceled }) {
       profile,
       timeoutMs: 15000,
     });
-    if (!result.ok) continue;
+    // A host that stopped answering is not a host that is working: five
+    // silent polls in a row and the app says so instead of waiting two hours.
+    if (!result.ok) {
+      misses += 1;
+      if (misses >= WATCH_MISS_LIMIT) {
+        return {
+          ok: false,
+          error: 'The app lost contact with the host while watching this turn.',
+        };
+      }
+      continue;
+    }
+    misses = 0;
     const run = result.body;
     if (!runFinished(run)) continue;
     return runOutcome(run);
