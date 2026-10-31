@@ -229,6 +229,9 @@ export function ChatScreen({ route, navigation }: Props) {
           ref={scroll}
           style={styles.body}
           contentContainerStyle={styles.bodyContent}
+          // A scroll puts the keyboard away: the turn is read, not typed.
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
         >
           {meta ? (

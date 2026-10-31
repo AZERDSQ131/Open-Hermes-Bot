@@ -41,7 +41,11 @@ export function ModelList({
         />
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.body}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+      >
         {groups.map((group) => (
           <View key={group.group}>
             <Text style={styles.groupName}>{group.group}</Text>
