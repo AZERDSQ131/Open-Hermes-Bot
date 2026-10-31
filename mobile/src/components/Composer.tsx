@@ -6,7 +6,7 @@ import { useStore } from '../store';
 import { C, INK, createStyles } from '../theme';
 import { ArrowUpIcon, AttachIcon, CameraIcon, CloseIcon, FileIcon, MicIcon, PhotoIcon } from './Icons';
 import { Sheet } from './Sheet';
-import { GlassSurface } from './GlassButton';
+import { GlassButton, GlassSurface } from './GlassButton';
 import { Bloub } from './Bloub';
 import { Row, SheetHeader } from './UI';
 
@@ -137,13 +137,9 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
         ) : null}
 
         <GlassSurface style={styles.composer}>
-          <Pressable
-            style={[styles.button, styles.attach]}
-            onPress={() => setAttaching(true)}
-            accessibilityLabel="Attach a file"
-          >
+          <GlassButton size={37} label="Attach a file" onPress={() => setAttaching(true)}>
             <AttachIcon />
-          </Pressable>
+          </GlassButton>
           <TextInput
             value={draft}
             onChangeText={setDraft}
@@ -155,24 +151,20 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
             blurOnSubmit={false}
           />
           {draft.trim() ? (
-            <Pressable
-              style={[styles.button, styles.cream]}
-              onPress={send}
-              accessibilityLabel="Send"
-            >
-              <ArrowUpIcon />
-            </Pressable>
+            <GlassButton size={37} label="Send" onPress={send}>
+              <ArrowUpIcon color="#f2efe5" />
+            </GlassButton>
           ) : (
-            <Pressable
-              style={[styles.button, styles.cream]}
+            <GlassButton
+              size={37}
+              label="Dictate"
               onPress={() => {
                 setSeconds(0);
                 setRecording(true);
               }}
-              accessibilityLabel="Dictate"
             >
-              <MicIcon />
-            </Pressable>
+              <MicIcon color="#f2efe5" />
+            </GlassButton>
           )}
         </GlassSurface>
       </View>
@@ -222,9 +214,6 @@ const styles = createStyles({
     padding: 5,
     borderRadius: 25,
   },
-  button: { width: 37, height: 37, alignItems: 'center', justifyContent: 'center', borderRadius: 19 },
-  attach: { backgroundColor: 'rgba(255,255,255,0.10)' },
-  cream: { backgroundColor: C.paper },
   input: { flex: 1, paddingHorizontal: 3, color: C.text, fontSize: 13 },
 
   roster: {
