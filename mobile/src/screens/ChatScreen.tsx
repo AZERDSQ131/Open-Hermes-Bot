@@ -75,6 +75,12 @@ export function ChatScreen({ route, navigation }: Props) {
   const [botOpen, setBotOpen] = useState(false);
   const [active, setActive] = useState<Message | null>(null);
   const [emojiPicker, setEmojiPicker] = useState(false);
+  // Where each message sits in the thread, and how far the thread is scrolled:
+  // together they say whether the marks can open above the bubble or must
+  // open below it.
+  const positions = useRef<Record<string, number>>({});
+  const scrollTop = useRef(0);
+  const [reactionBelow, setReactionBelow] = useState(false);
   const scroll = useRef<ScrollViewInstance>(null);
   // A second tap on the same bubble, inside this window, is a tapback.
   const lastTap = useRef<{ id: string; at: number } | null>(null);
@@ -145,6 +151,12 @@ export function ChatScreen({ route, navigation }: Props) {
   const meta = CHAT_EVENTS[thread.id];
   const isGroup = thread.kind === 'group';
 
+  function openReaction(message: Message) {
+    const top = positions.current[message.id] ?? 0;
+    setReactionBelow(top - scrollTop.current < 84);
+    setActive(message);
+  }
+
   function tapBubble(message: Message) {
     if (message.from === 'user') return;
     if (active?.id === message.id) {
@@ -155,7 +167,7 @@ export function ChatScreen({ route, navigation }: Props) {
     const now = Date.now();
     if (lastTap.current?.id === message.id && now - lastTap.current.at < 320) {
       lastTap.current = null;
-      setActive(message);
+      openReaction(message);
       return;
     }
     lastTap.current = { id: message.id, at: now };
@@ -174,7 +186,14 @@ export function ChatScreen({ route, navigation }: Props) {
     return (
       <View
         key={message.id}
-        style={[styles.msg, mine ? styles.msgUser : isGroup ? styles.msgGroup : styles.msgBot]}
+        onLayout={(event) => {
+          positions.current[message.id] = event.nativeEvent.layout.y;
+        }}
+        style={[
+          styles.msg,
+          mine ? styles.msgUser : isGroup ? styles.msgGroup : styles.msgBot,
+          active?.id === message.id && styles.msgActive,
+        ]}
       >
         {isGroup && !mine && author ? (
           <View style={styles.msgAvatar}>
@@ -184,7 +203,12 @@ export function ChatScreen({ route, navigation }: Props) {
 
         <View style={[styles.bubbleWrap, mine && styles.bubbleWrapUser]}>
           {active?.id === message.id && !mine ? (
-            <View style={styles.reactionLayer}>
+            <View
+              style={[
+                styles.reactionLayer,
+                reactionBelow ? styles.reactionBelow : styles.reactionAbove,
+              ]}
+            >
               <ReactionBar
                 selected={message.reaction?.emoji}
                 onMore={() => setEmojiPicker(true)}
@@ -200,7 +224,7 @@ export function ChatScreen({ route, navigation }: Props) {
 
           <Pressable
             onPress={() => tapBubble(message)}
-            onLongPress={mine ? undefined : () => setActive(message)}
+            onLongPress={mine ? undefined : () => openReaction(message)}
             delayLongPress={260}
             style={[
               styles.bubble,
@@ -241,7 +265,7 @@ export function ChatScreen({ route, navigation }: Props) {
           {message.reaction ? (
             <Pressable
               style={styles.tapback}
-              onPress={mine ? undefined : () => setActive(message)}
+              onPress={mine ? undefined : () => openReaction(message)}
               accessibilityLabel={mine ? undefined : 'Change the tapback'}
             >
               <Text style={styles.tapbackEmoji}>{message.reaction.emoji}</Text>
@@ -298,6 +322,10 @@ export function ChatScreen({ route, navigation }: Props) {
           // A scroll puts the keyboard away: the turn is read, not typed.
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
+          scrollEventThrottle={16}
+          onScroll={(event) => {
+            scrollTop.current = event.nativeEvent.contentOffset.y;
+          }}
           onScrollBeginDrag={() => setActive(null)}
           onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
         >
@@ -400,13 +428,10 @@ const styles = createStyles({
   msgGroup: { flexDirection: 'row', alignItems: 'flex-start', gap: 7 },
   msgAvatar: { marginTop: 16 },
   bubbleWrap: { flexShrink: 1, maxWidth: '86%', alignItems: 'flex-start' },
-  reactionLayer: {
-    position: 'absolute',
-    left: 0,
-    bottom: '100%',
-    marginBottom: 6,
-    zIndex: 20,
-  },
+  msgActive: { zIndex: 30 },
+  reactionLayer: { position: 'absolute', left: 0, zIndex: 20 },
+  reactionAbove: { bottom: '100%', marginBottom: 6 },
+  reactionBelow: { top: '100%', marginTop: 6 },
   bubbleWrapUser: { alignItems: 'flex-end', maxWidth: '80%' },
 
   bubble: { maxWidth: '100%', paddingVertical: 9, paddingHorizontal: 12, borderRadius: 16 },
