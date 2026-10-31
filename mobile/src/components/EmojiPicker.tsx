@@ -13,10 +13,25 @@ import { PrimaryButton } from './UI';
 import { createStyles } from '../theme';
 
 /**
- * The way out of the six marks: the phone's own keyboard, with its emoji
- * page. A small pane over the conversation, the field already focused, and
- * one button that puts the chosen mark on the message.
+ * One mark, from the phone's own keyboard and its emoji page. The field
+ * keeps a single grapheme — a family, a flag or a skin tone is one mark —
+ * so a slip of the thumb never puts a sentence where an emoji belongs.
  */
+function firstEmoji(value: string): string {
+  const text = value.trim();
+  if (!text) return '';
+  const Segmenter = (Intl as unknown as {
+    Segmenter?: new (
+      locales?: string,
+      options?: { granularity: 'grapheme' },
+    ) => { segment: (input: string) => Iterable<{ segment: string }> };
+  }).Segmenter;
+  if (Segmenter) {
+    const [first] = new Segmenter(undefined, { granularity: 'grapheme' }).segment(text);
+    return first?.segment ?? '';
+  }
+  return Array.from(text)[0] ?? '';
+}
 export function EmojiPicker({
   visible,
   onClose,
@@ -28,7 +43,7 @@ export function EmojiPicker({
 }) {
   const [value, setValue] = useState('');
   const field = useRef<ComponentRef<typeof TextInput>>(null);
-  const emoji = value.trim();
+  const emoji = value;
 
   useEffect(() => {
     if (visible) setValue('');
@@ -60,12 +75,12 @@ export function EmojiPicker({
           <TextInput
             ref={field}
             value={value}
-            onChangeText={setValue}
+            onChangeText={(next) => setValue(firstEmoji(next))}
             placeholder="🙂"
             placeholderTextColor="#7c7c83"
             style={styles.field}
             autoFocus
-            maxLength={16}
+            maxLength={8}
             returnKeyType="done"
             onSubmitEditing={pick}
             accessibilityLabel="Emoji"
