@@ -30,7 +30,21 @@ function firstEmoji(value: string): string {
     const [first] = new Segmenter(undefined, { granularity: 'grapheme' }).segment(text);
     return first?.segment ?? '';
   }
-  return Array.from(text)[0] ?? '';
+  // A runtime without Segmenter: take the first one, and the modifiers that
+  // belong to it — a variation selector, a skin tone, a joined sequence.
+  const chars = Array.from(text);
+  let first = chars[0] ?? '';
+  for (let index = 1; index < chars.length; index += 1) {
+    const char = chars[index];
+    const joined =
+      char === '\uFE0F' ||
+      char === '\u200D' ||
+      (char >= '\u{1F3FB}' && char <= '\u{1F3FF}') ||
+      chars[index - 1] === '\u200D';
+    if (!joined) break;
+    first += char;
+  }
+  return first;
 }
 export function EmojiPicker({
   visible,
@@ -80,7 +94,6 @@ export function EmojiPicker({
             placeholderTextColor="#7c7c83"
             style={styles.field}
             autoFocus
-            maxLength={8}
             returnKeyType="done"
             onSubmitEditing={pick}
             accessibilityLabel="Emoji"
