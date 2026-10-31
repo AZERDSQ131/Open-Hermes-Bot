@@ -46,6 +46,32 @@ export function GlassButtonGroup({
   );
 }
 
+/**
+ * Any box made of the same glass as the buttons: a field, a rail, a well.
+ * It is a surface, not a control, so it is not interactive.
+ */
+export function GlassSurface({
+  children,
+  style,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  if (!LIQUID) {
+    return <View style={[styles.surface, style]}>{children}</View>;
+  }
+  return (
+    <GlassView
+      glassEffectStyle="regular"
+      colorScheme="dark"
+      tintColor="rgba(42,42,48,0.32)"
+      style={style}
+    >
+      {children}
+    </GlassView>
+  );
+}
+
 export function GlassButton({
   label,
   onPress,
@@ -98,6 +124,11 @@ export function GlassButton({
 }
 
 const styles = createStyles({
+  surface: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: C.field,
+  },
   press: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   pressed: { opacity: 0.55 },
   solid: {

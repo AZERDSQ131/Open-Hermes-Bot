@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bloub, BloubGroup } from '../components/Bloub';
 import { PlusIcon, SearchIcon, SettingsIcon } from '../components/Icons';
-import { GlassButton, GlassButtonGroup } from '../components/GlassButton';
+import { GlassButton, GlassButtonGroup, GlassSurface } from '../components/GlassButton';
 import { FirstRunBody } from '../components/FirstRun';
 import { SwipeRow } from '../components/SwipeRow';
 import { Sheet } from '../components/Sheet';
@@ -104,7 +104,7 @@ export function ConversationsScreen() {
       ) : (
         <>
       <View style={styles.searchBox}>
-        <View style={styles.search}>
+        <GlassSurface style={styles.search}>
           <SearchIcon />
           <TextInput
             value={query}
@@ -115,7 +115,7 @@ export function ConversationsScreen() {
             autoCorrect={false}
             autoCapitalize="none"
           />
-        </View>
+        </GlassSurface>
       </View>
 
       {pinned.length > 0 ? (
@@ -312,7 +312,6 @@ const styles = createStyles({
     gap: 7,
     paddingHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: C.field,
   },
   searchInput: { flex: 1, color: C.text, fontSize: 12, padding: 0 },
 
