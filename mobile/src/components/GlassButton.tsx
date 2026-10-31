@@ -77,11 +77,14 @@ export function GlassButton({
   onPress,
   children,
   size = 42,
+  tint,
 }: {
   label: string;
   onPress: () => void;
   children: ReactNode;
   size?: number;
+  /** The colour the pane takes: the button's own, not the glass default. */
+  tint?: string;
 }) {
   const radius = size / 2;
   const box = { width: size, height: size, borderRadius: radius };
@@ -100,7 +103,12 @@ export function GlassButton({
   if (!LIQUID) {
     return (
       <Pressable
-        style={({ pressed }) => [styles.solid, box, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.solid,
+          box,
+          tint ? { backgroundColor: tint, borderWidth: 0 } : null,
+          pressed && styles.pressed,
+        ]}
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -115,7 +123,7 @@ export function GlassButton({
       isInteractive
       glassEffectStyle="regular"
       colorScheme="dark"
-      tintColor="rgba(42,42,48,0.35)"
+      tintColor={tint ?? 'rgba(42,42,48,0.35)'}
       style={box}
     >
       {face}
