@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  AudioModule,
+  RecordingPresets,
+  setAudioModeAsync,
+  useAudioRecorder,
+  useAudioRecorderState,
+} from 'expo-audio';
 import type { Attachment, Bot, MessageKind, Thread } from '../data';
 import { ATTACHMENTS } from '../data';
 import { useStore } from '../store';
@@ -10,8 +17,11 @@ import { GlassButton, GlassSurface } from './GlassButton';
 import { Bloub } from './Bloub';
 import { Row, SheetHeader } from './UI';
 
-/** The bars of the waveform, in the heights the mockup draws them. */
-const WAVE = [7, 14, 20, 11, 24, 16, 9, 19, 25, 13, 8, 18, 23, 12, 21, 15, 9, 17];
+/** How many bars the live waveform keeps on screen. */
+const BARS = 18;
+
+/** The note is recorded locally; the meter is what drives the bars. */
+const VOICE = { ...RecordingPresets.LOW_QUALITY, isMeteringEnabled: true };
 
 function clock(total: number): string {
   const minutes = Math.floor(total / 60);
@@ -43,12 +53,68 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [attaching, setAttaching] = useState(false);
+  const [levels, setLevels] = useState<number[]>(() => Array(BARS).fill(0.1));
+  const recorder = useAudioRecorder(VOICE);
+  const meter = useAudioRecorderState(recorder, 100);
 
   useEffect(() => {
     if (!recording) return;
     const timer = setInterval(() => setSeconds((value) => value + 1), 1000);
     return () => clearInterval(timer);
   }, [recording]);
+
+  // The bars follow the room: the recorder reports a level in decibels, and
+  // each report pushes the strip one notch to the left.
+  useEffect(() => {
+    if (!recording) return;
+    const decibels = meter.metering;
+    const level =
+      decibels === undefined
+        ? 0.12
+        : Math.max(0.08, Math.min(1, (decibels + 55) / 55));
+    setLevels((current) => [...current.slice(1), level]);
+  }, [meter.metering, recording]);
+
+  // A screen left while recording does not keep the microphone open.
+  useEffect(
+    () => () => {
+      if (recorder.isRecording) void recorder.stop();
+    },
+    [recorder],
+  );
+
+  async function startRecording() {
+    try {
+      const permission = await AudioModule.requestRecordingPermissionsAsync();
+      if (!permission.granted) return;
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setSeconds(0);
+      setLevels(Array(BARS).fill(0.1));
+      setRecording(true);
+    } catch {
+      // The phone refused the microphone: the composer stays text.
+    }
+  }
+
+  async function stopRecording(send: boolean) {
+    const duration = clock(seconds);
+    try {
+      await recorder.stop();
+    } catch {
+      // Nothing was recording: there is nothing to close.
+    }
+    try {
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+    } catch {
+      // The session was not ours to change.
+    }
+    setRecording(false);
+    if (send) {
+      onSend({ text: `Voice note · ${duration}`, kind: 'voice', duration });
+    }
+  }
 
   const members = useMemo(
     () =>
@@ -81,25 +147,21 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
         <View style={styles.recorder}>
           <Pressable
             style={[styles.round, styles.cancel]}
-            onPress={() => setRecording(false)}
+            onPress={() => void stopRecording(false)}
             accessibilityLabel="Cancel dictation"
           >
             <CloseIcon size={15} color="#d8c9cb" />
           </Pressable>
           <View style={styles.waveform}>
-            {WAVE.map((height, index) => (
-              <View key={index} style={[styles.bar, { height }]} />
+            {levels.map((level, index) => (
+              <View key={index} style={[styles.bar, { height: 5 + level * 25 }]} />
             ))}
           </View>
           <Text style={styles.time}>{clock(seconds)}</Text>
           <Pressable
             style={[styles.round, styles.sendButton]}
             accessibilityLabel="Send dictation"
-            onPress={() => {
-              const duration = clock(seconds);
-              setRecording(false);
-              onSend({ text: `Voice note · ${duration}`, kind: 'voice', duration });
-            }}
+            onPress={() => void stopRecording(true)}
           >
             <ArrowUpIcon size={17} />
           </Pressable>
@@ -160,10 +222,7 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
               size={box(37)}
               tint={C.paper}
               label="Dictate"
-              onPress={() => {
-                setSeconds(0);
-                setRecording(true);
-              }}
+              onPress={() => void startRecording()}
             >
               <MicIcon />
             </GlassButton>
