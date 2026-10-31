@@ -78,10 +78,6 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
   if (recording) {
     return (
       <View style={styles.dock}>
-        <View style={styles.recordingMeta}>
-          <View style={styles.liveDot} />
-          <Text style={styles.recordingLabel}>Listening</Text>
-        </View>
         <View style={styles.recorder}>
           <Pressable
             style={[styles.round, styles.cancel]}
@@ -256,15 +252,6 @@ const styles = createStyles({
   attachBody: { marginTop: 12, paddingHorizontal: 12 },
   attachLine: { borderTopWidth: 1, borderTopColor: C.hairline },
 
-  recordingMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: 7,
-  },
-  liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: C.red },
-  recordingLabel: { color: INK.meta, fontSize: 10 },
   recorder: {
     flexDirection: 'row',
     alignItems: 'center',
