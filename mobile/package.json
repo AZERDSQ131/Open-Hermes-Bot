@@ -7,7 +7,6 @@
     "@react-navigation/native": "^7.5.1",
     "@react-navigation/native-stack": "^7.21.0",
     "expo": "~58.0.17",
-    "expo-clipboard": "~58.0.4",
     "expo-glass-effect": "~58.0.5",
     "expo-haptics": "~58.0.7",
     "expo-secure-store": "~58.0.2",
