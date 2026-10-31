@@ -1,5 +1,6 @@
 import type { BloubShape, BloubVariant } from './components/bloubFrames';
 import type { ApprovalRequest } from './approvals';
+import type { Effort } from './effort';
 
 export type BotStyle = {
   color: string;
@@ -111,6 +112,8 @@ export type Thread = {
   modelProvider?: string;
   /** Human label for the picked model, for the composer chip. */
   modelLabel?: string;
+  /** How hard this conversation's model thinks; absent means the model decides. */
+  effort?: Effort;
   /** Text arriving right now, before the turn is committed. */
   streaming?: string;
   /** Tool the bot is using right now, if any. */

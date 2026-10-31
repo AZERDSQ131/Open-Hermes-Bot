@@ -7,6 +7,7 @@ import {
   isQuotaFailure,
   retryWhileDependenciesInstall,
   toolWords,
+  waitingLabel,
   withTurnNote,
 } from './turns';
 import type { Message } from './data';
@@ -265,5 +266,29 @@ describe('naming the tool a turn is using', () => {
 
   it('keeps a name it does not know, rather than inventing one', () => {
     expect(toolWords('mcp__github__create_pr')).toBe('mcp__github__create_pr');
+  });
+});
+
+describe('the line that waits', () => {
+  it('says the model is thinking when it is', () => {
+    expect(waitingLabel({})).toBe('Thinking');
+    expect(waitingLabel({ effort: 'deep' })).toBe('Thinking');
+  });
+
+  it('does not claim thinking when the person turned it off', () => {
+    expect(waitingLabel({ effort: 'off' })).toBe('Writing');
+  });
+
+  it('says what the turn is doing when it waits on a tool', () => {
+    expect(waitingLabel({ tool: 'terminal', effort: 'off' })).toBe('Using the terminal…');
+  });
+
+  it('says it is writing once the answer streams, whatever the choice', () => {
+    expect(waitingLabel({ writing: true })).toBe('Writing');
+    expect(waitingLabel({ writing: true, effort: 'deep' })).toBe('Writing');
+  });
+
+  it('says when it only watches the host', () => {
+    expect(waitingLabel({ watching: true, tool: 'terminal' })).toBe('Watching the host…');
   });
 });
