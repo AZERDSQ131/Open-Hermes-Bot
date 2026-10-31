@@ -73,6 +73,8 @@ export function ChatScreen({ route, navigation }: Props) {
   const [botOpen, setBotOpen] = useState(false);
   const [active, setActive] = useState<Message | null>(null);
   const scroll = useRef<ScrollViewInstance>(null);
+  // A second tap on the same bubble, inside this window, is a tapback.
+  const lastTap = useRef<{ id: string; at: number } | null>(null);
 
   // The keyboard takes room from the body, fast. A transform would look
   // quicker still, but it moves the whole conversation out from under the
@@ -140,6 +142,17 @@ export function ChatScreen({ route, navigation }: Props) {
   const meta = CHAT_EVENTS[thread.id];
   const isGroup = thread.kind === 'group';
 
+  function tapBubble(message: Message) {
+    if (message.from === 'user') return;
+    const now = Date.now();
+    if (lastTap.current?.id === message.id && now - lastTap.current.at < 320) {
+      lastTap.current = null;
+      setActive(message);
+      return;
+    }
+    lastTap.current = { id: message.id, at: now };
+  }
+
   function delivery(payload: Outgoing) {
     send(threadId, payload);
     setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 40);
@@ -165,6 +178,7 @@ export function ChatScreen({ route, navigation }: Props) {
           {isGroup && !mine && author ? <Text style={styles.author}>{author.name}</Text> : null}
 
           <Pressable
+            onPress={() => tapBubble(message)}
             onLongPress={() => setActive(message)}
             delayLongPress={260}
             style={[
