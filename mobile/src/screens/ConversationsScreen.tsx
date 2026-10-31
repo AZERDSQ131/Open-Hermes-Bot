@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bloub, BloubGroup } from '../components/Bloub';
 import { PlusIcon, SearchIcon, SettingsIcon } from '../components/Icons';
+import { GlassButton, GlassButtonGroup } from '../components/GlassButton';
 import { FirstRunBody } from '../components/FirstRun';
 import { SwipeRow } from '../components/SwipeRow';
 import { Sheet } from '../components/Sheet';
@@ -74,22 +75,14 @@ export function ConversationsScreen() {
           <Text style={styles.title} numberOfLines={1}>
             Conversations
           </Text>
-          <View style={styles.actions}>
-            <Pressable
-              style={styles.round}
-              accessibilityLabel="Settings"
-              onPress={() => navigation.navigate('Settings')}
-            >
-              <SettingsIcon />
-            </Pressable>
-            <Pressable
-              style={styles.round}
-              accessibilityLabel="New agent"
-              onPress={() => setCreating(true)}
-            >
+          <GlassButtonGroup style={styles.actions}>
+            <GlassButton label="Settings" onPress={() => navigation.navigate('Settings')}>
+              <SettingsIcon color="#e8e8ec" />
+            </GlassButton>
+            <GlassButton label="New agent" onPress={() => setCreating(true)}>
               <PlusIcon />
-            </Pressable>
-          </View>
+            </GlassButton>
+          </GlassButtonGroup>
         </View>
         <Text style={styles.hostLine}>
           {prefs.host} ·{' '}
@@ -311,16 +304,6 @@ const styles = createStyles({
   },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   hostLine: { marginTop: 3, color: INK.faint, fontSize: 10 },
-  round: {
-    width: 33,
-    height: 33,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 17,
-    backgroundColor: C.field,
-  },
   searchBox: { paddingHorizontal: 16 },
   search: {
     height: 34,
