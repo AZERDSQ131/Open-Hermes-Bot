@@ -36,6 +36,7 @@ import {
   MicIcon,
   PlusIcon,
   SearchIcon,
+  StopIcon,
 } from './components/Icons';
 import type {
   HermesConnectorList,
@@ -2666,6 +2667,34 @@ export default function App() {
     }));
   }
 
+  // A turn in flight can be stopped, and stopping it means both halves: the
+  // window drops the stream, and the main process tells the host to interrupt
+  // the run. Dropping the stream alone left the bot working in the dark.
+  function stopTurn() {
+    const thread = activeThread;
+    if (!thread) return;
+    const requestId = requestThread.current.get(thread.id);
+    if (!requestId) return;
+    // The window stops showing the turn at once; the host is told in the same
+    // breath, and the answer that never comes is not waited for.
+    requestThread.current.delete(thread.id);
+    setThreads((current) =>
+      current.map((item) =>
+        item.id === thread.id
+          ? {
+              ...item,
+              thinking: false,
+              streaming: undefined,
+              tool: undefined,
+              watching: false,
+              live: [],
+            }
+          : item,
+      ),
+    );
+    void window.hermes?.cancelChat?.(requestId);
+  }
+
   async function sendMessage() {
     const text = draft.trim();
     const thread = activeThread;
@@ -2911,7 +2940,27 @@ export default function App() {
       }
 
       if (!result.ok) {
-        if (result.canceled) return;
+        if (result.canceled) {
+          // A stopped turn leaves nothing to show and nothing to wait for.
+          if (isCurrent()) {
+            requestThread.current.delete(threadId);
+            setThreads((current) =>
+              current.map((item) =>
+                item.id === threadId
+                  ? {
+                      ...item,
+                      thinking: false,
+                      streaming: undefined,
+                      tool: undefined,
+                      watching: false,
+                      live: [],
+                    }
+                  : item,
+              ),
+            );
+          }
+          return;
+        }
         fail(result.error ?? 'The bot could not answer this one.');
         return;
       }
@@ -4061,7 +4110,17 @@ export default function App() {
                   }}
                 />
                 )}
-                {draft.trim() ? (
+                {activeThread.thinking ? (
+                  <button
+                    type="button"
+                    className="composer-button stop-button"
+                    aria-label="Stop"
+                    title="Stop this turn"
+                    onClick={stopTurn}
+                  >
+                    <StopIcon size={20} />
+                  </button>
+                ) : draft.trim() ? (
                   <button
                     type="submit"
                     className="composer-button send-button"

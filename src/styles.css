@@ -2506,6 +2506,15 @@ button:focus-visible {
   color: #d0d0d6;
 }
 
+.stop-button {
+  background: #353539;
+  color: #f0f0f2;
+}
+
+.stop-button:hover {
+  background: #3e3e43;
+}
+
 .attach-button:hover {
   background: #3e3e43;
   color: #ffffff;
