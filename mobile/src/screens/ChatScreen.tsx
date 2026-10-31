@@ -74,28 +74,30 @@ export function ChatScreen({ route, navigation }: Props) {
   const [active, setActive] = useState<Message | null>(null);
   const scroll = useRef<ScrollViewInstance>(null);
 
-  // The keyboard lifts the body itself, on the native driver. The composer
-  // used to wait for KeyboardAvoidingView's layout animation, which runs on
-  // the JS thread for the keyboard's whole duration; a transform meets the
-  // keyboard at once instead.
+  // The keyboard takes room from the body, fast. A transform would look
+  // quicker still, but it moves the whole conversation out from under the
+  // last messages; padding shrinks the list instead, and the end is brought
+  // back once the composer has arrived.
   const rise = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
     const show = Keyboard.addListener('keyboardWillShow', (event) => {
       Animated.timing(rise, {
-        toValue: -event.endCoordinates.height,
+        toValue: event.endCoordinates.height,
         duration: 160,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start();
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        if (finished) scroll.current?.scrollToEnd({ animated: false });
+      });
     });
     const hide = Keyboard.addListener('keyboardWillHide', () => {
       Animated.timing(rise, {
         toValue: 0,
         duration: 150,
         easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: false,
       }).start();
     });
     return () => {
@@ -253,8 +255,7 @@ export function ChatScreen({ route, navigation }: Props) {
           </Pressable>
         </View>
 
-        <View style={styles.stageClip}>
-          <Animated.View style={[styles.stage, { transform: [{ translateY: rise }] }]}>
+        <Animated.View style={[styles.stage, { paddingBottom: rise }]}>
         <ScrollView
           ref={scroll}
           style={styles.body}
@@ -289,8 +290,7 @@ export function ChatScreen({ route, navigation }: Props) {
         </ScrollView>
 
         <Composer thread={thread} bots={bots} onSend={delivery} />
-          </Animated.View>
-        </View>
+        </Animated.View>
 
       {/* The bot itself, from its face at the top of the conversation. */}
       <BotSheet
@@ -347,7 +347,6 @@ const styles = createStyles({
   chatName: { color: C.text, fontSize: 14.5, fontWeight: '600', letterSpacing: -0.23 },
   chatSub: { color: '#83838a', fontSize: 10 },
 
-  stageClip: { flex: 1, overflow: 'hidden' },
   stage: { flex: 1 },
   body: { flex: 1 },
   bodyContent: { paddingHorizontal: 13, paddingTop: 13, paddingBottom: 2 },
