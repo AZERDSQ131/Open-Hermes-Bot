@@ -40,6 +40,7 @@ const {
 } = require('./keys.js');
 const {
   TURN_LIMIT_MS,
+  quietNotice,
   settleStreamTurn,
   silenceWindow,
 } = require('./stream.js');
@@ -3363,6 +3364,7 @@ async function runChatTurn(event, payload) {
   // A held approval is not silence. The turn is paused on the host until the
   // person answers, so the clock must not kill it while the card is up.
   let awaitingApproval = false;
+  let activeTool = '';
   const hardStop = setTimeout(() => controller.abort(), TURN_LIMIT_MS);
   let silenceTimer = null;
   const armSilence = () => {
@@ -3437,12 +3439,14 @@ async function runChatTurn(event, payload) {
         } else if (name === 'tool.started' && parsed?.tool_name) {
           awaitingApproval = false;
           toolRunning = true;
+          activeTool = parsed.tool_name;
           send('hermes:chat:tool', { tool: parsed.tool_name });
         } else if (
           name === 'tool.completed' ||
           name === 'tool.failed'
         ) {
           toolRunning = false;
+          activeTool = '';
         } else if (name === 'approval.request') {
           // The turn is paused until this is answered: the window draws the
           // command and posts the choice back against the run it names.
@@ -3492,7 +3496,7 @@ async function runChatTurn(event, payload) {
         text,
         status: 'failed',
         failure: silent
-          ? 'nothing came back from the host for a long time — the model may be out of quota, or the server cannot reach it'
+          ? quietNotice({ tool: activeTool, quietMs: silenceWindow({ toolRunning }) })
           : 'the turn ran past its ceiling of twenty minutes',
       });
     }
