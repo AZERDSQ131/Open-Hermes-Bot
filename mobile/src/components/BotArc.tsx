@@ -32,12 +32,13 @@ const GAP = box(13);
 const STEP = FACE + GAP;
 
 /**
- * The circle the faces stand on. Wide, but a circle you can read: the faces
- * at the ends of the row lean away and sit lower than the one in the middle.
+ * The circle the faces stand on. Small enough that the window is looking at
+ * the rim from close up: the neighbours already lean away and sink, and the
+ * row reads as a ring whose rest is out of sight — which is why it can turn
+ * forever without an end.
  */
-const RADIUS = box(330);
+const RADIUS = box(215);
 const SPAN = 3;
-const STAGE = FACE + Math.ceil(RADIUS - Math.sqrt(RADIUS * RADIUS - (SPAN * STEP) ** 2)) + box(6);
 
 /** The same faces three times over: the middle one is where we keep it. */
 const COPIES = 3;
@@ -78,6 +79,10 @@ export function BotArc({
   const window = useWindowDimensions();
   const scroller = useRef<ComponentRef<typeof Animated.ScrollView>>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
+  // The stage is as tall as the deepest face the window can show: the ring
+  // keeps sinking past the sides, but only that much of it is ever seen.
+  const reach = Math.min(window.width / 2 + FACE / 2, SPAN * STEP);
+  const stage = FACE + Math.ceil(lift(reach)) + box(6);
   const count = faces.length;
   const reel = useMemo(() => (count ? Array.from({ length: COPIES }, () => faces).flat() : []), [count, faces]);
   const start = count ? count + Math.floor(count / 2) : 0;
@@ -178,7 +183,7 @@ export function BotArc({
             paddingHorizontal: (window.width - STEP) / 2,
             paddingTop: box(2),
           }}
-          style={{ height: STAGE }}
+          style={{ height: stage }}
           onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
             useNativeDriver: Platform.OS !== 'web',
             listener: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
