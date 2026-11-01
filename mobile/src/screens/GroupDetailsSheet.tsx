@@ -3,11 +3,12 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Sheet } from '../components/Sheet';
 import { Bloub, BloubGroup } from '../components/Bloub';
 import { ChevronIcon, CloseIcon } from '../components/Icons';
+import { GlassButton } from '../components/GlassButton';
 import { ModelList } from '../components/ModelList';
 import { ConfirmBlock } from '../components/UI';
 import { Toggle } from '../components/Toggle';
 import { useStore } from '../store';
-import { C, INK, createStyles } from '../theme';
+import { C, INK, box, createStyles } from '../theme';
 
 /**
  * What a group is: its members, each on its own session, and the two things
@@ -57,9 +58,11 @@ export function GroupDetailsSheet({
       ) : (
         <>
           <View style={styles.top}>
-            <Pressable style={styles.close} onPress={onClose} accessibilityLabel="Close">
-              <CloseIcon />
-            </Pressable>
+            <View style={styles.close}>
+              <GlassButton size={box(26)} label="Close" onPress={onClose}>
+                <CloseIcon />
+              </GlassButton>
+            </View>
             <BloubGroup members={faces} size={58} />
             <Text style={styles.name}>{thread?.name ?? 'Group'}</Text>
             <Text style={styles.sub}>{thread?.subtitle ?? ''}</Text>
@@ -168,17 +171,7 @@ export function GroupDetailsSheet({
 
 const styles = createStyles({
   top: { alignItems: 'center', paddingTop: 14, paddingHorizontal: 16 },
-  close: {
-    position: 'absolute',
-    top: 12,
-    right: 14,
-    width: 26,
-    height: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 13,
-    backgroundColor: '#34343a',
-  },
+  close: { position: 'absolute', top: 12, right: 14 },
   name: { marginTop: 8, color: C.text, fontSize: 19, fontWeight: '600', letterSpacing: -0.46 },
   sub: { marginTop: 3, color: '#85858c', fontSize: 10 },
 

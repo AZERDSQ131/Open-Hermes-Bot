@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bloub, BloubGroup } from '../components/Bloub';
 import { BackIcon, FileIcon, MicIcon, MoreIcon, PhotoIcon } from '../components/Icons';
 import { Composer, type Outgoing } from '../components/Composer';
+import { GlassButton } from '../components/GlassButton';
 import { TypingDots } from '../components/TypingDots';
 import { ReactionBar } from '../components/ReactionBar';
 import { EmojiPicker } from '../components/EmojiPicker';
@@ -25,7 +26,7 @@ import { GroupDetailsSheet } from './GroupDetailsSheet';
 import { CHAT_EVENTS, type Bot, type Message } from '../data';
 import { useStore } from '../store';
 import type { RootStackParamList } from '../nav';
-import { C, INK, createStyles } from '../theme';
+import { C, INK, box, createStyles } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -129,9 +130,9 @@ export function ChatScreen({ route, navigation }: Props) {
     return (
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.nav}>
-          <Pressable style={styles.navIcon} onPress={() => navigation.goBack()} accessibilityLabel="Back">
+          <GlassButton size={box(24)} label="Back" onPress={() => navigation.goBack()}>
             <BackIcon />
-          </Pressable>
+          </GlassButton>
           <View style={styles.chatId}>
             <Text style={styles.chatName}>This conversation is gone</Text>
           </View>
@@ -280,9 +281,9 @@ export function ChatScreen({ route, navigation }: Props) {
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.nav}>
-          <Pressable style={styles.navIcon} onPress={() => navigation.goBack()} accessibilityLabel="Back">
+          <GlassButton size={box(24)} label="Back" onPress={() => navigation.goBack()}>
             <BackIcon />
-          </Pressable>
+          </GlassButton>
 
           <Pressable
             style={styles.chatId}
@@ -305,13 +306,13 @@ export function ChatScreen({ route, navigation }: Props) {
             </View>
           </Pressable>
 
-          <Pressable
-            style={styles.navIcon}
+          <GlassButton
+            size={box(24)}
+            label={isGroup ? 'Group details' : 'Conversation details'}
             onPress={() => (isGroup ? setDetailsOpen(true) : setModelsOpen(true))}
-            accessibilityLabel={isGroup ? 'Group details' : 'Conversation details'}
           >
             <MoreIcon />
-          </Pressable>
+          </GlassButton>
         </View>
 
         <Animated.View style={[styles.stage, { paddingBottom: rise }]}>
@@ -409,7 +410,6 @@ const styles = createStyles({
     borderBottomColor: C.divider,
     backgroundColor: 'rgba(29,29,31,0.98)',
   },
-  navIcon: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
   chatId: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   chatTitles: { flex: 1, gap: 1 },
   chatName: { color: C.text, fontSize: 14.5, fontWeight: '600', letterSpacing: -0.23 },
