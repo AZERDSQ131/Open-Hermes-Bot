@@ -20,7 +20,7 @@ import { COLORS, DEFAULT_MODEL, SHAPES, HOST } from '../data';
 import { suggestFaces, type Suggested } from '../faces';
 import type { BloubShape } from '../bloubFrames';
 import { useStore } from '../store';
-import { C, INK, box, createStyles } from '../theme';
+import { C, INK, createStyles } from '../theme';
 
 /**
  * The create sheet. A bot keeps its own memory, its own session, and the
@@ -137,8 +137,8 @@ export function NewAgentSheet({
                     : 'Brings bots together in one conversation, each with its session.'}
             </Text>
           </View>
-          <GlassButton size={box(26)} label={canBack ? 'Back' : 'Close'} onPress={leave}>
-            {canBack ? <BackIcon size={15} color="#e9e9ed" /> : <CloseIcon color="#e9e9ed" />}
+          <GlassButton label={canBack ? 'Back' : 'Close'} onPress={leave}>
+            {canBack ? <BackIcon size={17} color="#e9e9ed" /> : <CloseIcon size={15} color="#e9e9ed" />}
           </GlassButton>
         </View>
 
