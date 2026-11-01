@@ -43,6 +43,7 @@ the status bar and the keyboard behaviour.
 |---|---|
 | Conversations — pinned faces, recent threads, search | `src/screens/ConversationsScreen.tsx` |
 | The plus — the small menu that asks *bot or group* first | `src/components/PlusMenu.tsx` |
+| The arc — the faces a new bot starts from | `src/components/BotArc.tsx` |
 | A conversation — bubbles, tapbacks, typing, composer | `src/screens/ChatScreen.tsx` |
 | A group — three faces, authors, the mention roster | same file, `thread.kind === 'group'` |
 | New bot / New group — shape, colour, members, model | `src/screens/NewAgentSheet.tsx` |
