@@ -12,8 +12,7 @@ import { C, createStyles } from '../theme';
 
 /**
  * A sheet that covers the bottom of the window: the create form, the model
- * picker, the group details. Same grabber, same radius, same scrim as the
- * mockup.
+ * picker, the group details. Same radius, same scrim as the mockup.
  *
  * It does not travel: it is already where it belongs, and the dim under it
  * comes up while the sheet fades in. Nothing slides.
@@ -117,7 +116,6 @@ export function Sheet({ visible, onClose, children, height = '90%', minHeight }:
             },
           ]}
         >
-          <Animated.View style={styles.grabber} />
           {content}
         </Animated.View>
       </View>
@@ -151,13 +149,5 @@ const styles = createStyles({
     shadowOpacity: 0.55,
     shadowRadius: 30,
     shadowOffset: { width: 0, height: 24 },
-  },
-  grabber: {
-    width: 34,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#4c4c52',
-    alignSelf: 'center',
-    marginTop: 7,
   },
 });
