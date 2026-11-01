@@ -8,7 +8,7 @@ import { ModelList } from '../components/ModelList';
 import { ConfirmBlock } from '../components/UI';
 import { Toggle } from '../components/Toggle';
 import { useStore } from '../store';
-import { C, INK, box, createStyles } from '../theme';
+import { C, INK, createStyles } from '../theme';
 
 /**
  * What a group is: its members, each on its own session, and the two things
@@ -59,7 +59,7 @@ export function GroupDetailsSheet({
         <>
           <View style={styles.top}>
             <View style={styles.close}>
-              <GlassButton size={box(26)} label="Close" onPress={onClose}>
+              <GlassButton label="Close" onPress={onClose}>
                 <CloseIcon />
               </GlassButton>
             </View>
