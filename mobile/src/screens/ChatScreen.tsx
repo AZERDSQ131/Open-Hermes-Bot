@@ -131,7 +131,7 @@ export function ChatScreen({ route, navigation }: Props) {
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.nav}>
           <GlassButton label="Back" onPress={() => navigation.goBack()}>
-            <BackIcon />
+            <BackIcon color="#e9e9ed" />
           </GlassButton>
           <View style={styles.chatId}>
             <Text style={styles.chatName}>This conversation is gone</Text>
@@ -282,7 +282,7 @@ export function ChatScreen({ route, navigation }: Props) {
     <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.nav}>
           <GlassButton label="Back" onPress={() => navigation.goBack()}>
-            <BackIcon />
+            <BackIcon color="#e9e9ed" />
           </GlassButton>
 
           <Pressable
@@ -310,7 +310,7 @@ export function ChatScreen({ route, navigation }: Props) {
             label={isGroup ? 'Group details' : 'Conversation details'}
             onPress={() => (isGroup ? setDetailsOpen(true) : setModelsOpen(true))}
           >
-            <MoreIcon />
+            <MoreIcon color="#e9e9ed" />
           </GlassButton>
         </View>
 
