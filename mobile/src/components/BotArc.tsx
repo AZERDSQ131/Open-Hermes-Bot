@@ -6,22 +6,32 @@ import {
   Pressable,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Bloub } from './Bloub';
 import type { Suggested } from '../faces';
 import { C, INK, box, createStyles } from '../theme';
 
 /**
- * The circle a bot is picked on: every face sits on the rim of the same ring,
- * evenly spaced, all of them in sight. Nothing is cut at the edges — the face
- * on the far left is the neighbour of the one on the far right, because it is
- * the same ring and it turns.
+ * The circle a bot is picked on. One closed ring, turned by the hand: no
+ * ends, so the face on the far left always has the one on the far right as
+ * its neighbour.
  *
- * Dragging turns it, a wheel turns it on the web, and a tap brings a face to
- * the top. Whatever stands at the top is the one Customize takes.
+ * The ring is much wider than the window on purpose. Only a slice of it is
+ * in sight — five or six faces, leaning further the further they stand — so
+ * the row reads as an arc of a circle whose rest is out of frame. The circle
+ * is what makes the turning endless; the slice is what makes it an arc.
+ *
+ * Dragging turns it, a wheel turns it on the web, a tap brings a face to the
+ * top, and whatever stands at the top is the one Customize takes.
  */
 const FACE = box(34);
-const RADIUS = box(108);
+
+/** Far wider than the sheet: the rim crosses the window almost flat. */
+const RADIUS = box(300);
+
+/** How far below the top of the stage the chosen face sits. */
+const TOP = box(26);
 
 /** A whole number of degrees, positive or negative. */
 function mod(value: number, base: number): number {
@@ -40,11 +50,17 @@ export function BotArc({
   faces: Suggested[];
   onCustomize: (face: Suggested) => void;
 }) {
+  const window = useWindowDimensions();
   const count = Math.max(faces.length, 1);
   const slot = 360 / count;
   const slotPx = (2 * Math.PI * RADIUS) / count;
   const degPerPx = 360 / (2 * Math.PI * RADIUS);
   const size = RADIUS * 2 + FACE;
+
+  const [width, setWidth] = useState(window.width);
+  const reach = Math.min(width / 2 + FACE / 2, RADIUS * 0.95);
+  const rise = RADIUS - Math.sqrt(RADIUS * RADIUS - reach * reach);
+  const stage = TOP + Math.ceil(rise) + FACE / 2 + box(10);
 
   const turn = useRef(new Animated.Value(0)).current;
   const [index, setIndex] = useState(0);
@@ -136,57 +152,68 @@ export function BotArc({
     <View style={styles.stageWrap}>
       <View style={styles.middle}>
         <View
-          ref={ring}
-          style={{ width: size, height: size, alignSelf: 'center' }}
-          {...pan.panHandlers}
+          style={[styles.stage, { height: stage }]}
+          onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
         >
-          {faces.map((entry, position) => {
-            const angle = position * slot;
-            const chosen = position === index;
-            return (
-              <Animated.View
-                key={entry.id}
-                style={[
-                  styles.seat,
-                  {
-                    left: (size - FACE) / 2,
-                    top: (size - FACE) / 2,
-                    width: FACE,
-                    height: FACE,
-                    transform: [
-                      // Out from the middle, along the rim, then stood up.
-                      {
-                        rotate: turn.interpolate({
-                          inputRange: [-3600, 3600],
-                          outputRange: [`${-3600 + angle}deg`, `${3600 + angle}deg`],
-                        }),
-                      },
-                      { translateY: -RADIUS },
-                      {
-                        rotate: turn.interpolate({
-                          inputRange: [-3600, 3600],
-                          outputRange: [`${3600 - angle}deg`, `${-3600 - angle}deg`],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              >
-                <Pressable
-                  onPress={() => goTo(position, state.current.turn)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Face ${entry.name}`}
-                  style={({ pressed }) => [
-                    styles.face,
-                    chosen && styles.chosen,
-                    pressed && styles.pressed,
+          <View
+            ref={ring}
+            style={{
+              position: 'absolute',
+              left: width / 2 - size / 2,
+              top: TOP - FACE / 2,
+              width: size,
+              height: size,
+            }}
+            {...pan.panHandlers}
+          >
+            {faces.map((entry, position) => {
+              const angle = position * slot;
+              const chosen = position === index;
+              return (
+                <Animated.View
+                  key={entry.id}
+                  style={[
+                    styles.seat,
+                    {
+                      left: (size - FACE) / 2,
+                      top: (size - FACE) / 2,
+                      width: FACE,
+                      height: FACE,
+                      transform: [
+                        // Out from the middle, along the rim, then stood up.
+                        {
+                          rotate: turn.interpolate({
+                            inputRange: [-3600, 3600],
+                            outputRange: [`${-3600 + angle}deg`, `${3600 + angle}deg`],
+                          }),
+                        },
+                        { translateY: -RADIUS },
+                        {
+                          rotate: turn.interpolate({
+                            inputRange: [-3600, 3600],
+                            outputRange: [`${3600 - angle}deg`, `${-3600 - angle}deg`],
+                          }),
+                        },
+                      ],
+                    },
                   ]}
                 >
-                  <Bloub shape={entry.shape} color={entry.color} size={FACE} />
-                </Pressable>
-              </Animated.View>
-            );
-          })}
+                  <Pressable
+                    onPress={() => goTo(position, state.current.turn)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Face ${entry.name}`}
+                    style={({ pressed }) => [
+                      styles.face,
+                      chosen && styles.chosen,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Bloub shape={entry.shape} color={entry.color} size={FACE} />
+                  </Pressable>
+                </Animated.View>
+              );
+            })}
+          </View>
         </View>
       </View>
 
@@ -209,6 +236,8 @@ export function BotArc({
 const styles = createStyles({
   stageWrap: { flexGrow: 1 },
   middle: { flexGrow: 1, justifyContent: 'flex-end', paddingBottom: box(10) },
+  // The rest of the ring is out of frame: the stage is the window on it.
+  stage: { overflow: 'hidden' },
   seat: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   face: { alignItems: 'center', justifyContent: 'center', opacity: 0.72 },
   chosen: { opacity: 1, transform: [{ scale: 1.3 }] },
