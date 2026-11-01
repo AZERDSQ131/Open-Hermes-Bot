@@ -42,9 +42,10 @@ the status bar and the keyboard behaviour.
 | Screen | Where |
 |---|---|
 | Conversations — pinned faces, recent threads, search | `src/screens/ConversationsScreen.tsx` |
+| The plus — the small menu that asks *bot or group* first | `src/components/PlusMenu.tsx` |
 | A conversation — bubbles, tapbacks, typing, composer | `src/screens/ChatScreen.tsx` |
 | A group — three faces, authors, the mention roster | same file, `thread.kind === 'group'` |
-| New agent — bot or group, shape, colour, model | `src/screens/NewAgentSheet.tsx` |
+| New bot / New group — shape, colour, members, model | `src/screens/NewAgentSheet.tsx` |
 | Models — grouped, per conversation | `src/components/ModelList.tsx` |
 | Group details — members, sessions, switches | `src/screens/GroupDetailsSheet.tsx` |
 | Dictation — the recorder and its waveform | `src/components/Composer.tsx` |
