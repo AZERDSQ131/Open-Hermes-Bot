@@ -21,19 +21,25 @@ import { C, INK, createStyles } from '../theme';
  * The create sheet. A bot keeps its own memory, its own session, and the
  * face picked here; a group brings a few of them into one conversation,
  * each with its session untouched.
+ *
+ * Which of the two it is was decided before the sheet opened — by the plus's
+ * small menu — so the sheet asks only what that choice still leaves open.
  */
 export function NewAgentSheet({
   visible,
+  mode,
   onClose,
   onCreated,
 }: {
   visible: boolean;
+  /** The kind chosen on the way in: the sheet never changes it. */
+  mode?: 'bot' | 'group';
   onClose: () => void;
   onCreated?: (threadId: string) => void;
 }) {
   const { bots, prefs, addBot, addGroup } = useStore();
   const window = useWindowDimensions();
-  const [tab, setTab] = useState<'bot' | 'group'>('bot');
+  const tab = mode ?? 'bot';
   const [name, setName] = useState('Atlas');
   const [shape, setShape] = useState<BloubShape>('capsule');
   const [color, setColor] = useState(COLORS[0]);
@@ -51,20 +57,21 @@ export function NewAgentSheet({
         : addGroup({ name: name || 'Crew', members, model });
     onClose();
     onCreated?.(id);
-    setTab('bot');
   }
 
   return (
     <Sheet visible={visible} onClose={onClose}>
       <View style={styles.head}>
         <View style={styles.headCopy}>
-          <Text style={styles.title}>{pickingModel ? 'Model' : 'New agent'}</Text>
+          <Text style={styles.title}>
+            {pickingModel ? 'Model' : tab === 'bot' ? 'New bot' : 'New group'}
+          </Text>
           <Text style={styles.sub}>
             {pickingModel
               ? 'For this conversation only. The bot keeps its memory.'
               : tab === 'bot'
-                ? 'Create a bot, or bring a few together.'
-                : 'Brings bots together in one conversation.'}
+                ? 'Its own memory, its own session, and the face you pick.'
+                : 'Brings bots together in one conversation, each with its session.'}
           </Text>
         </View>
         <Pressable
@@ -89,20 +96,6 @@ export function NewAgentSheet({
       ) : (
         <>
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
-            <View style={styles.segmented}>
-              {(['bot', 'group'] as const).map((entry) => (
-                <Pressable
-                  key={entry}
-                  style={[styles.segment, tab === entry && styles.segmentActive]}
-                  onPress={() => setTab(entry)}
-                >
-                  <Text style={[styles.segmentText, tab === entry && styles.segmentTextActive]}>
-                    {entry === 'bot' ? 'Bot' : 'Group'}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
             <View style={styles.preview}>
               <Bloub shape={shape} color={color} size={56} />
               <View style={styles.nameField}>
@@ -207,7 +200,9 @@ export function NewAgentSheet({
             </View>
 
             <Text style={styles.hint}>
-              The bot keeps its own memory, its own session, and the face you picked.
+              {tab === 'bot'
+                ? 'The bot keeps its own memory, its own session, and the face you picked.'
+                : 'Each member keeps its own session, and can @ another to hand over the floor.'}
             </Text>
           </ScrollView>
 
@@ -236,12 +231,6 @@ const styles = createStyles({
   body: { flexShrink: 1 },
   picker: { flexShrink: 1 },
   bodyContent: { paddingTop: 12, paddingHorizontal: 16, paddingBottom: 8 },
-
-  segmented: { flexDirection: 'row', gap: 2, padding: 2, borderRadius: 9, backgroundColor: '#1b1b1d' },
-  segment: { flex: 1, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },
-  segmentActive: { backgroundColor: '#3a3a40' },
-  segmentText: { color: '#9a9aa1', fontSize: 12, fontWeight: '500' },
-  segmentTextActive: { color: '#f4f4f6' },
 
   preview: { flexDirection: 'row', alignItems: 'center', gap: 13, marginTop: 14 },
   nameField: { flex: 1 },
