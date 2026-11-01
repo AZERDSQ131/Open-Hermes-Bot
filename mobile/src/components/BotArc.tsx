@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ComponentRef } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import {
   Animated,
   Platform,
@@ -15,8 +15,13 @@ import { C, INK, box, createStyles } from '../theme';
 
 /**
  * The arc a bot is picked on: the faces sit on a wide circle, the one at the
- * centre stands up straight and full size, the others lean away and lift as
+ * centre stands up straight and full size, the others lean away and sink as
  * they leave, as if the row were the rim of a wheel.
+ *
+ * It has no ends. The faces are laid out three times over, and whenever the
+ * row drifts out of the middle copy it is put back by a whole copy — the
+ * content is identical there, so the move is not seen. Scrolling left far
+ * enough brings back the face that just left on the right: the circle closes.
  *
  * It scrolls and it snaps: the arc settles with a face in the middle, and
  * that face is the one Customize takes. A tap on a face is the same gesture,
@@ -33,6 +38,17 @@ const STEP = FACE + GAP;
 const RADIUS = box(330);
 const SPAN = 3;
 const STAGE = FACE + Math.ceil(RADIUS - Math.sqrt(RADIUS * RADIUS - (SPAN * STEP) ** 2)) + box(6);
+
+/** The same faces three times over: the middle one is where we keep it. */
+const COPIES = 3;
+
+/** Out of the middle copy: put it back by a whole copy. */
+function wrapped(raw: number, count: number): number {
+  if (!count) return raw;
+  if (raw < count) return raw + count;
+  if (raw >= count * 2) return raw - count;
+  return raw;
+}
 
 /** How far up the arc the face at `p` points from the centre sits. */
 function lift(p: number): number {
@@ -62,32 +78,29 @@ export function BotArc({
   const window = useWindowDimensions();
   const scroller = useRef<ComponentRef<typeof Animated.ScrollView>>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
-  const start = Math.floor(faces.length / 2);
-  const [index, setIndex] = useState(start);
+  const count = faces.length;
+  const reel = useMemo(() => (count ? Array.from({ length: COPIES }, () => faces).flat() : []), [count, faces]);
+  const start = count ? count + Math.floor(count / 2) : 0;
+  const [at, setAt] = useState(start);
+  const index = count ? ((at % count) + count) % count : 0;
+  const face = faces[index];
+  // The wheel listener is attached once, so it reads the count from a ref.
+  const countRef = useRef(count);
+  countRef.current = count;
+  // Where the arc was last put. The scroll position can only be set once the
+  // content has a width, which is a size change, not an effect.
+  const placed = useRef<number | null>(null);
 
-  // The arc opens in the middle of itself: a face with others on both sides,
-  // not a row that starts against the edge of the screen.
-  useEffect(() => {
+  /**
+   * The arc opens in the middle copy, on the middle face: a face with others
+   * on both sides, not a row that starts against the edge of the screen.
+   */
+  function place() {
+    if (!count || placed.current === start) return;
+    placed.current = start;
+    scrollX.setValue(start * STEP);
     scroller.current?.scrollTo({ x: start * STEP, animated: false });
-  }, [start]);
-
-  const face = faces[index] ?? faces[0];
-
-  function clamp(value: number) {
-    return Math.max(0, Math.min(faces.length - 1, value));
-  }
-
-  /** The finger let go: the nearest face comes to the middle, nothing else. */
-  function settle(event: NativeSyntheticEvent<NativeScrollEvent>) {
-    const next = clamp(Math.round(event.nativeEvent.contentOffset.x / STEP));
-    setIndex(next);
-    scroller.current?.scrollTo({ x: next * STEP, animated: true });
-  }
-
-  function bring(next: number) {
-    if (next === index) return;
-    setIndex(next);
-    scroller.current?.scrollTo({ x: next * STEP, animated: true });
+    setAt(start);
   }
 
   /**
@@ -111,9 +124,15 @@ export function BotArc({
       node.scrollLeft += event.deltaY;
       if (idle) clearTimeout(idle);
       idle = setTimeout(() => {
-        const next = clamp(Math.round(node.scrollLeft / STEP));
-        setIndex(next);
-        node.scrollTo({ left: next * STEP, behavior: 'smooth' });
+        const raw = Math.round(node.scrollLeft / STEP);
+        const back = wrapped(raw, countRef.current);
+        setAt(back);
+        if (back === raw) {
+          node.scrollTo({ left: back * STEP, behavior: 'smooth' });
+        } else {
+          scrollX.setValue(back * STEP);
+          node.scrollLeft = back * STEP;
+        }
       }, 140);
     };
 
@@ -125,6 +144,24 @@ export function BotArc({
     // The node is stable for the life of the arc.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** The finger let go: the nearest face comes to the middle, nothing else. */
+  function settle(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    if (!count) return;
+    const raw = Math.round(event.nativeEvent.contentOffset.x / STEP);
+    // Out of the middle copy: put it back by a copy, without travelling.
+    const back = wrapped(raw, count);
+    const jumped = back !== raw;
+    setAt(back);
+    if (jumped) scrollX.setValue(back * STEP);
+    scroller.current?.scrollTo({ x: back * STEP, animated: !jumped });
+  }
+
+  function bring(next: number) {
+    if (next === at) return;
+    setAt(next);
+    scroller.current?.scrollTo({ x: next * STEP, animated: true });
+  }
 
   return (
     <View style={styles.stageWrap}>
@@ -145,22 +182,24 @@ export function BotArc({
           onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
             useNativeDriver: Platform.OS !== 'web',
             listener: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-              const next = clamp(Math.round(event.nativeEvent.contentOffset.x / STEP));
-              setIndex((current) => (current === next ? current : next));
+              const next = Math.round(event.nativeEvent.contentOffset.x / STEP);
+              setAt((current) => (current === next ? current : next));
             },
           })}
           scrollEventThrottle={16}
+          onContentSizeChange={place}
+          onLayout={place}
           onScrollEndDrag={settle}
           onMomentumScrollEnd={settle}
         >
-          {faces.map((entry, position) => {
+          {reel.map((entry, position) => {
             const inputRange = STOPS.map((k) => (position + k) * STEP);
             const pick = (outputRange: number[]) =>
               scrollX.interpolate({ inputRange, outputRange, extrapolate: 'clamp' });
 
             return (
               <Animated.View
-                key={entry.id}
+                key={`${position}-${entry.id}`}
                 style={[
                   styles.slot,
                   {
