@@ -48,17 +48,22 @@ export function GlassButtonGroup({
 
 /**
  * Any box made of the same glass as the buttons: a field, a rail, a well.
- * It is a surface, not a control, so it is not interactive.
+ * It is a surface, not a control, so it is not interactive — unless the
+ * caller says it is, which is what a button wants: it swells under the
+ * finger like every other glass control.
  */
 export function GlassSurface({
   children,
   style,
   tint,
+  interactive = false,
 }: {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   /** The colour the pane takes, when it is not the neutral glass. */
   tint?: string;
+  /** Whether the pane answers the finger, like a control. */
+  interactive?: boolean;
 }) {
   if (!LIQUID) {
     return (
@@ -69,6 +74,7 @@ export function GlassSurface({
   }
   return (
     <GlassView
+      isInteractive={interactive}
       glassEffectStyle="regular"
       colorScheme="dark"
       tintColor={tint ?? 'rgba(42,42,48,0.32)'}
