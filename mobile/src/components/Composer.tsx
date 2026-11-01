@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { Attachment, Bot, MessageKind, Thread } from '../data';
-import { dictationAvailable, startDictation, type Dictation } from '../dictation';
+import { startDictation, type Dictation } from '../dictation';
 import { ATTACHMENTS } from '../data';
 import { C, INK, box, createStyles } from '../theme';
 import { ArrowUpIcon, AttachIcon, CameraIcon, CloseIcon, FileIcon, MicIcon, PhotoIcon } from './Icons';
@@ -9,9 +9,6 @@ import { Sheet } from './Sheet';
 import { GlassButton, GlassSurface } from './GlassButton';
 import { Bloub } from './Bloub';
 import { Row, SheetHeader } from './UI';
-
-/** How many bars the live waveform keeps on screen. */
-const BARS = 18;
 
 function clock(total: number): string {
   const minutes = Math.floor(total / 60);
@@ -42,9 +39,6 @@ type ComposerProps = {
 export function Composer({ thread, bots, onSend }: ComposerProps) {
   const [draft, setDraft] = useState('');
   const [recording, setRecording] = useState(false);
-  // A phone with no recogniser cannot write what it hears; the strip says so
-  // rather than leaving the person talking to a closed microphone.
-  const canHear = useMemo(() => dictationAvailable(), []);
   const [seconds, setSeconds] = useState(0);
   const [attaching, setAttaching] = useState(false);
   // What the phone is hearing, and whether the sentence in the field came out
@@ -53,7 +47,6 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
   const [dictated, setDictated] = useState(false);
   const [refusal, setRefusal] = useState('');
   const listening = useRef<Dictation | null>(null);
-  const [levels, setLevels] = useState<number[]>(() => Array(BARS).fill(0.1));
   // What the composer says once the microphone is closed and there is nothing
   // to show for it.
   const [aside, setAside] = useState('');
@@ -61,21 +54,6 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
   useEffect(() => {
     if (!recording) return;
     const timer = setInterval(() => setSeconds((value) => value + 1), 1000);
-    return () => clearInterval(timer);
-  }, [recording]);
-
-  // The bars say the microphone is open, and they are drawn here rather than
-  // read from the recorder: the recogniser owns the microphone now, and two
-  // readers on it is what used to leave both with nothing.
-  useEffect(() => {
-    if (!recording) return;
-    const timer = setInterval(() => {
-      setLevels((current) => {
-        const last = current[current.length - 1] ?? 0.2;
-        const next = Math.max(0.08, Math.min(0.9, last + (Math.random() - 0.5) * 0.55));
-        return [...current.slice(1), next];
-      });
-    }, 90);
     return () => clearInterval(timer);
   }, [recording]);
 
@@ -90,7 +68,6 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
 
   function startRecording() {
     setSeconds(0);
-    setLevels(Array(BARS).fill(0.1));
     setHeard('');
     setDictated(false);
     setRefusal('');
@@ -99,9 +76,13 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
       setRefusal(
         reason === 'refused'
           ? 'The microphone was refused · allow it, then dictate again'
-          : 'No words came through · check the connection to the recogniser',
+          : 'The speech service is out of reach · Safari transcribes on the device',
       ),
     );
+    if (!listening.current) {
+      setAside('This browser has no speech recogniser · Safari has one, on the device');
+      return;
+    }
     setRecording(true);
   }
 
@@ -161,11 +142,9 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
           >
             <CloseIcon size={15} color="#d8c9cb" />
           </Pressable>
-          <View style={styles.waveform}>
-            {levels.map((level, index) => (
-              <View key={index} style={[styles.bar, { height: 5 + level * 25 }]} />
-            ))}
-          </View>
+          <Text style={styles.hearing} numberOfLines={1}>
+            {heard || 'Listening…'}
+          </Text>
           <Text style={styles.time}>{clock(seconds)}</Text>
           <Pressable
             style={styles.stop}
@@ -176,11 +155,7 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
           </Pressable>
         </View>
         <Text style={styles.note} numberOfLines={2}>
-          {!canHear
-            ? 'No speech recogniser on this phone · the words cannot be written'
-            : refusal ||
-              heard ||
-              'Listening · the words are transcribed here, the audio is not kept'}
+          {refusal || 'Heard on this phone · the words are transcribed here, the audio is not kept'}
         </Text>
       </View>
     );
@@ -351,16 +326,7 @@ const styles = createStyles({
     backgroundColor: '#e5484d',
   },
   stopGlyph: { width: 12, height: 12, borderRadius: 2, backgroundColor: '#fff' },
-  waveform: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2.5,
-    height: 26,
-    overflow: 'hidden',
-  },
-  bar: { width: 2.5, borderRadius: 2, backgroundColor: '#f0b9b4' },
+  hearing: { flex: 1, color: '#e8d9db', fontSize: 11, paddingHorizontal: 2 },
   time: { color: '#e8d9db', fontSize: 9, fontVariant: ['tabular-nums'] },
   note: { marginTop: 7, color: INK.label, fontSize: 9, textAlign: 'center' },
 });
