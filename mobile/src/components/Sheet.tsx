@@ -33,9 +33,15 @@ type SheetProps = {
   children: ReactNode;
   /** The most of the window a sheet may take: it fits its content below that. */
   height?: DimensionValue;
+  /**
+   * The least of the window a sheet takes. A form that changes shape between
+   * two kinds — a bot, a group — names it so the panel does not jump from one
+   * height to the other while the finger is still on the choice.
+   */
+  minHeight?: DimensionValue;
 };
 
-export function Sheet({ visible, onClose, children, height = '90%' }: SheetProps) {
+export function Sheet({ visible, onClose, children, height = '90%', minHeight }: SheetProps) {
   const insets = useSafeAreaInsets();
   const fade = useRef(new Animated.Value(0)).current;
   const dim = useRef(new Animated.Value(0)).current;
@@ -103,7 +109,12 @@ export function Sheet({ visible, onClose, children, height = '90%' }: SheetProps
         <Animated.View
           style={[
             styles.sheet,
-            { opacity: fade, maxHeight: height, paddingBottom: Math.max(insets.bottom, 10) },
+            {
+              opacity: fade,
+              maxHeight: height,
+              minHeight,
+              paddingBottom: Math.max(insets.bottom, 10),
+            },
           ]}
         >
           <Animated.View style={styles.grabber} />
