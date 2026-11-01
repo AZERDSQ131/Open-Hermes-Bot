@@ -1,3 +1,5 @@
+import { requireOptionalNativeModule } from 'expo-modules-core';
+
 /**
  * Dictation: the microphone, transcribed by the phone itself.
  *
@@ -57,10 +59,14 @@ type NativeSpeech = {
 };
 
 /**
- * The native module, when the build carries it. Expo Go does not, and asking
- * for it there throws — which is a fact about the client, not a fault.
+ * The native module, when the build carries it. Expo Go does not: it has a
+ * fixed set of natives, and the package's own `requireNativeModule` throws
+ * while the bundle is being read — an error the red box reports even when a
+ * `catch` is waiting for it. So the registry is asked first, quietly, and
+ * the package is only read once its native side is known to be there.
  */
 function native(): NativeSpeech['ExpoSpeechRecognitionModule'] | null {
+  if (!requireOptionalNativeModule('ExpoSpeechRecognition')) return null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const found = require('expo-speech-recognition') as NativeSpeech;
