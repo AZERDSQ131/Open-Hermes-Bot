@@ -50,17 +50,13 @@ export function NewAgentSheet({
   const window = useWindowDimensions();
   const tab = mode ?? 'bot';
   const [step, setStep] = useState<'faces' | 'form'>('faces');
-  // What is on screen, which lags behind `step` by the length of the swap:
-  // the two steps are not the same size, so the old one goes before the new
-  // one comes, and the change of size is seen as a movement rather than a
-  // jump.
-  const [shown, setShown] = useState<'faces' | 'form'>('faces');
-  // The step that is on its way out, and how far the pair has travelled:
-  // 0 is the start of the slide, 1 the end. The two steps are the same
-  // height, but not the same page, so they hand over the way pages do.
-  const [leaving, setLeaving] = useState<'faces' | 'form' | null>(null);
-  const slide = useRef(new Animated.Value(1)).current;
-  const direction = useRef(1);
+  // The two steps do not ask for the same room. The sheet is pinned to the
+  // bottom of the window, so growing it is the panel rising: Customize lifts
+  // the popup, Back lets it settle again.
+  const short = Math.round(window.height * 0.52);
+  const tall = Math.round(window.height * 0.74);
+  const picking = Math.round(window.height * 0.64);
+  const grow = useRef(new Animated.Value(short)).current;
   const [faces, setFaces] = useState<Suggested[]>([]);
   const [name, setName] = useState('Atlas');
   const [shape, setShape] = useState<BloubShape>('capsule');
@@ -74,29 +70,21 @@ export function NewAgentSheet({
     if (!visible) return;
     const first = tab === 'bot' ? 'faces' : 'form';
     setStep(first);
-    setShown(first);
-    setLeaving(null);
-    slide.setValue(1);
+    grow.setValue(first === 'form' ? tall : short);
     setPickingModel(false);
     if (tab === 'bot') setFaces(suggestFaces());
-  }, [slide, tab, visible]);
+  }, [grow, short, tab, tall, visible]);
 
   useEffect(() => {
-    if (step === shown) return;
-    direction.current = step === 'form' ? 1 : -1;
-    setLeaving(shown);
-    slide.setValue(0);
-    Animated.timing(slide, {
-      toValue: 1,
-      duration: 300,
+    const target = pickingModel ? picking : step === 'form' ? tall : short;
+    Animated.timing(grow, {
+      toValue: target,
+      duration: 320,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (!finished) return;
-      setShown(step);
-      setLeaving(null);
-    });
-  }, [shown, slide, step]);
+      // A height is a layout property: no native driver can carry it.
+      useNativeDriver: false,
+    }).start();
+  }, [grow, picking, pickingModel, short, step, tall]);
 
   const ready = name.trim().length > 0 && (tab === 'bot' || members.length > 1);
 
@@ -300,37 +288,12 @@ export function NewAgentSheet({
     );
   }
 
-  // The step that arrives comes from the side it comes from; the one that
-  // leaves goes the other way, and neither is clipped by the sheet's frame.
-  const travel = window.width;
-  const enterX = slide.interpolate({
-    inputRange: [0, 1],
-    outputRange: [direction.current * travel, 0],
-  });
-  const exitX = slide.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -direction.current * travel],
-  });
-
   return (
     <Sheet
       visible={visible}
       onClose={onClose}
-      minHeight={pickingModel ? undefined : Math.round(window.height * 0.62)}
     >
-      <View style={styles.panes}>
-        {leaving !== null ? (
-          <Animated.View
-            style={[styles.pane, styles.overlay, { transform: [{ translateX: exitX }] }]}
-            pointerEvents="none"
-          >
-            {stepPane(leaving)}
-          </Animated.View>
-        ) : null}
-        <Animated.View style={[styles.pane, { transform: [{ translateX: enterX }] }]}>
-          {stepPane(step)}
-        </Animated.View>
-      </View>
+      <Animated.View style={[styles.pane, { height: grow }]}>{stepPane(step)}</Animated.View>
     </Sheet>
   );
 }
@@ -341,9 +304,7 @@ const styles = createStyles({
   title: { color: C.text, fontSize: 19, fontWeight: '600', letterSpacing: -0.48 },
   sub: { marginTop: 3, color: '#8a8a91', fontSize: 11, lineHeight: 15 },
 
-  panes: { flexGrow: 1, flexShrink: 1, overflow: 'hidden' },
-  pane: { flexGrow: 1, flexShrink: 1 },
-  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  pane: { overflow: 'hidden' },
   body: { flexShrink: 1, flexGrow: 1 },
   picker: { flexShrink: 1 },
   bodyContent: { paddingTop: 12, paddingHorizontal: 16, paddingBottom: 8 },
