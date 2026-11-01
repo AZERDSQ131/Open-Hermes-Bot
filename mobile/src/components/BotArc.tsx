@@ -27,11 +27,10 @@ const GAP = box(13);
 const STEP = FACE + GAP;
 
 /**
- * The circle the faces stand on. Very wide on purpose: turning the row then
- * barely lifts or leans a face, which is what a horizon does — the curve is
- * read, not felt.
+ * The circle the faces stand on. Wide, but a circle you can read: the faces
+ * at the ends of the row lean away and sit lower than the one in the middle.
  */
-const RADIUS = box(1500);
+const RADIUS = box(330);
 const SPAN = 3;
 const STAGE = FACE + Math.ceil(RADIUS - Math.sqrt(RADIUS * RADIUS - (SPAN * STEP) ** 2)) + box(6);
 
