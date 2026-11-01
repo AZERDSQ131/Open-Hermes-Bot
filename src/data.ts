@@ -1,5 +1,6 @@
 import type { BloubShape, BloubVariant } from './components/bloubFrames';
 import type { ApprovalRequest } from './approvals';
+import type { ClarifyRequest } from './clarify';
 import type { Effort } from './effort';
 
 export type BotStyle = {
@@ -79,6 +80,13 @@ export type Message =
     }
   | { id: string; role: 'event'; text: string };
 
+export type PendingClarify = {
+  clarify: ClarifyRequest;
+  /** The bot that asked, when the card sits in a single bot's thread. */
+  botName?: string;
+  profile?: string;
+};
+
 export type Thread = {
   id: string;
   name: string;
@@ -126,6 +134,8 @@ export type Thread = {
    * that asked is named on it.
    */
   approvals?: PendingApproval[];
+  /** The questions bots are holding, waiting for an answer. */
+  clarifies?: PendingClarify[];
   /** The app stopped listening and watches the run instead. */
   watching?: boolean;
   avatar: AvatarSpec;

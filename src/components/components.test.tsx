@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AgentAvatar } from './AgentAvatar';
 import { BloubSvg } from './Bloub';
 import { AnimatedBloub } from './AnimatedBloub';
@@ -7,6 +7,7 @@ import { MentionText } from './MentionText';
 import { ShapeGrid, ColorGrid } from './LogoControls';
 import { LogoEditor } from './LogoEditor';
 import { ReactionDetails } from './ReactionDetails';
+import { ClarifyCard } from './ClarifyCard';
 import { ThreadContextMenu } from './ThreadContextMenu';
 import type { GroupMember } from '../data';
 
@@ -287,5 +288,70 @@ describe('the menu of a conversation', () => {
       />,
     );
     expect(screen.getByText('Delete bot')).toBeTruthy();
+  });
+});
+
+describe('the card of a question a bot is holding', () => {
+  const question = {
+    requestId: 'req_1',
+    runId: 'run_1',
+    promptId: 'p_1',
+    executionGeneration: 3,
+    question: 'Quel fichier dois-je ouvrir ?',
+    choices: ['README.md', 'AGENTS.md'],
+  };
+
+  it('shows the question and the answers the host offered', () => {
+    render(<ClarifyCard clarify={question} onRespond={async () => ({ ok: true })} />);
+    expect(screen.getByText('Quel fichier dois-je ouvrir ?')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'README.md' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'AGENTS.md' })).toBeTruthy();
+  });
+
+  it('answers with the choice that was picked, without the padding', async () => {
+    const answers: string[] = [];
+    render(
+      <ClarifyCard
+        clarify={question}
+        onRespond={async (value) => {
+          answers.push(value);
+          return { ok: true };
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'AGENTS.md' }));
+    await waitFor(() => expect(answers).toEqual(['AGENTS.md']));
+  });
+
+  it('sends what was typed, and never an empty answer', async () => {
+    const answers: string[] = [];
+    render(
+      <ClarifyCard
+        clarify={{ ...question, choices: [] }}
+        onRespond={async (value) => {
+          answers.push(value);
+          return { ok: true };
+        }}
+      />,
+    );
+    const send = screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Your answer'), {
+      target: { value: '  le README  ' },
+    });
+    await waitFor(() => expect(send.disabled).toBe(false));
+    fireEvent.click(send);
+    await waitFor(() => expect(answers).toEqual(['le README']));
+  });
+
+  it('keeps the card with the host words when the answer is refused', async () => {
+    render(
+      <ClarifyCard
+        clarify={question}
+        onRespond={async () => ({ ok: false, error: 'stale_generation' })}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'README.md' }));
+    await waitFor(() => expect(screen.getByText('stale_generation')).toBeTruthy());
   });
 });

@@ -2191,6 +2191,151 @@ button:focus-visible {
   animation: approval-in 180ms ease;
 }
 
+.clarify-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+/* A question a bot is holding the turn on: same place, same weight as an
+   approval, because the turn is paused either way. */
+.clarify-card {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 16px 18px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #2a2a2e, #242427);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.32);
+  animation: approval-in 180ms ease;
+}
+
+.clarify-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.clarify-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: rgba(255, 196, 61, 0.16);
+  color: #ffc43d;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.clarify-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13.5px;
+}
+
+.clarify-title strong {
+  color: #f2efe9;
+  font-weight: 600;
+}
+
+.clarify-sub {
+  color: #86868d;
+  font-size: 12px;
+}
+
+.clarify-question {
+  margin: 0;
+  color: #e8e8ec;
+  font-size: 14.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.clarify-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.clarify-choice {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(242, 239, 229, 0.14);
+  border-radius: 9px;
+  background: rgba(242, 239, 229, 0.05);
+  color: #e8e8ec;
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.clarify-choice:hover:not(:disabled) {
+  background: rgba(242, 239, 229, 0.11);
+  border-color: rgba(242, 239, 229, 0.26);
+}
+
+.clarify-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clarify-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(242, 239, 229, 0.12);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.22);
+  color: #f2efe9;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.clarify-input:focus {
+  border-color: rgba(242, 239, 229, 0.3);
+}
+
+.clarify-send {
+  flex: none;
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  background: #f2efe9;
+  color: #1c1b19;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.clarify-send:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.clarify-error {
+  margin: 0;
+  color: #ff8f86;
+  font-size: 12.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clarify-card {
+    animation: none;
+  }
+}
+
 .approval-stack {
   display: flex;
   flex-direction: column;

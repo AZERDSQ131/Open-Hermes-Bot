@@ -74,6 +74,18 @@ if (process.env.VITE_DEMO !== '1') contextBridge.exposeInMainWorld('hermes', {
   sendChat: (payload) => ipcRenderer.invoke('hermes:chat:send', payload),
   cancelChat: (requestId) => ipcRenderer.invoke('hermes:chat:cancel', requestId),
   steerRun: (payload) => ipcRenderer.invoke('hermes:chat:steer', payload),
+  /** The answer to a question a bot is holding. */
+  respondClarify: (payload) =>
+    ipcRenderer.invoke('hermes:chat:clarify', payload),
+  onChatClarify: (listener) => {
+    ipcRenderer.on('hermes:chat:clarify', listener);
+    return () => ipcRenderer.removeListener('hermes:chat:clarify', listener);
+  },
+  onChatClarifySettled: (listener) => {
+    ipcRenderer.on('hermes:chat:clarify-settled', listener);
+    return () =>
+      ipcRenderer.removeListener('hermes:chat:clarify-settled', listener);
+  },
   /** The answer to a command a bot is holding. */
   respondApproval: (payload) =>
     ipcRenderer.invoke('hermes:chat:approve', payload),
