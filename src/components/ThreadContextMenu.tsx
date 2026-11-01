@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Thread } from '../data';
-import { EnvelopeIcon, PencilIcon, PinIcon, TrashIcon } from './Icons';
+import { EnvelopeIcon, PencilIcon, PinIcon, PlusIcon, TrashIcon } from './Icons';
 
 type ThreadContextMenuProps = {
   thread: Thread;
@@ -13,6 +13,7 @@ type ThreadContextMenuProps = {
   onDelete: () => void;
   onToggleUnread: () => void;
   onEdit: () => void;
+  onNewConversation: () => void;
   onClose: () => void;
 };
 
@@ -29,6 +30,7 @@ export function ThreadContextMenu({
   onDelete,
   onToggleUnread,
   onEdit,
+  onNewConversation,
   onClose,
 }: ThreadContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -121,6 +123,20 @@ export function ThreadContextMenu({
               ? 'Pin'
               : `Pin (max ${pinLimit})`}
         </span>
+      </button>
+
+      <button
+        type="button"
+        role="menuitem"
+        className="context-menu-item"
+        disabled={isGroup}
+        title={isGroup ? 'A group keeps one room' : undefined}
+        onClick={() => run(onNewConversation)}
+      >
+        <span className="context-menu-icon">
+          <PlusIcon size={15} />
+        </span>
+        <span>New conversation</span>
       </button>
 
       <button

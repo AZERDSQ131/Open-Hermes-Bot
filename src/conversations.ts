@@ -7,6 +7,16 @@ import type { GroupMember, Message } from './data';
 import type { HermesMessage, HermesSession } from './hermes';
 import { cleanProtocol, readGroupTurn, silentReaction } from './group';
 import { extractReaction } from './reactions';
+import { shortDay } from './history';
+
+/**
+ * The title a bot's conversation takes when it is put aside - for a past room
+ * the person resumed, or for a fresh one they just asked for. It keeps the
+ * bot's name and the day, so the list of past conversations still reads.
+ */
+export function setAsideTitle(name: string, at: number): string {
+  return `${name.trim()} · ${shortDay(at)}`;
+}
 
 /** The prefix that keeps a group conversation apart from a private one. */
 export const GROUP_TITLE_PREFIX = 'Group · ';
