@@ -13,9 +13,11 @@
     ]
   },
   "include": [
-    "electron/**/*.js"
+    "electron/**/*.js",
+    "scripts/**/*.js"
   ],
   "exclude": [
-    "electron/**/*.test.js"
+    "electron/**/*.test.js",
+    "scripts/**/*.test.js"
   ]
 }

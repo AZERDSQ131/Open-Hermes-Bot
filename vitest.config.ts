@@ -174,6 +174,15 @@ export default defineConfig({
           branches: 100,
           statements: 100,
         },
+        // The rules of a release: a draft that cannot be published, and a tag
+        // that carries two of them. A release missing one of its own files is
+        // the same failure as a missing signature, and just as silent.
+        'scripts/release-rules.js': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
       },
       // One list, not two: a second "include" key replaces the first one
       // whole, and the file that fell out of it was the updater — the one
@@ -190,6 +199,7 @@ export default defineConfig({
         'electron/models.js',
         'electron/connectors.js',
         'electron/mcp.js',
+        'scripts/release-rules.js',
       ],
       exclude: [
         'src/vendor/**',
