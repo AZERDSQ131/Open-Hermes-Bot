@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   AudioModule,
@@ -8,6 +8,7 @@ import {
   useAudioRecorderState,
 } from 'expo-audio';
 import type { Attachment, Bot, MessageKind, Thread } from '../data';
+import { startDictation, type Dictation } from '../dictation';
 import { ATTACHMENTS } from '../data';
 import { C, INK, box, createStyles } from '../theme';
 import { ArrowUpIcon, AttachIcon, CameraIcon, CloseIcon, FileIcon, MicIcon, PhotoIcon } from './Icons';
@@ -33,6 +34,8 @@ export type Outgoing = {
   kind?: MessageKind;
   attachment?: Attachment;
   duration?: string;
+  /** Said rather than typed: the bubble keeps it in italics. */
+  dictated?: boolean;
 };
 
 type ComposerProps = {
@@ -51,6 +54,11 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [attaching, setAttaching] = useState(false);
+  // What the phone is hearing, and whether the sentence in the field came out
+  // of the microphone rather than the keyboard.
+  const [heard, setHeard] = useState('');
+  const [dictated, setDictated] = useState(false);
+  const listening = useRef<Dictation | null>(null);
   const [levels, setLevels] = useState<number[]>(() => Array(BARS).fill(0.1));
   const recorder = useAudioRecorder(VOICE);
   const meter = useAudioRecorderState(recorder, 100);
@@ -76,6 +84,8 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
   // A screen left while recording does not keep the microphone open.
   useEffect(
     () => () => {
+      listening.current?.stop();
+      listening.current = null;
       if (recorder.isRecording) void recorder.stop();
     },
     [recorder],
@@ -90,6 +100,10 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
       recorder.record();
       setSeconds(0);
       setLevels(Array(BARS).fill(0.1));
+      setHeard('');
+      setDictated(false);
+      // The microphone is the recorder's; the words are the system's.
+      listening.current = startDictation(setHeard);
       setRecording(true);
     } catch {
       // The phone refused the microphone: the composer stays text.
@@ -98,6 +112,8 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
 
   async function stopRecording(send: boolean) {
     const duration = clock(seconds);
+    const settled = listening.current?.stop() ?? '';
+    listening.current = null;
     try {
       await recorder.stop();
     } catch {
@@ -109,6 +125,17 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
       // The session was not ours to change.
     }
     setRecording(false);
+
+    // The words go into the field, not into a bubble: they can be read,
+    // corrected, and then sent like anything typed. A phone with no
+    // recogniser still answers by recording, and that note goes as before.
+    const said = (settled || heard).trim();
+    setHeard('');
+    if (send && said) {
+      setDraft((current) => (current.trim() ? `${current.trim()} ${said}` : said));
+      setDictated(true);
+      return;
+    }
     if (send) {
       onSend({ text: `Voice note · ${duration}`, kind: 'voice', duration });
     }
@@ -135,8 +162,9 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
 
   function send() {
     if (!draft.trim()) return;
-    onSend({ text: draft });
+    onSend({ text: draft, dictated });
     setDraft('');
+    setDictated(false);
   }
 
   if (recording) {
@@ -158,14 +186,14 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
           <Text style={styles.time}>{clock(seconds)}</Text>
           <Pressable
             style={styles.stop}
-            accessibilityLabel="Stop and send the voice note"
+            accessibilityLabel="Stop dictating"
             onPress={() => void stopRecording(true)}
           >
             <View style={styles.stopGlyph} />
           </Pressable>
         </View>
         <Text style={styles.note}>
-          Recorded on this phone · the turn carries the note, not the audio
+          Heard on this phone · the words are transcribed here, the audio is not kept
         </Text>
       </View>
     );

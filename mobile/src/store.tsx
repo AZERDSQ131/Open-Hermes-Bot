@@ -74,6 +74,8 @@ type Outgoing = {
   kind?: MessageKind;
   attachment?: Attachment;
   duration?: string;
+  /** Said aloud: the bubble sets it in italics. */
+  dictated?: boolean;
 };
 
 type Store = {
@@ -696,6 +698,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         kind: payload.kind ?? 'text',
         attachment: payload.attachment,
         duration: payload.duration,
+        dictated: payload.dictated,
       };
       setMessages((current) => ({
         ...current,
