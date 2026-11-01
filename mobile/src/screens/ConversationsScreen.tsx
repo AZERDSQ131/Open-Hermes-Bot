@@ -1,9 +1,18 @@
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState, type ComponentRef } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bloub, BloubGroup } from '../components/Bloub';
 import { PlusIcon, SearchIcon, SettingsIcon } from '../components/Icons';
 import { GlassButton, GlassButtonGroup, GlassSurface } from '../components/GlassButton';
+import { PlusMenu } from '../components/PlusMenu';
 import { FirstRunBody } from '../components/FirstRun';
 import { SwipeRow } from '../components/SwipeRow';
 import { Sheet } from '../components/Sheet';
@@ -21,13 +30,43 @@ import { C, INK, createStyles } from '../theme';
  */
 export function ConversationsScreen() {
   const insets = useSafeAreaInsets();
+  const window = useWindowDimensions();
   const navigation = useAppNavigation();
   const { bots, threads, botById, prefs, connection, togglePin, markRead, markUnread, removeThread } =
     useStore();
   const [query, setQuery] = useState('');
-  const [creating, setCreating] = useState(false);
+  // The plus asks first, and the sheet it opens remembers the answer: the
+  // kind is not a switch inside the form any more.
+  const [creating, setCreating] = useState<'bot' | 'group' | null>(null);
+  const [plusOpen, setPlusOpen] = useState(false);
+  const [plusAnchor, setPlusAnchor] = useState<{ top: number; right: number } | null>(null);
+  const plusRef = useRef<ComponentRef<typeof View>>(null);
   const [menu, setMenu] = useState<Thread | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Thread | null>(null);
+
+  /**
+   * The menu opens where the button is, not at a fixed corner: the pair of
+   * glass buttons is measured in window points, once when the head is laid
+   * out and again before the card is put there. The fallback is the same
+   * place, read off the safe area, for a head that has not been measured.
+   */
+  const measurePlus = useCallback(() => {
+    plusRef.current?.measureInWindow((x, y, width, height) => {
+      if (!width && !height) return;
+      setPlusAnchor({ top: y + height + 8, right: Math.max(12, window.width - (x + width)) });
+    });
+  }, [window.width]);
+
+  const plusSpot = plusAnchor ?? { top: insets.top + 52, right: 16 };
+
+  function openPlus() {
+    if (plusOpen) {
+      setPlusOpen(false);
+      return;
+    }
+    measurePlus();
+    setPlusOpen(true);
+  }
 
   const needle = query.trim().toLowerCase();
 
@@ -75,14 +114,21 @@ export function ConversationsScreen() {
           <Text style={styles.title} numberOfLines={1}>
             Conversations
           </Text>
-          <GlassButtonGroup style={styles.actions}>
-            <GlassButton label="Settings" onPress={() => navigation.navigate('Settings')}>
-              <SettingsIcon color="#e8e8ec" />
-            </GlassButton>
-            <GlassButton label="New agent" onPress={() => setCreating(true)}>
-              <PlusIcon />
-            </GlassButton>
-          </GlassButtonGroup>
+          <View
+            ref={plusRef}
+            collapsable={false}
+            onLayout={measurePlus}
+            style={styles.actionsWrap}
+          >
+            <GlassButtonGroup style={styles.actions}>
+              <GlassButton label="Settings" onPress={() => navigation.navigate('Settings')}>
+                <SettingsIcon color="#e8e8ec" />
+              </GlassButton>
+              <GlassButton label="New bot or group" onPress={openPlus}>
+                <PlusIcon />
+              </GlassButton>
+            </GlassButtonGroup>
+          </View>
         </View>
         <Text style={styles.hostLine}>
           {prefs.host} ·{' '}
@@ -98,7 +144,7 @@ export function ConversationsScreen() {
 
       {bots.length === 0 ? (
         <FirstRunBody
-          onCreate={() => setCreating(true)}
+          onCreate={() => setCreating('bot')}
           onSetup={() => navigation.navigate('Setup')}
         />
       ) : (
@@ -209,11 +255,22 @@ export function ConversationsScreen() {
         </>
       )}
 
+      <PlusMenu
+        open={plusOpen}
+        anchor={plusSpot}
+        onClose={() => setPlusOpen(false)}
+        onPick={(mode) => {
+          setPlusOpen(false);
+          setCreating(mode);
+        }}
+      />
+
       <NewAgentSheet
-        visible={creating}
-        onClose={() => setCreating(false)}
+        visible={creating !== null}
+        mode={creating ?? 'bot'}
+        onClose={() => setCreating(null)}
         onCreated={(threadId) => {
-          setCreating(false);
+          setCreating(null);
           navigation.navigate('Chat', { threadId });
         }}
       />
@@ -303,6 +360,7 @@ const styles = createStyles({
     lineHeight: 28,
   },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  actionsWrap: { flexShrink: 0 },
   hostLine: { marginTop: 3, color: INK.faint, fontSize: 10 },
   searchBox: { paddingHorizontal: 16 },
   search: {
