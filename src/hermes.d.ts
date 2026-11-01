@@ -566,6 +566,20 @@ export type HermesBridge = {
     choice: string;
     profile?: string;
   }) => Promise<{ ok: boolean; error?: string }>;
+  /** Answer a question the host is holding the turn on. */
+  respondClarify: (payload: {
+    runId: string;
+    promptId: string;
+    executionGeneration?: number | null;
+    answer: string;
+    profile?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  onChatClarify: (
+    callback: (payload: { requestId?: string; clarify: unknown }) => void,
+  ) => () => void;
+  onChatClarifySettled: (
+    callback: (payload: { requestId?: string; clarifyId?: string }) => void,
+  ) => () => void;
   onChatDelta: (callback: (delta: HermesChatDelta) => void) => () => void;
   onChatTool: (callback: (tool: HermesChatTool) => void) => () => void;
   onChatApproval: (

@@ -19,6 +19,12 @@ import {
 } from './approvals';
 import { reasoningFor } from './effort';
 import { threadMood } from './moods';
+import {
+  readClarify,
+  withClarify,
+  withoutClarify,
+  type ClarifyRequest,
+} from './clarify';
 import { COPIED_LABEL, COPY_LABEL, COPY_WORD, copyableText } from './copy';
 import { joinsRunningTurn, STEERED_NOTE } from './steer';
 import { botShape } from './components/Bloub';
@@ -30,6 +36,7 @@ import {
   type CreateCandidate,
 } from './components/CreateAgentDialog';
 import { EditAgentDialog } from './components/EditAgentDialog';
+import { ClarifyCard } from './components/ClarifyCard';
 import { MentionText } from './components/MentionText';
 import { ModelPicker } from './components/ModelPicker';
 import { ArrowUpIcon, FileIcon, MenuIcon, MicIcon, PlusIcon, SearchIcon, StopIcon, CopyIcon, CheckIcon } from './components/Icons';
@@ -799,6 +806,9 @@ export default function App() {
     [activeThread],
   );
 
+  // Every question a bot is holding in this conversation, in the order asked.
+  const pendingClarifies = useMemo(() => activeThread.clarifies ?? [], [activeThread]);
+
   // A conversation is read back from the server when it is opened: the app
   // keeps no copy of it, so what the room said is where Hermes put it.
   useEffect(() => {
@@ -1164,6 +1174,53 @@ export default function App() {
         );
       },
     );
+    // A question the bot is holding. The turn is paused until it is answered,
+    // so it lands on the thread that asked, exactly like an approval.
+    const offClarify = bridge.onChatClarify?.(({ requestId, clarify }) => {
+      const parsed = readClarify(clarify, requestId ?? '');
+      if (!parsed) return;
+      const turn = requestId ?? '';
+      if (
+        applySingle(turn, (thread) => ({
+          ...thread,
+          clarifies: withClarify(thread.clarifies, {
+            clarify: parsed,
+            botName: thread.avatar.kind === 'group' ? undefined : thread.name,
+            profile: thread.profile,
+          }),
+        }))
+      ) {
+        return;
+      }
+      const threadId = groupRequests.current.get(turn);
+      if (!threadId) return;
+      const member = groupRuntimes.current.get(threadId)?.active.get(turn)?.member;
+      setThreads((current) =>
+        current.map((thread) =>
+          thread.id === threadId
+            ? {
+                ...thread,
+                clarifies: withClarify(thread.clarifies, {
+                  clarify: parsed,
+                  botName: member?.name,
+                  profile: member?.profile,
+                }),
+              }
+            : thread,
+        ),
+      );
+    });
+    // Answered here, or given up on the host: the card is stale either way.
+    const offClarifySettled = bridge.onChatClarifySettled?.(({ clarifyId }) => {
+      if (!clarifyId) return;
+      setThreads((current) =>
+        current.map((thread) => {
+          const next = withoutClarify(thread.clarifies, clarifyId);
+          return next === thread.clarifies ? thread : { ...thread, clarifies: next };
+        }),
+      );
+    });
+
     // Answered here, or given up on the host: either way the card is stale.
     const offApprovalSettled = bridge.onChatApprovalSettled?.(
       ({ requestId }) => {
@@ -1188,6 +1245,8 @@ export default function App() {
       offTool?.();
       offApproval?.();
       offApprovalSettled?.();
+      offClarify?.();
+      offClarifySettled?.();
       offWatch?.();
     };
   }, []);
@@ -3147,6 +3206,37 @@ export default function App() {
     [activeThread?.profile],
   );
 
+  /**
+   * The answer to a question a bot is holding. A taken answer clears the card
+   * at once; a failure keeps it, with the host's words in it, so the person can
+   * try again instead of watching a paused turn die behind their back.
+   */
+  const respondToClarify = useCallback(
+    async (clarify: ClarifyRequest, answer: string, profile?: string) => {
+      const bridge = window.hermes;
+      if (!bridge?.respondClarify) {
+        return { ok: false, error: 'This build cannot answer questions.' };
+      }
+      const result = await bridge.respondClarify({
+        runId: clarify.runId,
+        promptId: clarify.promptId,
+        executionGeneration: clarify.executionGeneration,
+        answer,
+        profile: profile ?? activeThread?.profile,
+      });
+      if (result?.ok) {
+        setThreads((current) =>
+          current.map((thread) => {
+            const next = withoutClarify(thread.clarifies, clarify.promptId);
+            return next === thread.clarifies ? thread : { ...thread, clarifies: next };
+          }),
+        );
+      }
+      return result ?? { ok: false, error: 'The host did not answer.' };
+    },
+    [activeThread?.profile],
+  );
+
   function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (mentionMatch) {
       const count = mentionMatch.suggestions.length;
@@ -4015,6 +4105,20 @@ export default function App() {
 
         <div className="composer-dock">
           <div className="composer-inner">
+            {pendingClarifies.length ? (
+              <div className="clarify-stack">
+                {pendingClarifies.map(({ clarify, botName, profile }) => (
+                  <ClarifyCard
+                    key={clarify.promptId}
+                    clarify={clarify}
+                    botName={botName}
+                    onRespond={(answer) =>
+                      respondToClarify(clarify, answer, profile)
+                    }
+                  />
+                ))}
+              </div>
+            ) : null}
             {pendingApprovals.length ? (
               <div className="approval-stack">
                 {pendingApprovals.map(({ approval, botName, profile }) => (

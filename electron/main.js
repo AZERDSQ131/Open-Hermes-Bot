@@ -3510,6 +3510,15 @@ async function runChatTurn(event, payload) {
           send('hermes:chat:approval-settled', {
             approvalId: String(parsed?.request_id ?? ''),
           });
+        } else if (name === 'clarify.request') {
+          // A question the host is holding the turn on. The card belongs to the
+          // thread that asked, exactly like an approval.
+          send('hermes:chat:clarify', { clarify: parsed });
+        } else if (name === 'clarify.settled') {
+          // Answered here, or given up on the host: the card is stale either way.
+          send('hermes:chat:clarify-settled', {
+            clarifyId: String(parsed?.prompt_id ?? ''),
+          });
         } else if (name === 'run.started') {
           runId = String(parsed?.run_id ?? '');
           // The handle a steer needs: the renderer only knows its request id.
@@ -3659,6 +3668,38 @@ ipcMain.handle('hermes:chat:steer', async (_event, payload) => {
   });
   if (!answer.ok) {
     return { ok: false, error: apiErrorText(answer, 'The turn did not take that.') };
+  }
+  return { ok: true };
+});
+
+// The answer to a question a bot is holding. The run is paused until this
+// lands, so a failure is said in the card rather than swallowed.
+ipcMain.handle('hermes:chat:clarify', async (_event, payload) => {
+  const runId = String(payload?.runId ?? '').trim();
+  const promptId = String(payload?.promptId ?? '').trim();
+  const answerText = String(payload?.answer ?? '').trim();
+  if (!runId) return { ok: false, error: 'No run to answer' };
+  if (!promptId) return { ok: false, error: 'No question to answer' };
+  if (!answerText) return { ok: false, error: 'An empty answer is not an answer' };
+  // The authority path refuses a body with any other key set, so the
+  // generation only rides along when the event actually carried one.
+  const body = { request_id: promptId, answer: answerText };
+  const generation = payload?.executionGeneration;
+  if (Number.isInteger(generation)) body.execution_generation = generation;
+  const answer = await apiCall(
+    `/v1/runs/${encodeURIComponent(runId)}/clarify`,
+    {
+      method: 'POST',
+      body,
+      profile: String(payload?.profile ?? ''),
+      timeoutMs: 20000,
+    },
+  );
+  if (!answer.ok) {
+    return {
+      ok: false,
+      error: apiErrorText(answer, 'The host did not take that answer.'),
+    };
   }
   return { ok: true };
 });
