@@ -26,8 +26,12 @@ const FACE = box(56);
 const GAP = box(13);
 const STEP = FACE + GAP;
 
-/** The circle the faces stand on: wide enough that the lift stays a curve. */
-const RADIUS = box(415);
+/**
+ * The circle the faces stand on. Very wide on purpose: turning the row then
+ * barely lifts or leans a face, which is what a horizon does — the curve is
+ * read, not felt.
+ */
+const RADIUS = box(1500);
 const SPAN = 3;
 const STAGE = FACE + Math.ceil(RADIUS - Math.sqrt(RADIUS * RADIUS - (SPAN * STEP) ** 2)) + box(6);
 
