@@ -30,11 +30,17 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build the app and publish it
-        env:
-          # The token that lets the build attach the files to the release.
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run dist:publish
+      - name: Build the app
+        # `--publish never`, deliberately. electron-builder publishes once per
+        # architecture, and on v1.2.0 that made **two drafts for one tag** - the
+        # arm64 zip alone in one of them, everything else in the other, while
+        # `latest-mac.yml` named both zips. One of those drafts can never be the
+        # release for the tag, so publishing the complete-looking one would have
+        # pointed arm64 at a file in no release at all.
+        #
+        # The build therefore stays local, and the draft below is created once,
+        # with every file. The signature check runs before anything exists.
+        run: npm run dist
 
       - name: Check the app carries a signature
         # electron-builder does not fail when it cannot find an identity to
@@ -56,3 +62,31 @@ jobs:
             echo "no packaged app was found to check"
             exit 1
           fi
+
+      - name: Check the tag carries no release yet
+        # A tag can carry more than one release, and this repository has done it
+        # once. Failing here means the run cannot add a third: a leftover draft
+        # is deleted by hand, and the tag is run again.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release-check.js --before
+
+      - name: Create the draft, once, with every file the build made
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" \
+            --draft \
+            --title "Hermes Bot ${GITHUB_REF_NAME#v}" \
+            --notes "Built from ${GITHUB_REF_NAME}. Write the notes here, then publish." \
+            release/*.dmg release/*.zip release/*.blockmap release/latest-mac.yml
+
+      - name: Check the release holds every file the build made
+        # The incident, checked from the outside: every file in `release/` is on
+        # the release, at the size the build made it, and the tag carries exactly
+        # one release. A release missing one of its own files is the same failure
+        # as a missing signature, and just as silent.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release-check.js --after

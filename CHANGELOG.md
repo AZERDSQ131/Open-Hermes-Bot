@@ -6,6 +6,17 @@ follow [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **One release per tag, and every file in it.** electron-builder publishes once
+  per architecture, and a tagged build made two drafts for the same tag - the
+  arm64 zip alone in one, everything else in the other - while `latest-mac.yml`
+  named both zips, so the update feed would have pointed arm64 at a file that is
+  in no release. The workflow now builds with `--publish never`, creates the
+  single draft itself, and fails the run when the tag already carries a release,
+  when a file the build made is missing from it, or when a file's size differs
+  from the one on disk.
+
 ## [1.3.0] — 2026-10-31
 
 ### Added

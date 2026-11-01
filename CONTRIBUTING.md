@@ -122,17 +122,27 @@ git push origin main --follow-tags
 ```
 
 The tag starts `.github/workflows/release.yml`: macOS builds the app, the tests
-run, and the `.dmg`, the `.zip` and the block maps are attached to the GitHub
-Release the tag created. **The release is created as a draft** — open it, write
-the notes, and publish it:
+run, and the workflow itself creates **one draft release** holding every file the
+build made - the two `.dmg`, the two `.zip`, their block maps and
+`latest-mac.yml`. Open it, write the notes, and publish it:
 
 ```bash
 gh release edit v1.1.0 --draft=false --title "Hermes Bot 1.1.0" --notes "…"
 ```
 
-The run also checks that the app carries a signature. That check must be green
-before you publish the draft: an app whose signature does not validate is
-"damaged" to macOS, and it will not open for the person who installs it.
+The build does not publish anything itself (`npm run dist` is `--publish never`).
+electron-builder publishes once per architecture, and on `v1.2.0` that made two
+drafts for one tag - the arm64 zip alone in one, everything else in the other,
+while `latest-mac.yml` named both. Only one release can carry a tag, so the
+workflow creates it once, and `scripts/release-check.js` fails the run in both
+directions: before, if the tag already carries a release, and after, if the
+release is missing a file the build made or a file's size differs from the one on
+disk. If the run fails that way, delete the draft and run the tag again.
+
+The run also checks that the app carries a signature, before anything is created.
+That check must be green before you publish the draft: an app whose signature
+does not validate is "damaged" to macOS, and it will not open for the person who
+installs it.
 
 An installed app finds the new version by itself: it looks at the releases
 page, downloads the build in the background and takes over when the person
