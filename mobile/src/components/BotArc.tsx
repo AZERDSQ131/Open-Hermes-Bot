@@ -27,13 +27,13 @@ import { C, INK, box, createStyles } from '../theme';
  * Dragging turns it, a wheel turns it on the web, a tap brings a face to the
  * top, and whatever stands at the top is the one Customize takes.
  */
-const FACE = box(34);
+const FACE = box(40);
 
 /** Far wider than the sheet: the rim crosses the window almost flat. */
 const RADIUS = box(300);
 
 /** How far below the top of the stage the chosen face sits. */
-const TOP = box(26);
+const TOP = box(34);
 
 /** A whole number of degrees, positive or negative. */
 function mod(value: number, base: number): number {
@@ -194,7 +194,10 @@ export function BotArc({
           >
             {faces.map((entry, position) => {
               const angle = position * slot;
-              const chosen = position === index;
+              // How many seats away from the one at the top: 0 is the face
+              // that Customize takes, 1 its two neighbours, and the rest
+              // fall away in size and in light.
+              const away = Math.min(mod(position - index, count), mod(index - position, count));
               return (
                 <Animated.View
                   key={entry.id}
@@ -230,7 +233,8 @@ export function BotArc({
                     accessibilityLabel={`Face ${entry.name}`}
                     style={({ pressed }) => [
                       styles.face,
-                      chosen && styles.chosen,
+                      away === 0 && styles.chosen,
+                      away === 1 && styles.near,
                       pressed && styles.pressed,
                     ]}
                   >
@@ -266,8 +270,9 @@ const styles = createStyles({
   // The rest of the ring is out of frame: the stage is the window on it.
   stage: { overflow: 'hidden' },
   seat: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
-  face: { alignItems: 'center', justifyContent: 'center', opacity: 0.55 },
-  chosen: { opacity: 1, transform: [{ scale: 1.55 }] },
+  face: { alignItems: 'center', justifyContent: 'center', opacity: 0.5 },
+  near: { opacity: 0.82, transform: [{ scale: 1.12 }] },
+  chosen: { opacity: 1, transform: [{ scale: 1.5 }] },
   pressed: { opacity: 0.6 },
   foot: { paddingTop: 4, paddingHorizontal: 16, paddingBottom: 10 },
   // A pill of the same glass as the buttons, in the colour it always had.
