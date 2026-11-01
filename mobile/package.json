@@ -11,6 +11,7 @@
     "expo-glass-effect": "~58.0.5",
     "expo-haptics": "~58.0.7",
     "expo-secure-store": "~58.0.2",
+    "expo-speech-recognition": "^58.0.1",
     "expo-status-bar": "~58.0.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",

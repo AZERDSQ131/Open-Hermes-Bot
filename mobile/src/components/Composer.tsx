@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { Attachment, Bot, MessageKind, Thread } from '../data';
 import { startDictation, type Dictation } from '../dictation';
 import { ATTACHMENTS } from '../data';
@@ -80,7 +80,11 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
       ),
     );
     if (!listening.current) {
-      setAside('This browser has no speech recogniser · Safari has one, on the device');
+      setAside(
+        Platform.OS === 'web'
+          ? 'This browser has no speech recogniser · Safari has one, on the device'
+          : "Expo Go carries no speech module · use the keyboard's microphone, or a dev build",
+      );
       return;
     }
     setRecording(true);
