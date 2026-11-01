@@ -77,11 +77,13 @@ if (process.env.VITE_DEMO !== '1') contextBridge.exposeInMainWorld('hermes', {
   /** The answer to a question a bot is holding. */
   respondClarify: (payload) =>
     ipcRenderer.invoke('hermes:chat:clarify', payload),
-  onChatClarify: (listener) => {
+  onChatClarify: (callback) => {
+    const listener = (_event, data) => callback(data);
     ipcRenderer.on('hermes:chat:clarify', listener);
     return () => ipcRenderer.removeListener('hermes:chat:clarify', listener);
   },
-  onChatClarifySettled: (listener) => {
+  onChatClarifySettled: (callback) => {
+    const listener = (_event, data) => callback(data);
     ipcRenderer.on('hermes:chat:clarify-settled', listener);
     return () =>
       ipcRenderer.removeListener('hermes:chat:clarify-settled', listener);

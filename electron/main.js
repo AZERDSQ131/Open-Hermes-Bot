@@ -3324,6 +3324,9 @@ async function watchRun(runId, { profile, send, canceled }) {
   send('hermes:chat:watch', { runId });
   const until = Date.now() + WATCH_LIMIT_MS;
   let misses = 0;
+  // The question this watch already put on screen, so a poll every five
+  // seconds does not redraw it.
+  let askedPrompt = '';
   while (Date.now() < until) {
     await new Promise((resolve) => setTimeout(resolve, WATCH_POLL_MS));
     if (canceled()) return { ok: false, canceled: true };
@@ -3345,13 +3348,59 @@ async function watchRun(runId, { profile, send, canceled }) {
     }
     misses = 0;
     const run = result.body;
-    if (!runFinished(run)) continue;
+    if (process.env.OHB_TRACE_CLARIFY) {
+      require('node:fs').appendFileSync('/tmp/ohb-clarify.log', `watch ${runId} status=${run?.status} controls=${JSON.stringify(run?.pending_controls ?? null)}\n`);
+    }
+    if (!runFinished(run)) {
+      // A turn can sit paused on a question: the run says so on its own status,
+      // and a client that only listens to the stream would wait for an answer
+      // nobody was asked for.
+      const prompt = (run.pending_controls ?? []).find(
+        (control) => control?.kind === 'clarify',
+      );
+      if (prompt && prompt.prompt_id !== askedPrompt) {
+        askedPrompt = String(prompt.prompt_id ?? '');
+        send('hermes:chat:clarify', { clarify: { ...prompt, run_id: runId } });
+      }
+      continue;
+    }
     return runOutcome(run);
   }
   return {
     ok: false,
     error: 'The bot is still working on this turn - the app stopped watching after two hours.',
   };
+}
+
+/**
+ * The question a run is holding, read from the run itself.
+ *
+ * Hermes reports a paused turn as `pending_controls` on `GET /v1/runs/<id>`,
+ * which is also what a websocket viewer reads. A streaming client learns the
+ * tool started; it learns what to ask by asking the run.
+ */
+async function readPendingClarify(runId, profile, send) {
+  const trace = process.env.OHB_TRACE_CLARIFY
+    ? (line) => require('node:fs').appendFileSync('/tmp/ohb-clarify.log', `${line}\n`)
+    : () => {};
+  // The prompt is registered as the tool starts, a beat after the frame that
+  // says it did: a few tries, a beat apart, is the difference between a card
+  // and a turn that waits on nothing.
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    if (attempt) await new Promise((resolve) => setTimeout(resolve, 400));
+    const state = await apiCall(`/v1/runs/${encodeURIComponent(runId)}`, {
+      profile: String(profile ?? ''),
+      timeoutMs: 15000,
+    });
+    trace(`${attempt} ok=${state?.ok} status=${state?.status} controls=${JSON.stringify(state?.body?.pending_controls ?? null)}`);
+    if (!state?.ok) continue;
+    const controls = state.body?.pending_controls;
+    if (!Array.isArray(controls)) continue;
+    const prompt = controls.find((control) => control?.kind === 'clarify');
+    if (!prompt) continue;
+    send('hermes:chat:clarify', { clarify: { ...prompt, run_id: runId } });
+    return;
+  }
 }
 
 async function runChatTurn(event, payload) {
@@ -3492,6 +3541,13 @@ async function runChatTurn(event, payload) {
           toolRunning = true;
           activeTool = parsed.tool_name;
           send('hermes:chat:tool', { tool: parsed.tool_name });
+          // A question does not ride the stream as its own frame on every
+          // host: the run reports it as a pending control, and the status of
+          // the run is where a streaming client reads it. The tool starting is
+          // the moment to ask.
+          if (activeTool === 'clarify' && runId) {
+            void readPendingClarify(runId, payload?.profile, send);
+          }
         } else if (
           name === 'tool.completed' ||
           name === 'tool.failed'
