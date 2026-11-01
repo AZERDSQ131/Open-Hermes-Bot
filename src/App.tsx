@@ -3790,15 +3790,18 @@ export default function App() {
                             type="button"
                             className="bubble-copy"
                             aria-label={copiedId === message.id ? COPIED_LABEL : COPY_LABEL}
-                            title={copiedId === message.id ? COPIED_LABEL : COPY_LABEL}
                             onClick={() => copyMessage(message)}
                           >
                             {copiedId === message.id ? (
-                              <CheckIcon size={12} />
+                              <CheckIcon size={16} />
                             ) : (
-                              <CopyIcon size={12} />
+                              <CopyIcon size={16} />
                             )}
-                            <span>{copiedId === message.id ? COPIED_LABEL : COPY_WORD}</span>
+                            {/* Only the mark sits on the bubble; the word it
+                                stands for waits until the pointer rests. */}
+                            <span className="bubble-copy-word" aria-hidden="true">
+                              {copiedId === message.id ? COPIED_LABEL : COPY_WORD}
+                            </span>
                           </button>
                         ) : null}
                         {message.steered ? (
