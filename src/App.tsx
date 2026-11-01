@@ -19,6 +19,7 @@ import {
 } from './approvals';
 import { reasoningFor } from './effort';
 import { threadMood } from './moods';
+import { COPIED_LABEL, COPY_LABEL, COPY_WORD, copyableText } from './copy';
 import { joinsRunningTurn, STEERED_NOTE } from './steer';
 import { botShape } from './components/Bloub';
 import { type BloubShape } from './components/bloubFrames';
@@ -31,15 +32,7 @@ import {
 import { EditAgentDialog } from './components/EditAgentDialog';
 import { MentionText } from './components/MentionText';
 import { ModelPicker } from './components/ModelPicker';
-import {
-  ArrowUpIcon,
-  FileIcon,
-  MenuIcon,
-  MicIcon,
-  PlusIcon,
-  SearchIcon,
-  StopIcon,
-} from './components/Icons';
+import { ArrowUpIcon, FileIcon, MenuIcon, MicIcon, PlusIcon, SearchIcon, StopIcon, CopyIcon, CheckIcon } from './components/Icons';
 import type {
   HermesConnectorList,
   HermesMessage,
@@ -511,6 +504,10 @@ export default function App() {
   } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   // What a tapback opens: the bots that left it.
+  // The line a copy just put on the clipboard, so the button can say so for a
+  // moment instead of leaving the person wondering whether it worked.
+  const [copiedId, setCopiedId] = useState('');
+  const copiedTimer = useRef<number | null>(null);
   const [details, setDetails] = useState<{
     x: number;
     y: number;
@@ -3048,6 +3045,17 @@ export default function App() {
     );
   }
 
+  function copyMessage(message: Message) {
+    const text = copyableText(message);
+    if (!text) return;
+    void window.hermes?.copyText?.(text).then((result) => {
+      if (!result?.ok) return;
+      setCopiedId(message.id);
+      if (copiedTimer.current) window.clearTimeout(copiedTimer.current);
+      copiedTimer.current = window.setTimeout(() => setCopiedId(''), 1600);
+    });
+  }
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     sendMessage();
@@ -3777,6 +3785,22 @@ export default function App() {
                             members={activeThread.members}
                           />
                         </div>
+                        {copyableText(message) ? (
+                          <button
+                            type="button"
+                            className="bubble-copy"
+                            aria-label={copiedId === message.id ? COPIED_LABEL : COPY_LABEL}
+                            title={copiedId === message.id ? COPIED_LABEL : COPY_LABEL}
+                            onClick={() => copyMessage(message)}
+                          >
+                            {copiedId === message.id ? (
+                              <CheckIcon size={12} />
+                            ) : (
+                              <CopyIcon size={12} />
+                            )}
+                            <span>{copiedId === message.id ? COPIED_LABEL : COPY_WORD}</span>
+                          </button>
+                        ) : null}
                         {message.steered ? (
                           <span className="message-steered">{STEERED_NOTE}</span>
                         ) : null}

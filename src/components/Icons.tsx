@@ -172,6 +172,39 @@ export function ChevronLeftIcon({ size = 15, className }: IconProps) {  return (
   );
 }
 
+/** Copying a line: two sheets, the front one whole. */
+export function CopyIcon({ size = 15, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      strokeWidth="1.7"
+      className={className}
+      {...base}
+    >
+      <rect x="9" y="9" width="11" height="11" rx="2.2" />
+      <path d="M15 9V6.2A2.2 2.2 0 0 0 12.8 4H6.2A2.2 2.2 0 0 0 4 6.2v6.6A2.2 2.2 0 0 0 6.2 15H9" />
+    </svg>
+  );
+}
+
+/** The line did what it said it would. */
+export function CheckIcon({ size = 15, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      strokeWidth="2"
+      className={className}
+      {...base}
+    >
+      <path d="m5 12.5 4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
+
 export function StarIcon({
   size = 13,
   className,

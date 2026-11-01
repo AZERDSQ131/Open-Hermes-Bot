@@ -70,6 +70,7 @@ if (process.env.VITE_DEMO !== '1') contextBridge.exposeInMainWorld('hermes', {
     ipcRenderer.invoke('hermes:nous:login-poll', payload),
   /** Opens a link in the browser. */
   openLink: (url) => ipcRenderer.invoke('hermes:open', url),
+  copyText: (text) => ipcRenderer.invoke('hermes:copy', text),
   sendChat: (payload) => ipcRenderer.invoke('hermes:chat:send', payload),
   cancelChat: (requestId) => ipcRenderer.invoke('hermes:chat:cancel', requestId),
   steerRun: (payload) => ipcRenderer.invoke('hermes:chat:steer', payload),

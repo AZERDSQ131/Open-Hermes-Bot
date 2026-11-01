@@ -531,6 +531,7 @@ export function createDemoBridge(now: number = Date.now()): HermesBridge {
     installUpdate: async () => ({ ok: true }),
     openRelease: async () => ({ ok: true }),
     openLink: async () => ({ ok: true }),
+    copyText: async () => ({ ok: true }),
     uploadAttachment: async () => ({ ok: true, path: '/tmp/demo.txt' }),
     transcribeVoice: async () => ({ ok: true, transcript: 'parole simulée' }),
   } as unknown as HermesBridge;
