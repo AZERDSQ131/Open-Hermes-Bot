@@ -237,10 +237,12 @@ describe('the menu of a conversation', () => {
         onDelete={() => undefined}
         onToggleUnread={() => undefined}
         onEdit={() => undefined}
+        onNewConversation={() => undefined}
         onClose={() => undefined}
       />,
     );
     expect(screen.getByText('Pin')).toBeTruthy();
+    expect(screen.getByText('New conversation')).toBeTruthy();
     expect(screen.getByText('Mark as unread')).toBeTruthy();
     expect(screen.getByText('Edit bot')).toBeTruthy();
     expect(screen.getByText('Delete bot')).toBeTruthy();
@@ -259,6 +261,7 @@ describe('the menu of a conversation', () => {
         onDelete={() => undefined}
         onToggleUnread={() => undefined}
         onEdit={() => undefined}
+        onNewConversation={() => undefined}
         onClose={() => undefined}
       />,
     );
@@ -279,6 +282,7 @@ describe('the menu of a conversation', () => {
         onDelete={() => undefined}
         onToggleUnread={() => undefined}
         onEdit={() => undefined}
+        onNewConversation={() => undefined}
         onClose={() => undefined}
       />,
     );

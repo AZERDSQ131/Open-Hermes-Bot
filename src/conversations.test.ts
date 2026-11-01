@@ -8,6 +8,7 @@ import {
   parseGroupWire,
   privateTranscript,
   readTranscript,
+  setAsideTitle,
 } from './conversations';
 import type { GroupMember } from './data';
 import type { HermesMessage, HermesSession } from './hermes';
@@ -483,5 +484,17 @@ describe('a room that is not whole', () => {
       ],
     ]);
     expect(groupTranscript([chief], transcripts)).toEqual([]);
+  });
+});
+
+describe('putting a conversation aside', () => {
+  it('keeps the bot name and the day, so the past list still reads', () => {
+    const day = new Date(2026, 9, 31, 9, 12).getTime();
+    expect(setAsideTitle('Chief of Staff', day)).toBe('Chief of Staff · 31 Oct');
+  });
+
+  it('does not carry the padding of a name into the title', () => {
+    const day = new Date(2026, 0, 4, 9, 12).getTime();
+    expect(setAsideTitle('  oss-prs  ', day)).toBe('oss-prs · 4 Jan');
   });
 });

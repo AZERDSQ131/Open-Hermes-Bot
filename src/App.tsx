@@ -61,6 +61,7 @@ import {
   groupSessionTitle,
   groupTranscript,
   privateTranscript,
+  setAsideTitle,
 } from './conversations';
 import {
   groupPastSessions,
@@ -1509,6 +1510,56 @@ export default function App() {
   }
 
   /**
+   * A bot answers in one conversation at a time, and a person who wants a
+   * clean one should not have to make a second bot for it. The room in use is
+   * put aside on the host under the bot's name and the day - nothing is
+   * deleted, and it is waiting in the list of past conversations - then the
+   * thread is emptied so the next message opens a new session.
+   */
+  async function startNewConversation(thread: Thread) {
+    const bridge = window.hermes;
+    const running = requestThread.current.get(thread.id);
+    if (running) {
+      bridge?.cancelChat?.(running);
+      requestThread.current.delete(thread.id);
+    }
+    if (thread.sessionId && bridge?.renameSession) {
+      const renamed = await bridge
+        .renameSession({
+          profile: thread.profile,
+          sessionId: thread.sessionId,
+          title: setAsideTitle(thread.name, Date.now()),
+        })
+        .catch((reason: Error) => ({ ok: false, error: reason.message }));
+      if (!renamed.ok) {
+        setPastError(renamed.error ?? 'This conversation could not be set aside.');
+        return;
+      }
+    }
+    transcriptState.current.delete(thread.id);
+    setThreads((current) =>
+      current.map((item) =>
+        item.id === thread.id
+          ? {
+              ...item,
+              sessionId: undefined,
+              messages: [],
+              thinking: false,
+              streaming: undefined,
+              tool: undefined,
+              watching: false,
+              approvals: [],
+              live: [],
+              unread: false,
+              preview: '',
+              chatTime: 'Now',
+            }
+          : item,
+      ),
+    );
+  }
+
+  /**
    * Resuming a past conversation makes it the bot's conversation: a bot holds
    * one, so the room it was in is put aside under the day it last spoke, and
    * the session the person chose takes the bot's name. Nothing is deleted —
@@ -1528,7 +1579,7 @@ export default function App() {
 
     const previous = owner.sessionId;
     if (previous && previous !== open.session.id) {
-      const aside = `${owner.name} · ${shortDay(open.session.lastActive)}`;
+      const aside = setAsideTitle(owner.name, open.session.lastActive);
       const renamed = await bridge
         .renameSession({ profile, sessionId: previous, title: aside })
         .catch((reason: Error) => ({ ok: false, error: reason.message }));
@@ -4216,6 +4267,7 @@ export default function App() {
           onDelete={() => deleteThread(contextThread.id)}
           onToggleUnread={() => toggleUnread(contextThread.id)}
           onEdit={() => startEditingThread(contextThread.id)}
+          onNewConversation={() => startNewConversation(contextThread)}
           onClose={closeContextMenu}
         />
       ) : null}
