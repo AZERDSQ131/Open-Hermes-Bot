@@ -18,6 +18,8 @@ type RecognitionEvent = {
   results: ArrayLike<Result>;
 };
 
+type Failure = { error?: string };
+
 type Recognition = {
   continuous: boolean;
   interimResults: boolean;
@@ -26,7 +28,7 @@ type Recognition = {
   stop: () => void;
   abort: () => void;
   onresult: ((event: RecognitionEvent) => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((failure: Failure) => void) | null;
   onend: (() => void) | null;
 };
 
@@ -52,12 +54,18 @@ export type Dictation = {
   stop: () => string;
 };
 
+/** Why the phone stopped listening, when it is not the person who said so. */
+export type Refusal = 'refused' | 'network';
+
 /**
  * Listening. `onText` is called as the words settle and as they are guessed,
  * so the composer can show the sentence being built; the value returned by
  * `stop` is the settled transcript, which is what gets sent.
  */
-export function startDictation(onText: (text: string) => void): Dictation | null {
+export function startDictation(
+  onText: (text: string) => void,
+  onRefusal?: (reason: Refusal) => void,
+): Dictation | null {
   const Recogniser = engine();
   if (!Recogniser) return null;
 
@@ -67,6 +75,8 @@ export function startDictation(onText: (text: string) => void): Dictation | null
   listening.lang = typeof navigator === 'undefined' || !navigator.language ? 'en-US' : navigator.language;
 
   let settled = '';
+  let stopped = false;
+  let restarts = 0;
 
   listening.onresult = (event) => {
     let guessed = '';
@@ -79,10 +89,30 @@ export function startDictation(onText: (text: string) => void): Dictation | null
     onText(`${settled} ${guessed}`.trim());
   };
 
-  // A refusal is not loud: the composer keeps what it has and the person
-  // types. The permission prompt is the platform's, not ours to rephrase.
-  listening.onerror = () => undefined;
-  listening.onend = () => undefined;
+  // A refusal is said once, quietly: the permission prompt is the
+  // platform's, not ours to rephrase.
+  listening.onerror = (failure) => {
+    const reason = failure?.error;
+    if (reason === 'not-allowed' || reason === 'service-not-allowed') {
+      stopped = true;
+      onRefusal?.('refused');
+      return;
+    }
+    if (reason === 'network') onRefusal?.('network');
+  };
+
+  // Chromium ends the session on its own after a silence, and iOS after a
+  // sentence. Listening again is what keeps the microphone open as long as
+  // the person is still holding it.
+  listening.onend = () => {
+    if (stopped || restarts > 60) return;
+    restarts += 1;
+    try {
+      listening.start();
+    } catch {
+      stopped = true;
+    }
+  };
 
   try {
     listening.start();
@@ -93,6 +123,7 @@ export function startDictation(onText: (text: string) => void): Dictation | null
   return {
     heard: () => settled,
     stop: () => {
+      stopped = true;
       try {
         listening.stop();
       } catch {

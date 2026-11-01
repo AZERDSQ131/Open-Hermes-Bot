@@ -8,7 +8,7 @@ import {
   useAudioRecorderState,
 } from 'expo-audio';
 import type { Attachment, Bot, MessageKind, Thread } from '../data';
-import { startDictation, type Dictation } from '../dictation';
+import { dictationAvailable, startDictation, type Dictation } from '../dictation';
 import { ATTACHMENTS } from '../data';
 import { C, INK, box, createStyles } from '../theme';
 import { ArrowUpIcon, AttachIcon, CameraIcon, CloseIcon, FileIcon, MicIcon, PhotoIcon } from './Icons';
@@ -52,12 +52,16 @@ type ComposerProps = {
 export function Composer({ thread, bots, onSend }: ComposerProps) {
   const [draft, setDraft] = useState('');
   const [recording, setRecording] = useState(false);
+  // A phone with no recogniser cannot write what it hears; the strip says so
+  // rather than leaving the person talking to a closed microphone.
+  const canHear = useMemo(() => dictationAvailable(), []);
   const [seconds, setSeconds] = useState(0);
   const [attaching, setAttaching] = useState(false);
   // What the phone is hearing, and whether the sentence in the field came out
   // of the microphone rather than the keyboard.
   const [heard, setHeard] = useState('');
   const [dictated, setDictated] = useState(false);
+  const [refusal, setRefusal] = useState('');
   const listening = useRef<Dictation | null>(null);
   const [levels, setLevels] = useState<number[]>(() => Array(BARS).fill(0.1));
   const recorder = useAudioRecorder(VOICE);
@@ -92,30 +96,38 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
   );
 
   async function startRecording() {
+    setSeconds(0);
+    setLevels(Array(BARS).fill(0.1));
+    setHeard('');
+    setDictated(false);
+    setRefusal('');
+    // The words first, and on their own: the recorder is kept for the bars,
+    // and a phone that refuses the meter still gets its dictation.
+    listening.current = startDictation(setHeard, (reason) =>
+      setRefusal(
+        reason === 'refused'
+          ? 'The microphone was refused · allow it, then dictate again'
+          : 'No words came through · check the connection to the recogniser',
+      ),
+    );
     try {
       const permission = await AudioModule.requestRecordingPermissionsAsync();
-      if (!permission.granted) return;
-      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
-      await recorder.prepareToRecordAsync();
-      recorder.record();
-      setSeconds(0);
-      setLevels(Array(BARS).fill(0.1));
-      setHeard('');
-      setDictated(false);
-      // The microphone is the recorder's; the words are the system's.
-      listening.current = startDictation(setHeard);
-      setRecording(true);
+      if (permission.granted) {
+        await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
+        await recorder.prepareToRecordAsync();
+        recorder.record();
+      }
     } catch {
-      // The phone refused the microphone: the composer stays text.
+      // No meter this time: the words still come through the recogniser.
     }
+    setRecording(true);
   }
 
-  async function stopRecording(send: boolean) {
-    const duration = clock(seconds);
+  async function stopRecording(keep: boolean) {
     const settled = listening.current?.stop() ?? '';
     listening.current = null;
     try {
-      await recorder.stop();
+      if (recorder.isRecording) await recorder.stop();
     } catch {
       // Nothing was recording: there is nothing to close.
     }
@@ -126,19 +138,13 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
     }
     setRecording(false);
 
-    // The words go into the field, not into a bubble: they can be read,
-    // corrected, and then sent like anything typed. A phone with no
-    // recogniser still answers by recording, and that note goes as before.
+    // Stopping writes: the words go into the field, where they can be read,
+    // corrected, and sent like anything typed. Nothing is sent from here.
     const said = (settled || heard).trim();
     setHeard('');
-    if (send && said) {
-      setDraft((current) => (current.trim() ? `${current.trim()} ${said}` : said));
-      setDictated(true);
-      return;
-    }
-    if (send) {
-      onSend({ text: `Voice note · ${duration}`, kind: 'voice', duration });
-    }
+    if (!keep || !said) return;
+    setDraft((current) => (current.trim() ? `${current.trim()} ${said}` : said));
+    setDictated(true);
   }
 
   const members = useMemo(
@@ -192,8 +198,12 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
             <View style={styles.stopGlyph} />
           </Pressable>
         </View>
-        <Text style={styles.note}>
-          Heard on this phone · the words are transcribed here, the audio is not kept
+        <Text style={styles.note} numberOfLines={2}>
+          {!canHear
+            ? 'No speech recogniser on this phone · the words cannot be written'
+            : refusal ||
+              heard ||
+              'Listening · the words are transcribed here, the audio is not kept'}
         </Text>
       </View>
     );
