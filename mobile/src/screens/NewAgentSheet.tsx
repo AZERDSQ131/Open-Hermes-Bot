@@ -60,7 +60,11 @@ export function NewAgentSheet({
   }
 
   return (
-    <Sheet visible={visible} onClose={onClose}>
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      minHeight={pickingModel ? undefined : Math.round(window.height * 0.62)}
+    >
       <View style={styles.head}>
         <View style={styles.headCopy}>
           <Text style={styles.title}>
@@ -228,7 +232,7 @@ const styles = createStyles({
   sub: { marginTop: 3, color: '#8a8a91', fontSize: 11, lineHeight: 15 },
   close: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: '#34343a' },
 
-  body: { flexShrink: 1 },
+  body: { flexShrink: 1, flexGrow: 1 },
   picker: { flexShrink: 1 },
   bodyContent: { paddingTop: 12, paddingHorizontal: 16, paddingBottom: 8 },
 
