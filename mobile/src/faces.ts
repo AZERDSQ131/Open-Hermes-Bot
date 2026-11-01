@@ -38,6 +38,29 @@ const NAMES = [
   'Wisp',
   'Yarrow',
   'Zephyr',
+  'Ash',
+  'Beau',
+  'Cinder',
+  'Clove',
+  'Cork',
+  'Drift',
+  'Flint',
+  'Grove',
+  'Haze',
+  'Indigo',
+  'Kestrel',
+  'Lark',
+  'Maple',
+  'Opal',
+  'Pip',
+  'Quartz',
+  'Reef',
+  'Sol',
+  'Thistle',
+  'Vesper',
+  'Wren',
+  'Yuzu',
+  'Zinnia',
 ];
 
 function pick<T>(list: readonly T[]): T {
@@ -45,7 +68,7 @@ function pick<T>(list: readonly T[]): T {
 }
 
 /** A fresh arc, every time it opens: the same name never comes twice. */
-export function suggestFaces(count = 18): Suggested[] {
+export function suggestFaces(count = 32): Suggested[] {
   const pool = [...NAMES];
   for (let i = pool.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
