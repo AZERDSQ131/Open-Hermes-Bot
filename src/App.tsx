@@ -26,6 +26,7 @@ import {
   type ClarifyRequest,
 } from './clarify';
 import { COPIED_LABEL, COPY_LABEL, COPY_WORD, copyableText } from './copy';
+import { findMatches, splitMatch, stepFind } from './find';
 import { joinsRunningTurn, STEERED_NOTE } from './steer';
 import { botShape } from './components/Bloub';
 import { type BloubShape } from './components/bloubFrames';
@@ -39,7 +40,18 @@ import { EditAgentDialog } from './components/EditAgentDialog';
 import { ClarifyCard } from './components/ClarifyCard';
 import { MentionText } from './components/MentionText';
 import { ModelPicker } from './components/ModelPicker';
-import { ArrowUpIcon, FileIcon, MenuIcon, MicIcon, PlusIcon, SearchIcon, StopIcon, CopyIcon, CheckIcon } from './components/Icons';
+import {
+  ArrowUpIcon,
+  CheckIcon,
+  ChevronLeftIcon,
+  CopyIcon,
+  FileIcon,
+  MenuIcon,
+  MicIcon,
+  PlusIcon,
+  SearchIcon,
+  StopIcon,
+} from './components/Icons';
 import type {
   HermesConnectorList,
   HermesMessage,
@@ -538,6 +550,12 @@ export default function App() {
   // The conversations Hermes held before this window: a session is held by a
   // profile, so each one belongs under the bot that owns it. Folded away until
   // someone asks — a new install should not open on another client's history.
+  // Looking for a word in the conversation on screen: what is typed, and
+  // which of the messages that hold it the window is showing.
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState('');
+  const [findAt, setFindAt] = useState(0);
+  const findInputRef = useRef<HTMLInputElement>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   // Folded, a group shows a few conversations and counts the rest; this opens
   // the count. It is not kept: the fold is a mood, not a setting.
@@ -1325,6 +1343,14 @@ export default function App() {
         event.preventDefault();
         searchRef.current?.focus();
         searchRef.current?.select();
+      }
+      if (event.key.toLowerCase() === 'f') {
+        event.preventDefault();
+        setFindOpen(true);
+        window.requestAnimationFrame(() => {
+          findInputRef.current?.focus();
+          findInputRef.current?.select();
+        });
       }
       if (event.key.toLowerCase() === 'n') {
         event.preventDefault();
@@ -3240,6 +3266,29 @@ export default function App() {
     [activeThread?.profile],
   );
 
+  /** The messages the current query is in, in transcript order. */
+  const findHits = findMatches(shownMessages, findQuery);
+
+  // The hit the window is on, brought into view. It is read from the DOM by
+  // the id the transcript gives each row, so nothing has to be ref-crawled.
+  useEffect(() => {
+    if (!findOpen || !findHits.length) return;
+    const id = findHits[Math.min(findAt, findHits.length - 1)];
+    document
+      .querySelector(`[data-message-id="${id}"]`)
+      ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [findOpen, findAt, findQuery, findHits.length]);
+
+  function closeFind() {
+    setFindOpen(false);
+    setFindQuery('');
+    setFindAt(0);
+  }
+
+  function stepToMatch(direction: 1 | -1) {
+    setFindAt((current) => stepFind(current, findHits.length, direction));
+  }
+
   function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (mentionMatch) {
       const count = mentionMatch.suggestions.length;
@@ -3771,6 +3820,64 @@ export default function App() {
           </div>
         </header>
 
+        {findOpen ? (
+          <div className="find-bar" role="search">
+            <input
+              ref={findInputRef}
+              className="find-input"
+              value={findQuery}
+              spellCheck={false}
+              placeholder="Find in this conversation"
+              aria-label="Find in this conversation"
+              onChange={(event) => {
+                setFindQuery(event.target.value);
+                setFindAt(0);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  closeFind();
+                } else if (event.key === 'Enter') {
+                  event.preventDefault();
+                  stepToMatch(event.shiftKey ? -1 : 1);
+                }
+              }}
+            />
+            <span className="find-count" aria-live="polite">
+              {findHits.length ? `${Math.min(findAt + 1, findHits.length)}/${findHits.length}` : '0/0'}
+            </span>
+            <button
+              type="button"
+              className="find-step is-previous"
+              aria-label="Previous match"
+              title="Previous match"
+              disabled={!findHits.length}
+              onClick={() => stepToMatch(-1)}
+            >
+              <ChevronLeftIcon size={14} />
+            </button>
+            <button
+              type="button"
+              className="find-step is-next"
+              aria-label="Next match"
+              title="Next match"
+              disabled={!findHits.length}
+              onClick={() => stepToMatch(1)}
+            >
+              <ChevronLeftIcon size={14} />
+            </button>
+            <button
+              type="button"
+              className="find-close"
+              aria-label="Close the search"
+              title="Close"
+              onClick={closeFind}
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
+
         {botsError ? (
           <p className="chat-notice" role="status">
             Hermes is out of reach — {botsError}.{' '}
@@ -3904,8 +4011,13 @@ export default function App() {
                     <div
                       className={`message-row ${message.role} ${
                         message.authorName ? 'is-group-line' : ''
+                      } ${
+                        findOpen && findHits[findAt] === message.id
+                          ? 'is-find-current'
+                          : ''
                       }`}
                       key={message.id}
+                      data-message-id={message.id}
                     >
                       {message.authorName && message.authorAvatar ? (
                         <AgentAvatar
@@ -3924,10 +4036,24 @@ export default function App() {
                           </span>
                         ) : null}
                         <div className={`bubble bubble-${message.role}`}>
-                          <MentionText
-                            text={message.text}
-                            members={activeThread.members}
-                          />
+                          {findOpen && findQuery.trim() && findHits.includes(message.id) ? (
+                            <>
+                              {splitMatch(message.text, findQuery).map((piece, index) =>
+                                piece.hit ? (
+                                  <mark className="find-hit" key={index}>
+                                    {piece.text}
+                                  </mark>
+                                ) : (
+                                  <span key={index}>{piece.text}</span>
+                                ),
+                              )}
+                            </>
+                          ) : (
+                            <MentionText
+                              text={message.text}
+                              members={activeThread.members}
+                            />
+                          )}
                         </div>
                         {copyableText(message) ? (
                           <button
