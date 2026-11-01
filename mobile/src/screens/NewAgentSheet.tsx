@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
+  Easing,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -48,6 +50,12 @@ export function NewAgentSheet({
   const window = useWindowDimensions();
   const tab = mode ?? 'bot';
   const [step, setStep] = useState<'faces' | 'form'>('faces');
+  // What is on screen, which lags behind `step` by the length of the swap:
+  // the two steps are not the same size, so the old one goes before the new
+  // one comes, and the change of size is seen as a movement rather than a
+  // jump.
+  const [shown, setShown] = useState<'faces' | 'form'>('faces');
+  const appear = useRef(new Animated.Value(1)).current;
   const [faces, setFaces] = useState<Suggested[]>([]);
   const [name, setName] = useState('Atlas');
   const [shape, setShape] = useState<BloubShape>('capsule');
@@ -59,10 +67,32 @@ export function NewAgentSheet({
   // Every opening starts from a fresh arc: the faces are drawn, not kept.
   useEffect(() => {
     if (!visible) return;
-    setStep(tab === 'bot' ? 'faces' : 'form');
+    const first = tab === 'bot' ? 'faces' : 'form';
+    setStep(first);
+    setShown(first);
+    appear.setValue(1);
     setPickingModel(false);
     if (tab === 'bot') setFaces(suggestFaces());
-  }, [tab, visible]);
+  }, [appear, tab, visible]);
+
+  useEffect(() => {
+    if (step === shown) return;
+    Animated.timing(appear, {
+      toValue: 0,
+      duration: 130,
+      easing: Easing.in(Easing.quad),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (!finished) return;
+      setShown(step);
+      Animated.timing(appear, {
+        toValue: 1,
+        duration: 240,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    });
+  }, [appear, shown, step]);
 
   const ready = name.trim().length > 0 && (tab === 'bot' || members.length > 1);
 
@@ -83,8 +113,8 @@ export function NewAgentSheet({
     onCreated?.(id);
   }
 
-  const onArc = tab === 'bot' && step === 'faces' && !pickingModel;
-  const back = pickingModel || (tab === 'bot' && step === 'form');
+  const onArc = tab === 'bot' && shown === 'faces' && !pickingModel;
+  const back = pickingModel || (tab === 'bot' && shown === 'form');
 
   function leave() {
     if (pickingModel) setPickingModel(false);
@@ -98,168 +128,184 @@ export function NewAgentSheet({
       onClose={onClose}
       minHeight={pickingModel ? undefined : Math.round(window.height * 0.62)}
     >
-      <View style={styles.head}>
-        <View style={styles.headCopy}>
-          <Text style={styles.title}>
-            {pickingModel ? 'Model' : onArc ? 'Create a bot' : tab === 'bot' ? 'New bot' : 'New group'}
-          </Text>
-          <Text style={styles.sub}>
-            {pickingModel
-              ? 'For this conversation only. The bot keeps its memory.'
-              : onArc
-                ? 'Fresh faces every time. Stop on one, then make it yours.'
-                : tab === 'bot'
-                  ? 'Its own memory, its own session, and the face you pick.'
-                  : 'Brings bots together in one conversation, each with its session.'}
-          </Text>
-        </View>
-        <GlassButton size={box(26)} label={back ? 'Back' : 'Close'} onPress={leave}>
-          {back ? <BackIcon size={15} color="#a8a8af" /> : <CloseIcon />}
-        </GlassButton>
-      </View>
-
-      {pickingModel ? (
-        <View style={[styles.picker, { height: Math.round(window.height * 0.45) }]}>
-          <ModelList
-            selected={model}
-            onPick={(picked) => {
-              setModel(picked);
-              setPickingModel(false);
-            }}
-          />
-        </View>
-      ) : onArc ? (
-        <BotArc faces={faces} onCustomize={customize} />
-      ) : (
-        <>
-          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
-            <View style={styles.preview}>
-              <Bloub shape={shape} color={color} size={56} />
-              <View style={styles.nameField}>
-                <Text style={styles.fieldLabel}>{tab === 'bot' ? 'Bot name' : 'Group name'}</Text>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  style={styles.fieldValue}
-                  placeholder="Name"
-                  placeholderTextColor="#87878e"
-                  autoCorrect={false}
-                  returnKeyType="done"
-                />
-              </View>
-            </View>
-            <Text style={styles.hint}>
-              {tab === 'bot'
-                ? `Creates the Hermes profile “${name.toLowerCase().replace(/\s+/g, '-') || 'bot'}” on ${HOST.name}.`
-                : 'Every member answers on its own, and can @ another to hand over the floor.'}
+      <Animated.View
+        style={[
+          styles.pane,
+          {
+            opacity: appear,
+            // The second step is not the size of the first: it comes in a
+            // breath smaller and settles, so the change is a movement.
+            transform: [
+              {
+                scale: appear.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }),
+              },
+            ],
+          },
+        ]}
+      >
+        <View style={styles.head}>
+          <View style={styles.headCopy}>
+            <Text style={styles.title}>
+              {pickingModel ? 'Model' : onArc ? 'Create a bot' : tab === 'bot' ? 'New bot' : 'New group'}
             </Text>
-
-            {tab === 'bot' ? (
-              <>
-                <View style={styles.section}>
-                  <Text style={styles.label}>Shape</Text>
-                  <View style={styles.shapeGrid}>
-                    {SHAPES.map((option) => (
-                      <Pressable
-                        key={option.id}
-                        style={[styles.shapeOption, shape === option.id && styles.shapeActive]}
-                        onPress={() => setShape(option.id)}
-                        accessibilityLabel={option.label}
-                      >
-                        <Bloub shape={option.id} color="#9a9aa2" size={22} />
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-
-                <View style={styles.section}>
-                  <Text style={styles.label}>Color</Text>
-                  <View style={styles.colorGrid}>
-                    {COLORS.map((dot) => (
-                      <Pressable
-                        key={dot}
-                        onPress={() => setColor(dot)}
-                        style={[
-                          styles.dot,
-                          { backgroundColor: dot },
-                          color === dot && styles.dotActive,
-                        ]}
-                        accessibilityLabel={`Colour ${dot}`}
-                      />
-                    ))}
-                  </View>
-                </View>
-              </>
-            ) : (
-              <View style={styles.section}>
-                <Text style={styles.label}>Members</Text>
-                <View style={styles.card}>
-                  {bots.map((bot, index) => {
-                    const on = members.includes(bot.id);
-                    return (
-                      <Pressable
-                        key={bot.id}
-                        style={[styles.row, index > 0 && styles.rowLine]}
-                        onPress={() =>
-                          setMembers((current) =>
-                            current.includes(bot.id)
-                              ? current.filter((id) => id !== bot.id)
-                              : [...current, bot.id],
-                          )
-                        }
-                      >
-                        <Bloub shape={bot.shape} color={bot.color} size={26} />
-                        <View style={styles.rowCopy}>
-                          <Text style={styles.rowName}>{bot.name}</Text>
-                          <Text style={styles.rowMeta}>{bot.role} · session {bot.session}</Text>
-                        </View>
-                        <View style={[styles.check, on && styles.checkOn]}>
-                          {on ? <Text style={styles.checkMark}>✓</Text> : null}
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-
-            <View style={styles.section}>
-              <Text style={styles.label}>Model</Text>
-              <View style={styles.card}>
-                <Pressable style={styles.row} onPress={() => setPickingModel(true)}>
-                  <View style={styles.rowCopy}>
-                    <Text style={styles.rowName}>{model}</Text>
-                    <Text style={styles.rowMeta}>Anthropic · default</Text>
-                  </View>
-                  <ChevronIcon />
-                </Pressable>
-              </View>
-            </View>
-
-            <Text style={styles.hint}>
-              {tab === 'bot'
-                ? 'The bot keeps its own memory, its own session, and the face you picked.'
-                : 'Each member keeps its own session, and can @ another to hand over the floor.'}
+            <Text style={styles.sub}>
+              {pickingModel
+                ? 'For this conversation only. The bot keeps its memory.'
+                : onArc
+                  ? 'Fresh faces every time. Stop on one, then make it yours.'
+                  : tab === 'bot'
+                    ? 'Its own memory, its own session, and the face you pick.'
+                    : 'Brings bots together in one conversation, each with its session.'}
             </Text>
-          </ScrollView>
-
-          <View style={styles.foot}>
-            <Pressable
-              style={({ pressed }) => [(!ready || pressed) && styles.primaryOff]}
-              onPress={create}
-              disabled={!ready}
-              accessibilityRole="button"
-              accessibilityLabel={tab === 'bot' ? 'Create bot' : 'Create group'}
-            >
-              <GlassSurface interactive style={styles.primary} tint={C.paper}>
-                <Text style={styles.primaryText}>
-                  {tab === 'bot' ? 'Create bot' : 'Create group'}
-                </Text>
-              </GlassSurface>
-            </Pressable>
           </View>
-        </>
-      )}
+          <GlassButton size={box(26)} label={back ? 'Back' : 'Close'} onPress={leave}>
+            {back ? <BackIcon size={15} color="#a8a8af" /> : <CloseIcon />}
+          </GlassButton>
+        </View>
+
+        {pickingModel ? (
+          <View style={[styles.picker, { height: Math.round(window.height * 0.45) }]}>
+            <ModelList
+              selected={model}
+              onPick={(picked) => {
+                setModel(picked);
+                setPickingModel(false);
+              }}
+            />
+          </View>
+        ) : onArc ? (
+          <BotArc faces={faces} onCustomize={customize} />
+        ) : (
+          <>
+            <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
+              <View style={styles.preview}>
+                <Bloub shape={shape} color={color} size={56} />
+                <View style={styles.nameField}>
+                  <Text style={styles.fieldLabel}>{tab === 'bot' ? 'Bot name' : 'Group name'}</Text>
+                  <TextInput
+                    value={name}
+                    onChangeText={setName}
+                    style={styles.fieldValue}
+                    placeholder="Name"
+                    placeholderTextColor="#87878e"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                  />
+                </View>
+              </View>
+              <Text style={styles.hint}>
+                {tab === 'bot'
+                  ? `Creates the Hermes profile “${name.toLowerCase().replace(/\s+/g, '-') || 'bot'}” on ${HOST.name}.`
+                  : 'Every member answers on its own, and can @ another to hand over the floor.'}
+              </Text>
+
+              {tab === 'bot' ? (
+                <>
+                  <View style={styles.section}>
+                    <Text style={styles.label}>Shape</Text>
+                    <View style={styles.shapeGrid}>
+                      {SHAPES.map((option) => (
+                        <Pressable
+                          key={option.id}
+                          style={[styles.shapeOption, shape === option.id && styles.shapeActive]}
+                          onPress={() => setShape(option.id)}
+                          accessibilityLabel={option.label}
+                        >
+                          <Bloub shape={option.id} color="#9a9aa2" size={22} />
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={styles.section}>
+                    <Text style={styles.label}>Color</Text>
+                    <View style={styles.colorGrid}>
+                      {COLORS.map((dot) => (
+                        <Pressable
+                          key={dot}
+                          onPress={() => setColor(dot)}
+                          style={[
+                            styles.dot,
+                            { backgroundColor: dot },
+                            color === dot && styles.dotActive,
+                          ]}
+                          accessibilityLabel={`Colour ${dot}`}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <View style={styles.section}>
+                  <Text style={styles.label}>Members</Text>
+                  <View style={styles.card}>
+                    {bots.map((bot, index) => {
+                      const on = members.includes(bot.id);
+                      return (
+                        <Pressable
+                          key={bot.id}
+                          style={[styles.row, index > 0 && styles.rowLine]}
+                          onPress={() =>
+                            setMembers((current) =>
+                              current.includes(bot.id)
+                                ? current.filter((id) => id !== bot.id)
+                                : [...current, bot.id],
+                            )
+                          }
+                        >
+                          <Bloub shape={bot.shape} color={bot.color} size={26} />
+                          <View style={styles.rowCopy}>
+                            <Text style={styles.rowName}>{bot.name}</Text>
+                            <Text style={styles.rowMeta}>{bot.role} · session {bot.session}</Text>
+                          </View>
+                          <View style={[styles.check, on && styles.checkOn]}>
+                            {on ? <Text style={styles.checkMark}>✓</Text> : null}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.section}>
+                <Text style={styles.label}>Model</Text>
+                <View style={styles.card}>
+                  <Pressable style={styles.row} onPress={() => setPickingModel(true)}>
+                    <View style={styles.rowCopy}>
+                      <Text style={styles.rowName}>{model}</Text>
+                      <Text style={styles.rowMeta}>Anthropic · default</Text>
+                    </View>
+                    <ChevronIcon />
+                  </Pressable>
+                </View>
+              </View>
+
+              <Text style={styles.hint}>
+                {tab === 'bot'
+                  ? 'The bot keeps its own memory, its own session, and the face you picked.'
+                  : 'Each member keeps its own session, and can @ another to hand over the floor.'}
+              </Text>
+            </ScrollView>
+
+            <View style={styles.foot}>
+              <Pressable
+                style={({ pressed }) => [(!ready || pressed) && styles.primaryOff]}
+                onPress={create}
+                disabled={!ready}
+                accessibilityRole="button"
+                accessibilityLabel={tab === 'bot' ? 'Create bot' : 'Create group'}
+              >
+                <GlassSurface interactive style={styles.primary} tint={C.paper}>
+                  <Text style={styles.primaryText}>
+                    {tab === 'bot' ? 'Create bot' : 'Create group'}
+                  </Text>
+                </GlassSurface>
+              </Pressable>
+            </View>
+          </>
+        )}
+      </Animated.View>
     </Sheet>
   );
 }
@@ -270,6 +316,7 @@ const styles = createStyles({
   title: { color: C.text, fontSize: 19, fontWeight: '600', letterSpacing: -0.48 },
   sub: { marginTop: 3, color: '#8a8a91', fontSize: 11, lineHeight: 15 },
 
+  pane: { flexGrow: 1, flexShrink: 1 },
   body: { flexShrink: 1, flexGrow: 1 },
   picker: { flexShrink: 1 },
   bodyContent: { paddingTop: 12, paddingHorizontal: 16, paddingBottom: 8 },
