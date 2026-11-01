@@ -1,73 +1,37 @@
-import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import {
   Animated,
+  PanResponder,
   Platform,
   Pressable,
   Text,
   View,
-  useWindowDimensions,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
 } from 'react-native';
 import { Bloub } from './Bloub';
 import type { Suggested } from '../faces';
 import { C, INK, box, createStyles } from '../theme';
 
 /**
- * The arc a bot is picked on: the faces sit on a wide circle, the one at the
- * centre stands up straight and full size, the others lean away and sink as
- * they leave, as if the row were the rim of a wheel.
+ * The circle a bot is picked on: every face sits on the rim of the same ring,
+ * evenly spaced, all of them in sight. Nothing is cut at the edges — the face
+ * on the far left is the neighbour of the one on the far right, because it is
+ * the same ring and it turns.
  *
- * It has no ends. The faces are laid out three times over, and whenever the
- * row drifts out of the middle copy it is put back by a whole copy — the
- * content is identical there, so the move is not seen. Scrolling left far
- * enough brings back the face that just left on the right: the circle closes.
- *
- * It scrolls and it snaps: the arc settles with a face in the middle, and
- * that face is the one Customize takes. A tap on a face is the same gesture,
- * done in one step.
+ * Dragging turns it, a wheel turns it on the web, and a tap brings a face to
+ * the top. Whatever stands at the top is the one Customize takes.
  */
-const FACE = box(56);
-const GAP = box(13);
-const STEP = FACE + GAP;
+const FACE = box(34);
+const RADIUS = box(108);
 
-/**
- * The circle the faces stand on. Small enough that the window is looking at
- * the rim from close up: the neighbours already lean away and sink, and the
- * row reads as a ring whose rest is out of sight — which is why it can turn
- * forever without an end.
- */
-const RADIUS = box(215);
-const SPAN = 3;
-
-/** The same faces three times over: the middle one is where we keep it. */
-const COPIES = 3;
-
-/** Out of the middle copy: put it back by a whole copy. */
-function wrapped(raw: number, count: number): number {
-  if (!count) return raw;
-  if (raw < count) return raw + count;
-  if (raw >= count * 2) return raw - count;
-  return raw;
+/** A whole number of degrees, positive or negative. */
+function mod(value: number, base: number): number {
+  return ((value % base) + base) % base;
 }
 
-/** How far up the arc the face at `p` points from the centre sits. */
-function lift(p: number): number {
-  return RADIUS - Math.sqrt(RADIUS * RADIUS - p * p);
+/** The angle equivalent to `target` that is nearest to `from`. */
+function nearest(target: number, from: number): number {
+  return target + 360 * Math.round((from - target) / 360);
 }
-
-/** How far it leans: the tangent of the circle, in degrees. */
-function tilt(p: number): number {
-  return (Math.asin(p / RADIUS) * 180) / Math.PI;
-}
-
-const STOPS = Array.from({ length: SPAN * 2 + 1 }, (_, n) => n - SPAN);
-// The arch: the face at the centre is the top of it, and the ones that leave
-// sink as they go. The row is laid out from the top so the sinking has room.
-const LIFTS = STOPS.map((k) => lift(k * STEP));
-const TILTS = STOPS.map((k) => `${tilt(-k * STEP)}deg`);
-const SCALES = STOPS.map((k) => 1 - (0.16 * Math.min(Math.abs(k), SPAN)) / SPAN);
-const OPACITIES = STOPS.map((k) => 1 - (0.55 * Math.min(Math.abs(k), SPAN)) / SPAN);
 
 export function BotArc({
   faces,
@@ -76,167 +40,154 @@ export function BotArc({
   faces: Suggested[];
   onCustomize: (face: Suggested) => void;
 }) {
-  const window = useWindowDimensions();
-  const scroller = useRef<ComponentRef<typeof Animated.ScrollView>>(null);
-  const scrollX = useRef(new Animated.Value(0)).current;
-  // The stage is as tall as the deepest face the window can show: the ring
-  // keeps sinking past the sides, but only that much of it is ever seen.
-  const reach = Math.min(window.width / 2 + FACE / 2, SPAN * STEP);
-  const stage = FACE + Math.ceil(lift(reach)) + box(6);
-  const count = faces.length;
-  const reel = useMemo(() => (count ? Array.from({ length: COPIES }, () => faces).flat() : []), [count, faces]);
-  const start = count ? count + Math.floor(count / 2) : 0;
-  const [at, setAt] = useState(start);
-  const index = count ? ((at % count) + count) % count : 0;
-  const face = faces[index];
-  // The wheel listener is attached once, so it reads the count from a ref.
-  const countRef = useRef(count);
-  countRef.current = count;
-  // Where the arc was last put. The scroll position can only be set once the
-  // content has a width, which is a size change, not an effect.
-  const placed = useRef<number | null>(null);
+  const count = Math.max(faces.length, 1);
+  const slot = 360 / count;
+  const slotPx = (2 * Math.PI * RADIUS) / count;
+  const degPerPx = 360 / (2 * Math.PI * RADIUS);
+  const size = RADIUS * 2 + FACE;
 
-  /**
-   * The arc opens in the middle copy, on the middle face: a face with others
-   * on both sides, not a row that starts against the edge of the screen.
-   */
-  function place() {
-    if (!count || placed.current === start) return;
-    placed.current = start;
-    scrollX.setValue(start * STEP);
-    scroller.current?.scrollTo({ x: start * STEP, animated: false });
-    setAt(start);
+  const turn = useRef(new Animated.Value(0)).current;
+  const [index, setIndex] = useState(0);
+
+  // What the wheel rests on, and how far it has been pulled since. The
+  // responder is built once, so everything it reads lives in refs.
+  const state = useRef({ turn: 0, index: 0 });
+  const geometry = useRef({ slot, slotPx, degPerPx, count });
+  geometry.current = { slot, slotPx, degPerPx, count };
+  state.current.index = index;
+  // The angle the wheel was at when the finger took it.
+  const base = useRef(0);
+
+  function goTo(next: number, from: number) {
+    const { slot: step } = geometry.current;
+    const target = nearest(-next * step, from);
+    state.current.turn = target;
+    state.current.index = next;
+    setIndex(next);
+    Animated.spring(turn, {
+      toValue: target,
+      useNativeDriver: Platform.OS !== 'web',
+      speed: 16,
+      bounciness: 5,
+    }).start();
   }
 
+  // The wheel is dragged from wherever it rests, so the value it rests on is
+  // read back from the animation itself, not remembered by hand.
+  useEffect(() => {
+    const id = turn.addListener(({ value }) => {
+      state.current.turn = value;
+    });
+    return () => turn.removeListener(id);
+  }, [turn]);
+
+  const pan = useRef(
+    PanResponder.create({
+      // A tap belongs to the face under it; only a real pull takes the wheel.
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gesture) =>
+        Math.abs(gesture.dx) > 4 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+      onPanResponderGrant: () => {
+        turn.stopAnimation((value) => {
+          base.current = value;
+        });
+      },
+      onPanResponderMove: (_, gesture) => {
+        turn.setValue(base.current + gesture.dx * geometry.current.degPerPx);
+      },
+      onPanResponderRelease: (_, gesture) => {
+        const { slotPx: stepPx, count: total, degPerPx } = geometry.current;
+        const pulled = base.current + gesture.dx * degPerPx;
+        const next = mod(state.current.index - Math.round(gesture.dx / stepPx), total);
+        goTo(next, pulled);
+      },
+    }),
+  ).current;
+
   /**
-   * A mouse has no sideways gesture: over the arc, the wheel drives it, and
-   * the row settles on the nearest face once the wheel has stopped.
+   * A mouse has no sideways gesture: over the ring, the wheel turns it, one
+   * face per notch, so the whole circle is reachable without a trackpad.
    */
+  const ring = useRef<ComponentRef<typeof View>>(null);
   useEffect(() => {
     if (Platform.OS !== 'web') return;
-    const instance = scroller.current as unknown as {
-      getScrollableNode?: () => HTMLElement | null;
-      getNode?: () => HTMLElement | null;
-    } | null;
-    // react-native-web exposes the scrolling element under one of these names.
-    const node = instance?.getScrollableNode?.() ?? instance?.getNode?.();
-    if (!node) return;
+    const node = ring.current as unknown as HTMLElement | null;
+    if (!node?.addEventListener) return;
 
-    let idle: ReturnType<typeof setTimeout> | undefined;
+    let collected = 0;
     const onWheel = (event: WheelEvent) => {
-      if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
       event.preventDefault();
-      node.scrollLeft += event.deltaY;
-      if (idle) clearTimeout(idle);
-      idle = setTimeout(() => {
-        const raw = Math.round(node.scrollLeft / STEP);
-        const back = wrapped(raw, countRef.current);
-        setAt(back);
-        if (back === raw) {
-          node.scrollTo({ left: back * STEP, behavior: 'smooth' });
-        } else {
-          scrollX.setValue(back * STEP);
-          node.scrollLeft = back * STEP;
-        }
-      }, 140);
+      collected += event.deltaY;
+      if (Math.abs(collected) < 40) return;
+      const direction = collected > 0 ? 1 : -1;
+      collected = 0;
+      goTo(mod(state.current.index + direction, geometry.current.count), state.current.turn);
     };
 
     node.addEventListener('wheel', onWheel, { passive: false });
-    return () => {
-      if (idle) clearTimeout(idle);
-      node.removeEventListener('wheel', onWheel);
-    };
-    // The node is stable for the life of the arc.
+    return () => node.removeEventListener('wheel', onWheel);
+    // Built once: it reads the wheel through refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** The finger let go: the nearest face comes to the middle, nothing else. */
-  function settle(event: NativeSyntheticEvent<NativeScrollEvent>) {
-    if (!count) return;
-    const raw = Math.round(event.nativeEvent.contentOffset.x / STEP);
-    // Out of the middle copy: put it back by a copy, without travelling.
-    const back = wrapped(raw, count);
-    const jumped = back !== raw;
-    setAt(back);
-    if (jumped) scrollX.setValue(back * STEP);
-    scroller.current?.scrollTo({ x: back * STEP, animated: !jumped });
-  }
-
-  function bring(next: number) {
-    if (next === at) return;
-    setAt(next);
-    scroller.current?.scrollTo({ x: next * STEP, animated: true });
-  }
+  const face = faces[index];
 
   return (
     <View style={styles.stageWrap}>
       <View style={styles.middle}>
-        <Animated.ScrollView
-          ref={scroller}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          bounces={false}
-          decelerationRate="fast"
-          snapToInterval={STEP}
-          contentContainerStyle={{
-            alignItems: 'flex-start',
-            paddingHorizontal: (window.width - STEP) / 2,
-            paddingTop: box(2),
-          }}
-          style={{ height: stage }}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
-            useNativeDriver: Platform.OS !== 'web',
-            listener: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-              const next = Math.round(event.nativeEvent.contentOffset.x / STEP);
-              setAt((current) => (current === next ? current : next));
-            },
-          })}
-          scrollEventThrottle={16}
-          onContentSizeChange={place}
-          onLayout={place}
-          onScrollEndDrag={settle}
-          onMomentumScrollEnd={settle}
+        <View
+          ref={ring}
+          style={{ width: size, height: size, alignSelf: 'center' }}
+          {...pan.panHandlers}
         >
-          {reel.map((entry, position) => {
-            const inputRange = STOPS.map((k) => (position + k) * STEP);
-            const pick = (outputRange: number[]) =>
-              scrollX.interpolate({ inputRange, outputRange, extrapolate: 'clamp' });
-
+          {faces.map((entry, position) => {
+            const angle = position * slot;
+            const chosen = position === index;
             return (
               <Animated.View
-                key={`${position}-${entry.id}`}
+                key={entry.id}
                 style={[
-                  styles.slot,
+                  styles.seat,
                   {
-                    width: STEP,
+                    left: (size - FACE) / 2,
+                    top: (size - FACE) / 2,
+                    width: FACE,
                     height: FACE,
-                    opacity: pick(OPACITIES),
                     transform: [
-                      { translateY: pick(LIFTS) },
+                      // Out from the middle, along the rim, then stood up.
                       {
-                        rotate: scrollX.interpolate({
-                          inputRange,
-                          outputRange: TILTS,
-                          extrapolate: 'clamp',
+                        rotate: turn.interpolate({
+                          inputRange: [-3600, 3600],
+                          outputRange: [`${-3600 + angle}deg`, `${3600 + angle}deg`],
                         }),
                       },
-                      { scale: pick(SCALES) },
+                      { translateY: -RADIUS },
+                      {
+                        rotate: turn.interpolate({
+                          inputRange: [-3600, 3600],
+                          outputRange: [`${3600 - angle}deg`, `${-3600 - angle}deg`],
+                        }),
+                      },
                     ],
                   },
                 ]}
               >
                 <Pressable
-                  onPress={() => bring(position)}
+                  onPress={() => goTo(position, state.current.turn)}
                   accessibilityRole="button"
                   accessibilityLabel={`Face ${entry.name}`}
-                  style={({ pressed }) => pressed && styles.pressed}
+                  style={({ pressed }) => [
+                    styles.face,
+                    chosen && styles.chosen,
+                    pressed && styles.pressed,
+                  ]}
                 >
                   <Bloub shape={entry.shape} color={entry.color} size={FACE} />
                 </Pressable>
               </Animated.View>
             );
           })}
-        </Animated.ScrollView>
+        </View>
       </View>
 
       <Text style={styles.name}>{face?.name ?? ''}</Text>
@@ -257,13 +208,12 @@ export function BotArc({
 
 const styles = createStyles({
   stageWrap: { flexGrow: 1 },
-  // The arc sits low in the sheet, over its name: the room it leaves is above
-  // it, not under it.
-  middle: { flexGrow: 1, justifyContent: 'flex-end', paddingBottom: box(22) },
-  slot: { alignItems: 'center', justifyContent: 'center' },
+  middle: { flexGrow: 1, justifyContent: 'flex-end', paddingBottom: box(10) },
+  seat: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
+  face: { alignItems: 'center', justifyContent: 'center', opacity: 0.72 },
+  chosen: { opacity: 1, transform: [{ scale: 1.3 }] },
   pressed: { opacity: 0.6 },
   name: {
-    marginTop: 4,
     color: C.text,
     fontSize: 15.5,
     fontWeight: '600',
