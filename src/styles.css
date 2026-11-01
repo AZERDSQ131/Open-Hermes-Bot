@@ -1631,7 +1631,8 @@ button:focus-visible {
 .message-row {
   display: flex;
   width: 100%;
-  margin-bottom: 16px;
+  /* Room under the bubble for the copy mark, which is always there. */
+  margin-bottom: 24px;
 }
 
 .message-row.assistant {
@@ -1669,55 +1670,61 @@ button:focus-visible {
   color: #1c1b19;
 }
 
-/* A bubble hands its words over from a chip on its bottom corner: anchored to
-   the bubble it belongs to, small enough to stay out of the way, and only
-   there once the pointer or the keyboard arrives. */
+/* A bubble hands its words over from a lone mark under it: no plate, no
+   border, only the icon, tucked inside the width of the message it belongs to
+   so nothing hangs off its edge. It is always there, faint, and steps forward
+   when the pointer or the keyboard arrives. */
 .bubble-copy {
   position: absolute;
-  bottom: -10px;
-  right: -10px;
+  top: 100%;
+  left: 4px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  height: 27px;
-  padding: 0 8px;
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 999px;
-  background: #303036;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.24);
-  color: rgba(242, 239, 229, 0.72);
-  font-family: inherit;
-  font-size: 11.5px;
-  line-height: 1;
-  letter-spacing: 0.01em;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: rgba(242, 239, 229, 0.4);
+  font: inherit;
   cursor: pointer;
+  transition: color 140ms ease;
+}
+
+/* The word the mark stands for, and only once the pointer rests on it: it
+   opens beside the mark rather than over the line above or below it. */
+.bubble-copy-word {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 7px);
+  transform: translateY(-50%);
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #1c1c1f;
+  color: #f2efe9;
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  pointer-events: none;
   opacity: 0;
-  transition: opacity 140ms ease, color 140ms ease, border-color 140ms ease;
+  transition: opacity 120ms ease;
 }
 
-.message-row.user .bubble-copy {
-  right: auto;
-  left: -10px;
-}
-
-.message-row:hover .bubble-copy,
+.bubble-copy:hover,
 .bubble-copy:focus-visible {
+  color: #f2efe9;
+}
+
+.bubble-copy:hover .bubble-copy-word,
+.bubble-copy:focus-visible .bubble-copy-word {
   opacity: 1;
 }
 
-.bubble-copy:hover {
-  color: #f2efe9;
-  border-color: rgba(242, 239, 229, 0.26);
-}
-
-@media (hover: none) {
-  .bubble-copy {
-    opacity: 1;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .bubble-copy {
+  .bubble-copy,
+  .bubble-copy-word {
     transition: none;
   }
 }
