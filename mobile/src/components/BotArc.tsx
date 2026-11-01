@@ -42,7 +42,9 @@ function tilt(p: number): number {
 }
 
 const STOPS = Array.from({ length: SPAN * 2 + 1 }, (_, n) => n - SPAN);
-const LIFTS = STOPS.map((k) => -lift(k * STEP));
+// The arch: the face at the centre is the top of it, and the ones that leave
+// sink as they go. The row is laid out from the top so the sinking has room.
+const LIFTS = STOPS.map((k) => lift(k * STEP));
 const TILTS = STOPS.map((k) => `${tilt(-k * STEP)}deg`);
 const SCALES = STOPS.map((k) => 1 - (0.16 * Math.min(Math.abs(k), SPAN)) / SPAN);
 const OPACITIES = STOPS.map((k) => 1 - (0.55 * Math.min(Math.abs(k), SPAN)) / SPAN);
@@ -85,6 +87,42 @@ export function BotArc({
     scroller.current?.scrollTo({ x: next * STEP, animated: true });
   }
 
+  /**
+   * A mouse has no sideways gesture: over the arc, the wheel drives it, and
+   * the row settles on the nearest face once the wheel has stopped.
+   */
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const instance = scroller.current as unknown as {
+      getScrollableNode?: () => HTMLElement | null;
+      getNode?: () => HTMLElement | null;
+    } | null;
+    // react-native-web exposes the scrolling element under one of these names.
+    const node = instance?.getScrollableNode?.() ?? instance?.getNode?.();
+    if (!node) return;
+
+    let idle: ReturnType<typeof setTimeout> | undefined;
+    const onWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+      event.preventDefault();
+      node.scrollLeft += event.deltaY;
+      if (idle) clearTimeout(idle);
+      idle = setTimeout(() => {
+        const next = clamp(Math.round(node.scrollLeft / STEP));
+        setIndex(next);
+        node.scrollTo({ left: next * STEP, behavior: 'smooth' });
+      }, 140);
+    };
+
+    node.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      if (idle) clearTimeout(idle);
+      node.removeEventListener('wheel', onWheel);
+    };
+    // The node is stable for the life of the arc.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <View style={styles.stageWrap}>
       <View style={styles.middle}>
@@ -95,11 +133,10 @@ export function BotArc({
           bounces={false}
           decelerationRate="fast"
           snapToInterval={STEP}
-          disableIntervalMomentum
           contentContainerStyle={{
-            alignItems: 'flex-end',
+            alignItems: 'flex-start',
             paddingHorizontal: (window.width - STEP) / 2,
-            paddingBottom: box(2),
+            paddingTop: box(2),
           }}
           style={{ height: STAGE }}
           onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
