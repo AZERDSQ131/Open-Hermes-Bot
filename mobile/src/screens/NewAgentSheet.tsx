@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import { Sheet } from '../components/Sheet';
 import { Bloub } from '../components/Bloub';
+import { BotArc } from '../components/BotArc';
 import { BackIcon, ChevronIcon, CloseIcon } from '../components/Icons';
 import { ModelList } from '../components/ModelList';
 import { COLORS, DEFAULT_MODEL, SHAPES, HOST } from '../data';
+import { suggestFaces, type Suggested } from '../faces';
 import type { BloubShape } from '../bloubFrames';
 import { useStore } from '../store';
 import { C, INK, createStyles } from '../theme';
@@ -24,6 +26,10 @@ import { C, INK, createStyles } from '../theme';
  *
  * Which of the two it is was decided before the sheet opened — by the plus's
  * small menu — so the sheet asks only what that choice still leaves open.
+ *
+ * A bot is made in two steps: the arc offers faces drawn at random, and the
+ * one that is kept fills the form below. The form is the same page it always
+ * was, only pre-filled — Back returns to the arc without losing the name.
  */
 export function NewAgentSheet({
   visible,
@@ -40,6 +46,8 @@ export function NewAgentSheet({
   const { bots, prefs, addBot, addGroup } = useStore();
   const window = useWindowDimensions();
   const tab = mode ?? 'bot';
+  const [step, setStep] = useState<'faces' | 'form'>('faces');
+  const [faces, setFaces] = useState<Suggested[]>([]);
   const [name, setName] = useState('Atlas');
   const [shape, setShape] = useState<BloubShape>('capsule');
   const [color, setColor] = useState(COLORS[0]);
@@ -47,7 +55,22 @@ export function NewAgentSheet({
   const [pickingModel, setPickingModel] = useState(false);
   const [members, setMembers] = useState<string[]>(['atlas', 'june', 'chief']);
 
+  // Every opening starts from a fresh arc: the faces are drawn, not kept.
+  useEffect(() => {
+    if (!visible) return;
+    setStep(tab === 'bot' ? 'faces' : 'form');
+    setPickingModel(false);
+    if (tab === 'bot') setFaces(suggestFaces());
+  }, [tab, visible]);
+
   const ready = name.trim().length > 0 && (tab === 'bot' || members.length > 1);
+
+  function customize(face: Suggested) {
+    setName(face.name);
+    setShape(face.shape);
+    setColor(face.color);
+    setStep('form');
+  }
 
   function create() {
     if (!ready) return;
@@ -59,6 +82,15 @@ export function NewAgentSheet({
     onCreated?.(id);
   }
 
+  const onArc = tab === 'bot' && step === 'faces' && !pickingModel;
+  const back = pickingModel || (tab === 'bot' && step === 'form');
+
+  function leave() {
+    if (pickingModel) setPickingModel(false);
+    else if (tab === 'bot' && step === 'form') setStep('faces');
+    else onClose();
+  }
+
   return (
     <Sheet
       visible={visible}
@@ -68,22 +100,20 @@ export function NewAgentSheet({
       <View style={styles.head}>
         <View style={styles.headCopy}>
           <Text style={styles.title}>
-            {pickingModel ? 'Model' : tab === 'bot' ? 'New bot' : 'New group'}
+            {pickingModel ? 'Model' : onArc ? 'Create a bot' : tab === 'bot' ? 'New bot' : 'New group'}
           </Text>
           <Text style={styles.sub}>
             {pickingModel
               ? 'For this conversation only. The bot keeps its memory.'
-              : tab === 'bot'
-                ? 'Its own memory, its own session, and the face you pick.'
-                : 'Brings bots together in one conversation, each with its session.'}
+              : onArc
+                ? 'Fresh faces every time. Stop on one, then make it yours.'
+                : tab === 'bot'
+                  ? 'Its own memory, its own session, and the face you pick.'
+                  : 'Brings bots together in one conversation, each with its session.'}
           </Text>
         </View>
-        <Pressable
-          style={styles.close}
-          onPress={() => (pickingModel ? setPickingModel(false) : onClose())}
-          accessibilityLabel={pickingModel ? 'Back' : 'Close'}
-        >
-          {pickingModel ? <BackIcon size={15} color="#a8a8af" /> : <CloseIcon />}
+        <Pressable style={styles.close} onPress={leave} accessibilityLabel={back ? 'Back' : 'Close'}>
+          {back ? <BackIcon size={15} color="#a8a8af" /> : <CloseIcon />}
         </Pressable>
       </View>
 
@@ -97,6 +127,8 @@ export function NewAgentSheet({
             }}
           />
         </View>
+      ) : onArc ? (
+        <BotArc faces={faces} onCustomize={customize} />
       ) : (
         <>
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
