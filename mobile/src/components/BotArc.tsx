@@ -210,7 +210,9 @@ export function BotArc({
 
 const styles = createStyles({
   stageWrap: { flexGrow: 1 },
-  middle: { flexGrow: 1, justifyContent: 'center' },
+  // The arc sits low in the sheet, over its name: the room it leaves is above
+  // it, not under it.
+  middle: { flexGrow: 1, justifyContent: 'flex-end', paddingBottom: box(22) },
   slot: { alignItems: 'center', justifyContent: 'center' },
   pressed: { opacity: 0.6 },
   name: {
