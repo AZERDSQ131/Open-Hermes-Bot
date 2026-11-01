@@ -26,7 +26,7 @@ import { GroupDetailsSheet } from './GroupDetailsSheet';
 import { CHAT_EVENTS, type Bot, type Message } from '../data';
 import { useStore } from '../store';
 import type { RootStackParamList } from '../nav';
-import { C, INK, box, createStyles } from '../theme';
+import { C, INK, createStyles } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -130,7 +130,7 @@ export function ChatScreen({ route, navigation }: Props) {
     return (
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.nav}>
-          <GlassButton size={box(24)} label="Back" onPress={() => navigation.goBack()}>
+          <GlassButton label="Back" onPress={() => navigation.goBack()}>
             <BackIcon />
           </GlassButton>
           <View style={styles.chatId}>
@@ -281,7 +281,7 @@ export function ChatScreen({ route, navigation }: Props) {
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.nav}>
-          <GlassButton size={box(24)} label="Back" onPress={() => navigation.goBack()}>
+          <GlassButton label="Back" onPress={() => navigation.goBack()}>
             <BackIcon />
           </GlassButton>
 
@@ -307,7 +307,6 @@ export function ChatScreen({ route, navigation }: Props) {
           </Pressable>
 
           <GlassButton
-            size={box(24)}
             label={isGroup ? 'Group details' : 'Conversation details'}
             onPress={() => (isGroup ? setDetailsOpen(true) : setModelsOpen(true))}
           >
