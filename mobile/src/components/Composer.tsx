@@ -1,12 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import {
-  AudioModule,
-  RecordingPresets,
-  setAudioModeAsync,
-  useAudioRecorder,
-  useAudioRecorderState,
-} from 'expo-audio';
 import type { Attachment, Bot, MessageKind, Thread } from '../data';
 import { dictationAvailable, startDictation, type Dictation } from '../dictation';
 import { ATTACHMENTS } from '../data';
@@ -19,9 +12,6 @@ import { Row, SheetHeader } from './UI';
 
 /** How many bars the live waveform keeps on screen. */
 const BARS = 18;
-
-/** The note is recorded locally; the meter is what drives the bars. */
-const VOICE = { ...RecordingPresets.LOW_QUALITY, isMeteringEnabled: true };
 
 function clock(total: number): string {
   const minutes = Math.floor(total / 60);
@@ -64,8 +54,9 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
   const [refusal, setRefusal] = useState('');
   const listening = useRef<Dictation | null>(null);
   const [levels, setLevels] = useState<number[]>(() => Array(BARS).fill(0.1));
-  const recorder = useAudioRecorder(VOICE);
-  const meter = useAudioRecorderState(recorder, 100);
+  // What the composer says once the microphone is closed and there is nothing
+  // to show for it.
+  const [aside, setAside] = useState('');
 
   useEffect(() => {
     if (!recording) return;
@@ -73,36 +64,37 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
     return () => clearInterval(timer);
   }, [recording]);
 
-  // The bars follow the room: the recorder reports a level in decibels, and
-  // each report pushes the strip one notch to the left.
+  // The bars say the microphone is open, and they are drawn here rather than
+  // read from the recorder: the recogniser owns the microphone now, and two
+  // readers on it is what used to leave both with nothing.
   useEffect(() => {
     if (!recording) return;
-    const decibels = meter.metering;
-    const level =
-      decibels === undefined
-        ? 0.12
-        : Math.max(0.08, Math.min(1, (decibels + 55) / 55));
-    setLevels((current) => [...current.slice(1), level]);
-  }, [meter.metering, recording]);
+    const timer = setInterval(() => {
+      setLevels((current) => {
+        const last = current[current.length - 1] ?? 0.2;
+        const next = Math.max(0.08, Math.min(0.9, last + (Math.random() - 0.5) * 0.55));
+        return [...current.slice(1), next];
+      });
+    }, 90);
+    return () => clearInterval(timer);
+  }, [recording]);
 
   // A screen left while recording does not keep the microphone open.
   useEffect(
     () => () => {
       listening.current?.stop();
       listening.current = null;
-      if (recorder.isRecording) void recorder.stop();
     },
-    [recorder],
+    [],
   );
 
-  async function startRecording() {
+  function startRecording() {
     setSeconds(0);
     setLevels(Array(BARS).fill(0.1));
     setHeard('');
     setDictated(false);
     setRefusal('');
-    // The words first, and on their own: the recorder is kept for the bars,
-    // and a phone that refuses the meter still gets its dictation.
+    setAside('');
     listening.current = startDictation(setHeard, (reason) =>
       setRefusal(
         reason === 'refused'
@@ -110,39 +102,24 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
           : 'No words came through · check the connection to the recogniser',
       ),
     );
-    try {
-      const permission = await AudioModule.requestRecordingPermissionsAsync();
-      if (permission.granted) {
-        await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
-        await recorder.prepareToRecordAsync();
-        recorder.record();
-      }
-    } catch {
-      // No meter this time: the words still come through the recogniser.
-    }
     setRecording(true);
   }
 
-  async function stopRecording(keep: boolean) {
+  function stopRecording(keep: boolean) {
     const settled = listening.current?.stop() ?? '';
     listening.current = null;
-    try {
-      if (recorder.isRecording) await recorder.stop();
-    } catch {
-      // Nothing was recording: there is nothing to close.
-    }
-    try {
-      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
-    } catch {
-      // The session was not ours to change.
-    }
     setRecording(false);
 
     // Stopping writes: the words go into the field, where they can be read,
     // corrected, and sent like anything typed. Nothing is sent from here.
     const said = (settled || heard).trim();
     setHeard('');
-    if (!keep || !said) return;
+    if (!keep) return;
+    if (!said) {
+      setAside(refusal || 'Nothing was heard · try again');
+      return;
+    }
+    setAside('');
     setDraft((current) => (current.trim() ? `${current.trim()} ${said}` : said));
     setDictated(true);
   }
@@ -179,7 +156,7 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
         <View style={styles.recorder}>
           <Pressable
             style={[styles.round, styles.cancel]}
-            onPress={() => void stopRecording(false)}
+            onPress={() => stopRecording(false)}
             accessibilityLabel="Cancel dictation"
           >
             <CloseIcon size={15} color="#d8c9cb" />
@@ -193,7 +170,7 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
           <Pressable
             style={styles.stop}
             accessibilityLabel="Stop dictating"
-            onPress={() => void stopRecording(true)}
+            onPress={() => stopRecording(true)}
           >
             <View style={styles.stopGlyph} />
           </Pressable>
@@ -256,12 +233,17 @@ export function Composer({ thread, bots, onSend }: ComposerProps) {
               size={box(37)}
               tint={C.paper}
               label="Dictate"
-              onPress={() => void startRecording()}
+              onPress={startRecording}
             >
               <MicIcon />
             </GlassButton>
           )}
         </GlassSurface>
+        {aside ? (
+          <Text style={styles.aside} numberOfLines={2}>
+            {aside}
+          </Text>
+        ) : null}
       </View>
 
       <Sheet visible={attaching} onClose={() => setAttaching(false)}>
@@ -310,6 +292,8 @@ const styles = createStyles({
     borderRadius: 25,
   },
   input: { flex: 1, paddingHorizontal: 3, color: C.text, fontSize: 13 },
+  // Said under the field, where it stays after the microphone is closed.
+  aside: { marginTop: 5, paddingHorizontal: 6, color: '#a06a6a', fontSize: 10, lineHeight: 14 },
 
   roster: {
     position: 'absolute',
