@@ -117,7 +117,11 @@ export function ConversationSheet({
             </View>
 
             <View style={styles.buttons}>
-              <PrimaryButton label="Clear conversation" onPress={() => setConfirming(true)} />
+              <PrimaryButton
+                label="Clear conversation"
+                tone="danger"
+                onPress={() => setConfirming(true)}
+              />
             </View>
           </ScrollView>
           )}
