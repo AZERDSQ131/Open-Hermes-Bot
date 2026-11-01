@@ -266,7 +266,9 @@ export function BotArc({
 
 const styles = createStyles({
   stageWrap: { flexGrow: 1 },
-  middle: { flexGrow: 1, justifyContent: 'flex-end', paddingBottom: box(10) },
+  // The arc is centred in what the sheet leaves: as much air above it, under
+  // the title, as under it, over the button.
+  middle: { flexGrow: 1, justifyContent: 'center' },
   // The rest of the ring is out of frame: the stage is the window on it.
   stage: { overflow: 'hidden' },
   seat: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
