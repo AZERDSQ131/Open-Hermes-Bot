@@ -11,13 +11,14 @@ import {
 import { Sheet } from '../components/Sheet';
 import { Bloub } from '../components/Bloub';
 import { BotArc } from '../components/BotArc';
+import { GlassButton } from '../components/GlassButton';
 import { BackIcon, ChevronIcon, CloseIcon } from '../components/Icons';
 import { ModelList } from '../components/ModelList';
 import { COLORS, DEFAULT_MODEL, SHAPES, HOST } from '../data';
 import { suggestFaces, type Suggested } from '../faces';
 import type { BloubShape } from '../bloubFrames';
 import { useStore } from '../store';
-import { C, INK, createStyles } from '../theme';
+import { C, INK, box, createStyles } from '../theme';
 
 /**
  * The create sheet. A bot keeps its own memory, its own session, and the
@@ -112,9 +113,9 @@ export function NewAgentSheet({
                   : 'Brings bots together in one conversation, each with its session.'}
           </Text>
         </View>
-        <Pressable style={styles.close} onPress={leave} accessibilityLabel={back ? 'Back' : 'Close'}>
+        <GlassButton size={box(26)} label={back ? 'Back' : 'Close'} onPress={leave}>
           {back ? <BackIcon size={15} color="#a8a8af" /> : <CloseIcon />}
-        </Pressable>
+        </GlassButton>
       </View>
 
       {pickingModel ? (
@@ -262,7 +263,6 @@ const styles = createStyles({
   headCopy: { flex: 1 },
   title: { color: C.text, fontSize: 19, fontWeight: '600', letterSpacing: -0.48 },
   sub: { marginTop: 3, color: '#8a8a91', fontSize: 11, lineHeight: 15 },
-  close: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: '#34343a' },
 
   body: { flexShrink: 1, flexGrow: 1 },
   picker: { flexShrink: 1 },
