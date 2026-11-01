@@ -29,6 +29,8 @@ export type Message = {
   attachment?: Attachment;
   /** A voice note carries how long it ran. */
   duration?: string;
+  /** Said rather than typed: the bubble sets it in italics. */
+  dictated?: boolean;
   reaction?: Reaction;
 };
 

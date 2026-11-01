@@ -259,7 +259,11 @@ export function ChatScreen({ route, navigation }: Props) {
                 </Text>
               </View>
             ) : (
-              <MessageText text={message.text} users={members} style={ink} />
+              <MessageText
+                text={message.text}
+                users={members}
+                style={message.dictated ? [ink, styles.dictated] : ink}
+              />
             )}
           </Pressable>
 
@@ -426,6 +430,8 @@ const styles = createStyles({
   msgGroup: { flexDirection: 'row', alignItems: 'flex-start', gap: 7 },
   msgAvatar: { marginTop: 16 },
   bubbleWrap: { flexShrink: 1, maxWidth: '86%', alignItems: 'flex-start' },
+  // Said aloud: the bubble keeps the voice in the letter, not in a label.
+  dictated: { fontStyle: 'italic' },
   msgActive: { zIndex: 30 },
   reactionLayer: { position: 'absolute', left: 0, zIndex: 20 },
   reactionAbove: { bottom: '100%', marginBottom: 6 },
