@@ -140,7 +140,9 @@ const styles = createStyles({
     shadowRadius: 22,
     shadowOffset: { width: 0, height: 12 },
   },
-  card: { borderRadius: 14, overflow: 'hidden' },
+  // The pane clips itself through its radius: no `overflow: hidden` around a
+  // GlassView, or the rim light goes with the corners.
+  card: { borderRadius: 14 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12 },
   pressed: { opacity: 0.6 },
   copy: { flex: 1 },
