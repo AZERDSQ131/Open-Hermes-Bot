@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { ChevronIcon, CloseIcon } from './Icons';
 import { GlassButton, GlassSurface } from './GlassButton';
-import { C, INK, box, createStyles } from '../theme';
+import { C, INK, createStyles } from '../theme';
 
 /** The head of a sheet: what it is, what it says, and the way out. */
 export function SheetHeader({
@@ -29,13 +29,13 @@ export function SheetHeader({
         <Text style={styles.headTitle}>{title}</Text>
         {sub ? <Text style={styles.headSub}>{sub}</Text> : null}
       </View>
-      <GlassButton size={box(26)} label={back ? 'Back' : 'Close'} onPress={back ?? onClose}>
+      <GlassButton label={back ? 'Back' : 'Close'} onPress={back ?? onClose}>
         {back ? (
           <View style={{ transform: [{ rotate: '180deg' }] }}>
-            <ChevronIcon size={14} color="#e9e9ed" />
+            <ChevronIcon size={17} color="#e9e9ed" />
           </View>
         ) : (
-          <CloseIcon color="#e9e9ed" />
+          <CloseIcon size={15} color="#e9e9ed" />
         )}
       </GlassButton>
     </View>

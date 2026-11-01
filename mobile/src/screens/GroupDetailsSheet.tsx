@@ -60,7 +60,7 @@ export function GroupDetailsSheet({
           <View style={styles.top}>
             <View style={styles.close}>
               <GlassButton label="Close" onPress={onClose}>
-                <CloseIcon color="#e9e9ed" />
+                <CloseIcon size={15} color="#e9e9ed" />
               </GlassButton>
             </View>
             <BloubGroup members={faces} size={58} />
