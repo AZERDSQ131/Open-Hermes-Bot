@@ -138,7 +138,7 @@ export function NewAgentSheet({
             </Text>
           </View>
           <GlassButton size={box(26)} label={canBack ? 'Back' : 'Close'} onPress={leave}>
-            {canBack ? <BackIcon size={15} color="#a8a8af" /> : <CloseIcon />}
+            {canBack ? <BackIcon size={15} color="#e9e9ed" /> : <CloseIcon color="#e9e9ed" />}
           </GlassButton>
         </View>
 

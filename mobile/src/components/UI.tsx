@@ -32,10 +32,10 @@ export function SheetHeader({
       <GlassButton size={box(26)} label={back ? 'Back' : 'Close'} onPress={back ?? onClose}>
         {back ? (
           <View style={{ transform: [{ rotate: '180deg' }] }}>
-            <ChevronIcon size={14} color="#a8a8af" />
+            <ChevronIcon size={14} color="#e9e9ed" />
           </View>
         ) : (
-          <CloseIcon />
+          <CloseIcon color="#e9e9ed" />
         )}
       </GlassButton>
     </View>
