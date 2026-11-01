@@ -17,17 +17,14 @@ export function ConversationSheet({
   visible,
   onClose,
   threadId,
-  onDeleted,
 }: {
   visible: boolean;
   onClose: () => void;
   threadId: string;
-  onDeleted: () => void;
 }) {
-  const { threadById, botById, toggles, toggle, setModel, clearThread, removeThread, togglePin } =
-    useStore();
+  const { threadById, botById, toggles, toggle, setModel, clearThread, togglePin } = useStore();
   const [picking, setPicking] = useState(false);
-  const [confirming, setConfirming] = useState<'clear' | 'delete' | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const thread = threadById(threadId);
   const bot = thread ? botById(thread.botId) : undefined;
 
@@ -60,27 +57,14 @@ export function ConversationSheet({
           />
           {confirming ? (
             <ConfirmBlock
-              title={
-                confirming === 'clear' ? 'Clear this conversation?' : 'Delete this conversation?'
-              }
-              message={
-                confirming === 'clear'
-                  ? 'The bubbles go; the bot stays, with its memory and its session.'
-                  : 'The conversation goes. The bot stays, with its memory and its session.'
-              }
-              confirmLabel={confirming === 'clear' ? 'Clear' : 'Delete'}
-              onCancel={() => setConfirming(null)}
+              title="Clear this conversation?"
+              message="The bubbles go; the bot stays, with its memory and its session."
+              confirmLabel="Clear"
+              onCancel={() => setConfirming(false)}
               onConfirm={() => {
-                if (confirming === 'clear') {
-                  clearThread(thread.id);
-                  setConfirming(null);
-                  onClose();
-                } else {
-                  removeThread(thread.id);
-                  setConfirming(null);
-                  onClose();
-                  onDeleted();
-                }
+                clearThread(thread.id);
+                setConfirming(false);
+                onClose();
               }}
             />
           ) : (
@@ -133,17 +117,7 @@ export function ConversationSheet({
             </View>
 
             <View style={styles.buttons}>
-              <PrimaryButton
-                label="Clear conversation"
-                tone="quiet"
-                onPress={() => setConfirming('clear')}
-              />
-              <View style={styles.gap} />
-              <PrimaryButton
-                label="Delete conversation"
-                tone="danger"
-                onPress={() => setConfirming('delete')}
-              />
+              <PrimaryButton label="Clear conversation" onPress={() => setConfirming(true)} />
             </View>
           </ScrollView>
           )}
@@ -159,5 +133,4 @@ const styles = createStyles({
   card: { borderRadius: 13, backgroundColor: C.cardRaised, overflow: 'hidden' },
   line: { height: 1, backgroundColor: C.hairline },
   buttons: { marginTop: 14 },
-  gap: { height: 8 },
 });

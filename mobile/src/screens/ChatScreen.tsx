@@ -373,7 +373,6 @@ export function ChatScreen({ route, navigation }: Props) {
         visible={modelsOpen}
         onClose={() => setModelsOpen(false)}
         threadId={thread.id}
-        onDeleted={() => navigation.goBack()}
       />
       <GroupDetailsSheet
         visible={detailsOpen}
