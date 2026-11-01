@@ -105,7 +105,7 @@ export function PrimaryButton({
         tone === 'paper'
           ? C.paper
           : tone === 'danger'
-            ? 'rgba(255,95,87,0.16)'
+            ? C.red
             : 'rgba(255,255,255,0.07)'
       }
       style={styles.button}
@@ -114,7 +114,7 @@ export function PrimaryButton({
         <Text
           style={[
             styles.buttonText,
-            tone === 'danger' && { color: '#ff6961' },
+            tone === 'danger' && { color: '#fff' },
             tone === 'quiet' && { color: C.text },
           ]}
         >
