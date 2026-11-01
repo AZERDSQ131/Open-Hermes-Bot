@@ -11,7 +11,7 @@ import {
 import { Sheet } from '../components/Sheet';
 import { Bloub } from '../components/Bloub';
 import { BotArc } from '../components/BotArc';
-import { GlassButton } from '../components/GlassButton';
+import { GlassButton, GlassSurface } from '../components/GlassButton';
 import { BackIcon, ChevronIcon, CloseIcon } from '../components/Icons';
 import { ModelList } from '../components/ModelList';
 import { COLORS, DEFAULT_MODEL, SHAPES, HOST } from '../data';
@@ -245,11 +245,17 @@ export function NewAgentSheet({
 
           <View style={styles.foot}>
             <Pressable
-              style={[styles.primary, !ready && styles.primaryOff]}
+              style={({ pressed }) => [(!ready || pressed) && styles.primaryOff]}
               onPress={create}
               disabled={!ready}
+              accessibilityRole="button"
+              accessibilityLabel={tab === 'bot' ? 'Create bot' : 'Create group'}
             >
-              <Text style={styles.primaryText}>{tab === 'bot' ? 'Create bot' : 'Create group'}</Text>
+              <GlassSurface interactive style={styles.primary} tint={C.paper}>
+                <Text style={styles.primaryText}>
+                  {tab === 'bot' ? 'Create bot' : 'Create group'}
+                </Text>
+              </GlassSurface>
             </Pressable>
           </View>
         </>
@@ -306,7 +312,13 @@ const styles = createStyles({
   checkMark: { color: '#1b1b19', fontSize: 11, fontWeight: '700' },
 
   foot: { paddingTop: 12, paddingHorizontal: 16, paddingBottom: 10 },
-  primary: { height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: C.paper },
+  // The same pill as Customize on the arc: the app's glass, in its paper.
+  primary: {
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+  },
   primaryOff: { opacity: 0.4 },
-  primaryText: { color: '#1b1b19', fontSize: 14, fontWeight: '600' },
+  primaryText: { color: INK.onPaper, fontSize: 14, fontWeight: '600' },
 });
