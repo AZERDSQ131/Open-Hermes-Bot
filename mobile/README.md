@@ -49,7 +49,7 @@ the status bar and the keyboard behaviour.
 | New bot / New group — shape, colour, members, model | `src/screens/NewAgentSheet.tsx` |
 | Models — grouped, per conversation | `src/components/ModelList.tsx` |
 | Group details — members, sessions, switches | `src/screens/GroupDetailsSheet.tsx` |
-| Dictation — the recorder and its waveform | `src/components/Composer.tsx` |
+| Dictation — the phone hears, the words land in the field (`src/dictation.ts`) | `src/components/Composer.tsx` |
 | Settings — behind the gear at the top of the list | `src/screens/SettingsScreen.tsx` |
 | First run — no bots yet | `src/components/FirstRun.tsx` |
 
