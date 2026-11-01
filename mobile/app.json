@@ -24,7 +24,14 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Hermes Bot listens to your voice to write the message.",
+          "speechRecognitionPermission": "Hermes Bot transcribes your dictation on this phone, never on a server."
+        }
+      ]
     ]
   }
 }

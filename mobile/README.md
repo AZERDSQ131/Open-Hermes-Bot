@@ -33,6 +33,12 @@ simulator. Nothing else is needed: every dependency is one Expo Go already
 carries (`react-native-svg`, `react-native-screens`,
 `react-native-safe-area-context`, `expo-clipboard`, React Navigation).
 
+**Except dictation.** Transcribing what is said needs `expo-speech-recognition`,
+a native module Expo Go does not carry: the app runs there and says so, and
+the microphone falls back to the keyboard's. To dictate in the app itself,
+build a dev client (`npx expo run:ios`) — it asks iOS for the on-device
+recogniser, never a server.
+
 `npx expo start --web` opens the same app in a browser; it is the quickest way
 to look at a screen without a phone, and the only native things it loses are
 the status bar and the keyboard behaviour.
