@@ -10,6 +10,7 @@ import {
   type PanResponderGestureState,
 } from 'react-native';
 import { Bloub } from './Bloub';
+import { GlassSurface } from './GlassButton';
 import type { Suggested } from '../faces';
 import { C, INK, box, createStyles } from '../theme';
 
@@ -242,16 +243,17 @@ export function BotArc({
         </View>
       </View>
 
-      <Text style={styles.name}>{face?.name ?? ''}</Text>
-
       <View style={styles.foot}>
         <Pressable
-          style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+          style={({ pressed }) => pressed && styles.pressed}
           onPress={() => face && onCustomize(face)}
           disabled={!face}
+          accessibilityRole="button"
           accessibilityLabel="Customize this bot"
         >
-          <Text style={styles.primaryText}>Customize</Text>
+          <GlassSurface interactive style={styles.primary} tint={C.paper}>
+            <Text style={styles.primaryText}>Customize</Text>
+          </GlassSurface>
         </Pressable>
       </View>
     </View>
@@ -264,17 +266,16 @@ const styles = createStyles({
   // The rest of the ring is out of frame: the stage is the window on it.
   stage: { overflow: 'hidden' },
   seat: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
-  face: { alignItems: 'center', justifyContent: 'center', opacity: 0.72 },
-  chosen: { opacity: 1, transform: [{ scale: 1.3 }] },
+  face: { alignItems: 'center', justifyContent: 'center', opacity: 0.55 },
+  chosen: { opacity: 1, transform: [{ scale: 1.55 }] },
   pressed: { opacity: 0.6 },
-  name: {
-    color: C.text,
-    fontSize: 15.5,
-    fontWeight: '600',
-    letterSpacing: -0.3,
-    textAlign: 'center',
+  foot: { paddingTop: 4, paddingHorizontal: 16, paddingBottom: 10 },
+  // A pill of the same glass as the buttons, in the colour it always had.
+  primary: {
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
   },
-  foot: { paddingTop: 14, paddingHorizontal: 16, paddingBottom: 10 },
-  primary: { height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: C.paper },
   primaryText: { color: INK.onPaper, fontSize: 14, fontWeight: '600' },
 });
