@@ -7,6 +7,7 @@ import {
   Text,
   View,
   useWindowDimensions,
+  type PanResponderGestureState,
 } from 'react-native';
 import { Bloub } from './Bloub';
 import type { Suggested } from '../faces';
@@ -83,8 +84,12 @@ export function BotArc({
     Animated.spring(turn, {
       toValue: target,
       useNativeDriver: Platform.OS !== 'web',
-      speed: 16,
-      bounciness: 5,
+      // Stiff enough to answer at once, damped enough to arrive without a
+      // wobble: the wheel comes to rest, it does not bounce.
+      stiffness: 150,
+      damping: 24,
+      mass: 1,
+      isInteraction: false,
     }).start();
   }
 
@@ -102,7 +107,7 @@ export function BotArc({
       // A tap belongs to the face under it; only a real pull takes the wheel.
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gesture) =>
-        Math.abs(gesture.dx) > 4 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+        Math.abs(gesture.dx) > 3 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
       onPanResponderGrant: () => {
         turn.stopAnimation((value) => {
           base.current = value;
@@ -111,18 +116,26 @@ export function BotArc({
       onPanResponderMove: (_, gesture) => {
         turn.setValue(base.current + gesture.dx * geometry.current.degPerPx);
       },
-      onPanResponderRelease: (_, gesture) => {
-        const { slotPx: stepPx, count: total, degPerPx } = geometry.current;
-        const pulled = base.current + gesture.dx * degPerPx;
-        const next = mod(state.current.index - Math.round(gesture.dx / stepPx), total);
-        goTo(next, pulled);
-      },
+      // Let go after a flick and the wheel keeps going the way the hand
+      // threw it: the speed is read as distance, so a quick pull carries a
+      // few faces and a slow one only the nearest.
+      onPanResponderRelease: (_, gesture) => drop(gesture, true),
+      onPanResponderTerminate: (_, gesture) => drop(gesture, false),
     }),
   ).current;
 
+  function drop(gesture: PanResponderGestureState, flick: boolean) {
+    const { slotPx: stepPx, count: total, degPerPx } = geometry.current;
+    const travel = gesture.dx + (flick ? gesture.vx * 120 : 0);
+    const next = mod(state.current.index - Math.round(travel / stepPx), total);
+    goTo(next, base.current + gesture.dx * degPerPx);
+  }
+
   /**
-   * A mouse has no sideways gesture: over the ring, the wheel turns it, one
-   * face per notch, so the whole circle is reachable without a trackpad.
+   * A mouse has no sideways gesture: over the ring, the wheel turns it as if
+   * it were being pulled, and it settles on the nearest face once the wheel
+   * stops. The pull is followed frame by frame, not stepped, so a trackpad
+   * reads as one movement.
    */
   const ring = useRef<ComponentRef<typeof View>>(null);
   useEffect(() => {
@@ -130,18 +143,30 @@ export function BotArc({
     const node = ring.current as unknown as HTMLElement | null;
     if (!node?.addEventListener) return;
 
-    let collected = 0;
+    let pulled = 0;
+    let from: number | null = null;
+    let idle: ReturnType<typeof setTimeout> | undefined;
+
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      collected += event.deltaY;
-      if (Math.abs(collected) < 40) return;
-      const direction = collected > 0 ? 1 : -1;
-      collected = 0;
-      goTo(mod(state.current.index + direction, geometry.current.count), state.current.turn);
+      if (from === null) from = state.current.turn;
+      pulled += event.deltaY;
+      turn.setValue(from + pulled * geometry.current.degPerPx);
+      if (idle) clearTimeout(idle);
+      idle = setTimeout(() => {
+        const { slotPx: stepPx, count: total, degPerPx } = geometry.current;
+        const next = mod(state.current.index - Math.round(pulled / stepPx), total);
+        goTo(next, (from ?? 0) + pulled * degPerPx);
+        pulled = 0;
+        from = null;
+      }, 120);
     };
 
     node.addEventListener('wheel', onWheel, { passive: false });
-    return () => node.removeEventListener('wheel', onWheel);
+    return () => {
+      if (idle) clearTimeout(idle);
+      node.removeEventListener('wheel', onWheel);
+    };
     // Built once: it reads the wheel through refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
