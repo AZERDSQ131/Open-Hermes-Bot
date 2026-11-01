@@ -55,7 +55,12 @@ export function NewAgentSheet({
   // one comes, and the change of size is seen as a movement rather than a
   // jump.
   const [shown, setShown] = useState<'faces' | 'form'>('faces');
-  const appear = useRef(new Animated.Value(1)).current;
+  // The step that is on its way out, and how far the pair has travelled:
+  // 0 is the start of the slide, 1 the end. The two steps are the same
+  // height, but not the same page, so they hand over the way pages do.
+  const [leaving, setLeaving] = useState<'faces' | 'form' | null>(null);
+  const slide = useRef(new Animated.Value(1)).current;
+  const direction = useRef(1);
   const [faces, setFaces] = useState<Suggested[]>([]);
   const [name, setName] = useState('Atlas');
   const [shape, setShape] = useState<BloubShape>('capsule');
@@ -70,29 +75,28 @@ export function NewAgentSheet({
     const first = tab === 'bot' ? 'faces' : 'form';
     setStep(first);
     setShown(first);
-    appear.setValue(1);
+    setLeaving(null);
+    slide.setValue(1);
     setPickingModel(false);
     if (tab === 'bot') setFaces(suggestFaces());
-  }, [appear, tab, visible]);
+  }, [slide, tab, visible]);
 
   useEffect(() => {
     if (step === shown) return;
-    Animated.timing(appear, {
-      toValue: 0,
-      duration: 130,
-      easing: Easing.in(Easing.quad),
+    direction.current = step === 'form' ? 1 : -1;
+    setLeaving(shown);
+    slide.setValue(0);
+    Animated.timing(slide, {
+      toValue: 1,
+      duration: 300,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (!finished) return;
       setShown(step);
-      Animated.timing(appear, {
-        toValue: 1,
-        duration: 240,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start();
+      setLeaving(null);
     });
-  }, [appear, shown, step]);
+  }, [shown, slide, step]);
 
   const ready = name.trim().length > 0 && (tab === 'bot' || members.length > 1);
 
@@ -113,53 +117,40 @@ export function NewAgentSheet({
     onCreated?.(id);
   }
 
-  const onArc = tab === 'bot' && shown === 'faces' && !pickingModel;
-  const back = pickingModel || (tab === 'bot' && shown === 'form');
-
   function leave() {
     if (pickingModel) setPickingModel(false);
     else if (tab === 'bot' && step === 'form') setStep('faces');
     else onClose();
   }
 
-  return (
-    <Sheet
-      visible={visible}
-      onClose={onClose}
-      minHeight={pickingModel ? undefined : Math.round(window.height * 0.62)}
-    >
-      <Animated.View
-        style={[
-          styles.pane,
-          {
-            opacity: appear,
-            // The second step is not the size of the first: it comes in a
-            // breath smaller and settles, so the change is a movement.
-            transform: [
-              {
-                scale: appear.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }),
-              },
-            ],
-          },
-        ]}
-      >
+  /**
+   * One step, whole: its title, its way back, and what it asks for. It is a
+   * function because two of them are on screen at once while they trade
+   * places — the one arriving, and the one leaving.
+   */
+  function stepPane(which: 'faces' | 'form') {
+    const arc = tab === 'bot' && which === 'faces' && !pickingModel;
+    const canBack = pickingModel || (tab === 'bot' && which === 'form');
+
+    return (
+      <>
         <View style={styles.head}>
           <View style={styles.headCopy}>
             <Text style={styles.title}>
-              {pickingModel ? 'Model' : onArc ? 'Create a bot' : tab === 'bot' ? 'New bot' : 'New group'}
+              {pickingModel ? 'Model' : arc ? 'Create a bot' : tab === 'bot' ? 'New bot' : 'New group'}
             </Text>
             <Text style={styles.sub}>
               {pickingModel
                 ? 'For this conversation only. The bot keeps its memory.'
-                : onArc
+                : arc
                   ? 'Fresh faces every time. Stop on one, then make it yours.'
                   : tab === 'bot'
                     ? 'Its own memory, its own session, and the face you pick.'
                     : 'Brings bots together in one conversation, each with its session.'}
             </Text>
           </View>
-          <GlassButton size={box(26)} label={back ? 'Back' : 'Close'} onPress={leave}>
-            {back ? <BackIcon size={15} color="#a8a8af" /> : <CloseIcon />}
+          <GlassButton size={box(26)} label={canBack ? 'Back' : 'Close'} onPress={leave}>
+            {canBack ? <BackIcon size={15} color="#a8a8af" /> : <CloseIcon />}
           </GlassButton>
         </View>
 
@@ -173,7 +164,7 @@ export function NewAgentSheet({
               }}
             />
           </View>
-        ) : onArc ? (
+        ) : arc ? (
           <BotArc faces={faces} onCustomize={customize} />
         ) : (
           <>
@@ -305,7 +296,41 @@ export function NewAgentSheet({
             </View>
           </>
         )}
-      </Animated.View>
+      </>
+    );
+  }
+
+  // The step that arrives comes from the side it comes from; the one that
+  // leaves goes the other way, and neither is clipped by the sheet's frame.
+  const travel = window.width;
+  const enterX = slide.interpolate({
+    inputRange: [0, 1],
+    outputRange: [direction.current * travel, 0],
+  });
+  const exitX = slide.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -direction.current * travel],
+  });
+
+  return (
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      minHeight={pickingModel ? undefined : Math.round(window.height * 0.62)}
+    >
+      <View style={styles.panes}>
+        {leaving !== null ? (
+          <Animated.View
+            style={[styles.pane, styles.overlay, { transform: [{ translateX: exitX }] }]}
+            pointerEvents="none"
+          >
+            {stepPane(leaving)}
+          </Animated.View>
+        ) : null}
+        <Animated.View style={[styles.pane, { transform: [{ translateX: enterX }] }]}>
+          {stepPane(step)}
+        </Animated.View>
+      </View>
     </Sheet>
   );
 }
@@ -316,7 +341,9 @@ const styles = createStyles({
   title: { color: C.text, fontSize: 19, fontWeight: '600', letterSpacing: -0.48 },
   sub: { marginTop: 3, color: '#8a8a91', fontSize: 11, lineHeight: 15 },
 
+  panes: { flexGrow: 1, flexShrink: 1, overflow: 'hidden' },
   pane: { flexGrow: 1, flexShrink: 1 },
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   body: { flexShrink: 1, flexGrow: 1 },
   picker: { flexShrink: 1 },
   bodyContent: { paddingTop: 12, paddingHorizontal: 16, paddingBottom: 8 },
