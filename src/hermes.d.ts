@@ -533,6 +533,8 @@ export type HermesBridge = {
   }>;
   /** Opens a link in the browser. */
   openLink: (url: string) => Promise<{ ok: boolean }>;
+  /** Put a line on the system clipboard; the page cannot reach it itself. */
+  copyText: (text: string) => Promise<{ ok: boolean }>;
   sendChat: (payload: {
     requestId: string;
     sessionId: string;

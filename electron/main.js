@@ -8,6 +8,7 @@ const {
   BrowserWindow,
   Menu,
   Notification,
+  clipboard,
   shell,
   ipcMain,
 } = require('electron');
@@ -3627,6 +3628,16 @@ ipcMain.handle('hermes:chat:cancel', async (_event, requestId) => {
     timeoutMs: 10000,
   });
   return { ok: true, stopped: result.ok };
+});
+
+// Copying a line: the page cannot reach the clipboard by itself (it is served
+// from the app, not from a page with a clipboard grant), so the window asks the
+// process that owns one.
+ipcMain.handle('hermes:copy', (_event, text) => {
+  const value = String(text ?? '');
+  if (!value) return { ok: false };
+  clipboard.writeText(value);
+  return { ok: true };
 });
 
 // A message typed while the turn is still running joins that turn instead of
