@@ -1605,6 +1605,9 @@ export default function App() {
               tool: undefined,
               watching: false,
               approvals: [],
+              // A question belongs to the conversation that was asked it: a
+              // new one starts with nothing waiting on it.
+              clarifies: [],
               live: [],
               unread: false,
               preview: '',
