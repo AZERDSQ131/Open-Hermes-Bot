@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Page } from '../components/Page';
 import { Card, Field, Hint, PrimaryButton, Row, SectionLabel } from '../components/UI';
+import { PairingCode } from '../components/PairingCode';
 import { BridgeError } from '../api';
+import { pairingCodeReady } from '../pairing';
 import { useStore } from '../store';
 import { C, INK, createStyles } from '../theme';
 
@@ -24,6 +26,7 @@ export function ConnectionScreen() {
 
   const online = connection.status === 'connected';
   const working = busy || connection.status === 'connecting';
+  const ready = pairingCodeReady(code);
 
   async function pair() {
     setError('');
@@ -142,18 +145,21 @@ export function ConnectionScreen() {
                   onChange={setUrl}
                   placeholder="https://host.tailnet.ts.net"
                 />
-                <Field
-                  label="Pairing code"
-                  value={code}
-                  onChange={setCode}
-                  placeholder="ABCD-EFGH"
-                />
               </View>
             </Card>
+
+            <PairingCode
+              value={code}
+              onChange={setCode}
+              onSubmit={() => {
+                if (ready && !working) void pair();
+              }}
+            />
 
             <View style={styles.buttons}>
               <PrimaryButton
                 label={working ? 'Pairing…' : 'Pair this phone'}
+                disabled={!ready || working}
                 onPress={() => void pair()}
               />
             </View>
