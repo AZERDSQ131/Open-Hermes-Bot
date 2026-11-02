@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import type { GroupMember } from '../data';
 import { splitMatch } from '../find';
 import { splitMentions } from '../group';
@@ -9,15 +10,19 @@ type MentionTextProps = {
   find?: { query: string; firstHit: number; currentHit: number };
 };
 
-type Piece = { text: string; mention: boolean; occurrence: number | null };
+type Piece = { text: string; occurrence: number | null };
+type Segment = { mention: boolean; pieces: Piece[] };
 
 /**
  * A line in a group, with the bots it names picked out. The text is unchanged
  * — only wrapped — so what the model wrote is exactly what stays in the bubble.
  *
  * A search marks the words it found without taking the mentions away: the line
- * is cut in two passes, the names first, then the query inside what is left, and
- * the hits keep their number across both so the walk lands on the right one.
+ * is cut in two passes, the names first, then the query inside every piece of
+ * it, and the hits keep their number across both so the walk lands on the right
+ * one. A name is searched like the rest of the line - it is on the screen - so
+ * the count in the bar and the marks always agree; the mark then sits inside the
+ * name's pastille, which stays whole.
  */
 export function MentionText({ text, members, find }: MentionTextProps) {
   const searching = Boolean(find?.query.trim());
@@ -27,50 +32,47 @@ export function MentionText({ text, members, find }: MentionTextProps) {
     ? splitMentions(text, members)
     : [{ text, mention: false }];
 
-  const pieces: Piece[] = [];
+  const marked: Segment[] = [];
   let occurrence = 0;
   for (const segment of segments) {
-    if (segment.mention) {
-      pieces.push({ text: segment.text, mention: true, occurrence: null });
-      continue;
-    }
     const parts = searching
       ? splitMatch(segment.text, find!.query)
       : [{ text: segment.text, hit: false }];
+    const pieces: Piece[] = [];
     for (const part of parts) {
       if (part.hit) {
-        pieces.push({
-          text: part.text,
-          mention: false,
-          occurrence: find!.firstHit + occurrence,
-        });
+        pieces.push({ text: part.text, occurrence: find!.firstHit + occurrence });
         occurrence += 1;
       } else if (part.text) {
-        pieces.push({ text: part.text, mention: false, occurrence: null });
+        pieces.push({ text: part.text, occurrence: null });
       }
     }
+    if (pieces.length) marked.push({ mention: Boolean(segment.mention), pieces });
   }
 
   return (
     <>
-      {pieces.map((piece, index) => {
-        if (piece.mention) {
-          return (
-            <span className="mention" key={index}>
+      {marked.map((segment, segmentIndex) => {
+        const nodes = segment.pieces.map((piece, pieceIndex) =>
+          piece.occurrence === null ? (
+            <span key={pieceIndex}>{piece.text}</span>
+          ) : (
+            <mark
+              className={`find-hit ${
+                piece.occurrence === find!.currentHit ? 'is-current' : ''
+              }`}
+              key={pieceIndex}
+            >
               {piece.text}
-            </span>
-          );
-        }
-        if (piece.occurrence === null) return <span key={index}>{piece.text}</span>;
-        return (
-          <mark
-            className={`find-hit ${
-              piece.occurrence === find!.currentHit ? 'is-current' : ''
-            }`}
-            key={index}
-          >
-            {piece.text}
-          </mark>
+            </mark>
+          ),
+        );
+        return segment.mention ? (
+          <span className="mention" key={segmentIndex}>
+            {nodes}
+          </span>
+        ) : (
+          <Fragment key={segmentIndex}>{nodes}</Fragment>
         );
       })}
     </>

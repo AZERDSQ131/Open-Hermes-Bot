@@ -156,6 +156,24 @@ describe('a line in a group', () => {
     expect(marks[0].className).toContain('is-current');
   });
 
+  it('marks a name a search lands on, instead of counting a hit it cannot show', () => {
+    const { container } = render(
+      <MentionText
+        text="hey @Bob, hello"
+        members={[bob]}
+        find={{ query: 'bob', firstHit: 0, currentHit: 0 }}
+      />,
+    );
+    // The name stays a pastille, and the letters the person typed are marked
+    // inside it: the count in the bar and what the window shows agree.
+    const mention = container.querySelector('.mention');
+    expect(mention?.textContent).toBe('@Bob');
+    const marks = mention?.querySelectorAll('mark.find-hit');
+    expect(marks).toHaveLength(1);
+    expect(marks?.[0].textContent).toBe('Bob');
+    expect(marks?.[0].className).toContain('is-current');
+  });
+
   it('knows which of its hits is the one being walked', () => {
     const { container } = render(
       <MentionText
