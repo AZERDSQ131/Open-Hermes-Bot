@@ -2084,9 +2084,8 @@ mark.find-hit.is-current {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 2px 4px 7px;
-  padding: 0 2px 7px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  margin: 0;
+  padding: 0 6px 0 0;
 }
 
 .composer-context-copy {
