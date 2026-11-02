@@ -1884,6 +1884,43 @@ describe('the sessions of before', () => {
   });
 });
 
+describe('finding a word', () => {
+  it('opens the bar from the mark in the header, and closes it from the same mark', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    await waitFor(() => expect(bridge.messages).toHaveBeenCalled());
+
+    const mark = screen.getByRole('button', { name: 'Find in this conversation' });
+    // A pointer has to reach the search the way the keyboard does.
+    expect(screen.queryByRole('search')).toBeNull();
+
+    await userEvent.click(mark);
+    const bar = await screen.findByRole('search');
+    expect(within(bar).getByPlaceholderText('Find in this conversation')).toBeTruthy();
+    expect(mark.getAttribute('aria-expanded')).toBe('true');
+
+    await userEvent.click(mark);
+    expect(screen.queryByRole('search')).toBeNull();
+    expect(mark.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('counts what the query hits, and steps through it from the bar', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    await waitFor(() => expect(bridge.messages).toHaveBeenCalled());
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Find in this conversation' }),
+    );
+    const bar = await screen.findByRole('search');
+    await userEvent.type(within(bar).getByPlaceholderText('Find in this conversation'), 'hello');
+    // One line holds the word: the user's, not the bot's answer.
+    expect(within(bar).getByText('1/1')).toBeTruthy();
+  });
+});
+
 describe('a warming bot past its delay', () => {
   it('drops an expired waiting bot on the next refresh', async () => {
     const { mergeBots, PENDING_BOT_TIMEOUT_MS } = await import('./App');

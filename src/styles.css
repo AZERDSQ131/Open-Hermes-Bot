@@ -1696,6 +1696,29 @@ mark.find-hit {
   color: #e3e3e7;
 }
 
+/* The way into the find bar without the shortcut: the magnifier sits at the far
+   end of the header, faint until the pointer reaches it, and stays lit while
+   the bar it opened is on screen. */
+.header-find {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  border-radius: 8px;
+  color: #7d7d85;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.header-find:hover,
+.header-find.is-open {
+  background: rgba(255, 255, 255, 0.055);
+  color: #e3e3e7;
+}
+
 .sidebar-scrim {
   display: none;
 }
