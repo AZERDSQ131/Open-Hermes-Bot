@@ -119,9 +119,11 @@ export function PairingCode({
             if (next === raw) return;
             if (toggles.haptics) {
               if (next.length === PAIRING_LENGTH && raw.length < PAIRING_LENGTH) {
-                void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                void Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Success,
+                ).catch(() => undefined);
               } else if (next.length > raw.length) {
-                void Haptics.selectionAsync();
+                void Haptics.selectionAsync().catch(() => undefined);
               }
             }
             onChange(next);
