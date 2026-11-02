@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type ComponentRef } from 'react';
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -32,9 +33,10 @@ export function ConversationsScreen() {
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
   const navigation = useAppNavigation();
-  const { bots, threads, botById, prefs, connection, togglePin, markRead, markUnread, removeThread } =
+  const { bots, threads, botById, prefs, connection, togglePin, markRead, markUnread, removeThread, refresh } =
     useStore();
   const [query, setQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   // The plus asks first, and the sheet it opens remembers the answer: the
   // kind is not a switch inside the form any more.
   const [creating, setCreating] = useState<'bot' | 'group' | null>(null);
@@ -105,6 +107,16 @@ export function ConversationsScreen() {
 
   function open(thread: Thread) {
     navigation.navigate('Chat', { threadId: thread.id });
+  }
+
+  async function reread() {
+    if (connection.status !== 'connected') return;
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   return (
@@ -194,6 +206,15 @@ export function ConversationsScreen() {
         contentContainerStyle={styles.recentBody}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          connection.status === 'connected' ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => void reread()}
+              tintColor="#8a8a91"
+            />
+          ) : undefined
+        }
       >
         <View style={styles.sectionLabel}>
           <Text style={styles.sectionText}>Recent</Text>
