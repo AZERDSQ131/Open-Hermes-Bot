@@ -423,10 +423,11 @@ const styles = createStyles({
     justifyContent: 'space-between',
     paddingHorizontal: 9,
   },
-  headCenter: { alignItems: 'center', gap: 4 },
+  headCenter: { alignItems: 'center', gap: 4, flexShrink: 1 },
   // The pill sits over the bottom of the face, as the masthead does.
   namePill: {
     minWidth: 74,
+    maxWidth: 180,
     height: 26,
     marginTop: -6,
     alignItems: 'center',
@@ -440,6 +441,7 @@ const styles = createStyles({
     shadowOpacity: 0.24,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
   nameText: {
     color: C.text,
