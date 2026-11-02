@@ -14,7 +14,9 @@ tailnet by `tailscale serve`. The phone must be on the same tailnet.
 1. Put Tailscale on, on the phone.
 2. On the host, mint a code: `cd ~/hermes-bridge && python3 -m hermes_bridge pair`.
 3. In the app: **Settings → Connection**, type the address
-   (`https://<host>.<tailnet>.ts.net`), the code, and pair.
+   (`https://<host>.<tailnet>.ts.net`), the code, and pair. The code is eight
+   characters: type them as they come, the dash between the two groups lands
+   on its own.
 
 From then on the chat list is Hermes': one thread per bot, its newest session,
 read back from the host. A message sent there is a real turn, streamed as it
