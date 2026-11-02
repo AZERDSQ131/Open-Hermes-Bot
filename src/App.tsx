@@ -3305,6 +3305,21 @@ export default function App() {
     setFindAt((current) => stepFind(current, findHits.length, direction));
   }
 
+  // A pointer anywhere but the bar ends the search: the bar goes back under the
+  // header the same way it came. The mark in the header keeps its own toggle and
+  // the bar keeps its buttons, so those two are left alone.
+  useEffect(() => {
+    if (!findOpen) return;
+    const onPointerDown = (event: Event) => {
+      const target = event.target as Element | null;
+      if (target?.closest?.('.find-layer, .header-find')) return;
+      closeFind();
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+    // closeFind only touches setters and a ref, so it cannot go stale here.
+  }, [findOpen]);
+
   function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (mentionMatch) {
       const count = mentionMatch.suggestions.length;
