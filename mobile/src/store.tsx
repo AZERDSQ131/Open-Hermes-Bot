@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import {
   BOTS,
   MESSAGES,
@@ -380,6 +380,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setConnection((state) => ({ ...state, status: 'error', error: message }));
     }
   }, [adopt]);
+
+  // iOS can drop a stream while the app is away. A real absence is repaired
+  // by reading the host again; a glance at Control Center is not.
+  useEffect(() => {
+    let away = 0;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'background' || state === 'inactive') {
+        away = Date.now();
+        return;
+      }
+      if (state !== 'active' || !away) return;
+      const gone = Date.now() - away;
+      away = 0;
+      if (gone > 2500 && connectionRef.current.status === 'connected') {
+        void refresh();
+      }
+    });
+    return () => subscription.remove();
+  }, [refresh]);
 
   const connect = useCallback(
     async (rawUrl: string, code: string) => {
