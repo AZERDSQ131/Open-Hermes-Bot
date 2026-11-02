@@ -2096,14 +2096,14 @@ mark.find-hit.is-current {
   display: flex;
   flex: 1 1 auto;
   align-items: baseline;
-  gap: 6px;
+  gap: 7px;
   min-width: 0;
 }
 
 .composer-context-name {
   overflow: hidden;
   color: #d7d7dd;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.003em;
   text-overflow: ellipsis;
@@ -2113,18 +2113,18 @@ mark.find-hit.is-current {
 .composer-context-since {
   flex: 0 0 auto;
   color: #7d7d85;
-  font-size: 11.5px;
+  font-size: 12.5px;
   letter-spacing: -0.002em;
   white-space: nowrap;
 }
 
 .composer-context-action {
   flex: 0 0 auto;
-  padding: 3px 9px;
+  padding: 6px 13px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   color: #b3b3ba;
-  font-size: 11.5px;
+  font-size: 12.5px;
   letter-spacing: -0.003em;
   white-space: nowrap;
   transition:
