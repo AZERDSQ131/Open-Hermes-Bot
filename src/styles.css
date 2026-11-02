@@ -1499,10 +1499,10 @@ button:focus-visible {
   gap: 6px;
   width: min(100% - 36px, 896px);
   margin: 0 auto var(--find-bar-gap);
-  padding: 0 6px 0 12px;
+  padding: 0 8px 0 16px;
   height: var(--find-bar-height);
   border: 1px solid rgba(242, 239, 229, 0.14);
-  border-radius: 10px;
+  border-radius: 999px;
   background: rgba(16, 16, 18, 0.38);
   backdrop-filter: blur(30px) saturate(1.2);
   pointer-events: auto;
@@ -1592,7 +1592,7 @@ button:focus-visible {
   height: 24px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: 999px;
   background: transparent;
   color: rgba(242, 239, 229, 0.72);
   cursor: pointer;
