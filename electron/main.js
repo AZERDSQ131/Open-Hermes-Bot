@@ -3348,9 +3348,6 @@ async function watchRun(runId, { profile, send, canceled }) {
     }
     misses = 0;
     const run = result.body;
-    if (process.env.OHB_TRACE_CLARIFY) {
-      require('node:fs').appendFileSync('/tmp/ohb-clarify.log', `watch ${runId} status=${run?.status} controls=${JSON.stringify(run?.pending_controls ?? null)}\n`);
-    }
     if (!runFinished(run)) {
       // A turn can sit paused on a question: the run says so on its own status,
       // and a client that only listens to the stream would wait for an answer
@@ -3380,9 +3377,6 @@ async function watchRun(runId, { profile, send, canceled }) {
  * tool started; it learns what to ask by asking the run.
  */
 async function readPendingClarify(runId, profile, send) {
-  const trace = process.env.OHB_TRACE_CLARIFY
-    ? (line) => require('node:fs').appendFileSync('/tmp/ohb-clarify.log', `${line}\n`)
-    : () => {};
   // The prompt is registered as the tool starts, a beat after the frame that
   // says it did: a few tries, a beat apart, is the difference between a card
   // and a turn that waits on nothing.
@@ -3392,7 +3386,6 @@ async function readPendingClarify(runId, profile, send) {
       profile: String(profile ?? ''),
       timeoutMs: 15000,
     });
-    trace(`${attempt} ok=${state?.ok} status=${state?.status} controls=${JSON.stringify(state?.body?.pending_controls ?? null)}`);
     if (!state?.ok) continue;
     const controls = state.body?.pending_controls;
     if (!Array.isArray(controls)) continue;
