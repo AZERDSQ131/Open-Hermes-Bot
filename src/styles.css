@@ -1578,6 +1578,10 @@ button:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.find-count.is-empty {
+  color: rgba(242, 239, 229, 0.42);
+}
+
 .find-step,
 .find-close {
   display: inline-flex;
@@ -1626,7 +1630,9 @@ mark.find-hit {
   color: inherit;
 }
 
-.message-row.is-find-current mark.find-hit {
+/* The one the walk is on: the only hit drawn solid, so a line that says the word
+   five times still shows which of the five is being looked at. */
+mark.find-hit.is-current {
   background: #ffc43d;
   color: #1c1b19;
 }

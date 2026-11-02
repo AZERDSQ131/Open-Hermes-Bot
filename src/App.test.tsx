@@ -1937,9 +1937,57 @@ describe('finding a word', () => {
       screen.getByRole('button', { name: 'Find in this conversation' }),
     );
     const bar = await screen.findByRole('search');
-    await userEvent.type(within(bar).getByPlaceholderText('Find in this conversation'), 'hello');
+    const field = within(bar).getByPlaceholderText('Find in this conversation');
+    await waitFor(() => expect(document.activeElement).toBe(field));
+    await userEvent.type(field, 'hello');
     // One line holds the word: the user's, not the bot's answer.
     expect(within(bar).getByText('1/1')).toBeTruthy();
+  });
+
+  it('counts the occurrences, not the lines, and walks them one by one', async () => {
+    const bridge = makeBridge({
+      messages: vi.fn(async () => ({
+        ok: true,
+        messages: [
+          { role: 'user', content: 'hello, hello and hello again', timestamp: 1 },
+          { role: 'assistant', content: 'hi there', timestamp: 2 },
+        ],
+      })),
+    });
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    await waitFor(() => expect(bridge.messages).toHaveBeenCalled());
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Find in this conversation' }),
+    );
+    const bar = await screen.findByRole('search');
+    const field = within(bar).getByPlaceholderText('Find in this conversation');
+    // The caret lands in the field a frame after it opens; typing before that
+    // would race the select() and lose the first letter.
+    await waitFor(() => expect(document.activeElement).toBe(field));
+    await userEvent.type(field, 'hello');
+
+    // Three times on one line is three hits, and the first one is the one on.
+    expect(within(bar).getByText('1/3')).toBeTruthy();
+    const marks = document.querySelectorAll('mark.find-hit');
+    expect(marks).toHaveLength(3);
+    expect(document.querySelectorAll('mark.find-hit.is-current')).toHaveLength(1);
+
+    await userEvent.keyboard('{Enter}');
+    expect(within(bar).getByText('2/3')).toBeTruthy();
+    const current = document.querySelectorAll('mark.find-hit.is-current');
+    expect(current).toHaveLength(1);
+    expect(current[0].textContent).toBe('hello');
+
+    await userEvent.keyboard('{Enter}{Enter}');
+    // It wraps: back to the first of the three.
+    expect(within(bar).getByText('1/3')).toBeTruthy();
+
+    // And a word that is nowhere says so instead of counting to zero.
+    await userEvent.clear(field);
+    await userEvent.type(field, 'zzz');
+    expect(within(bar).getByText('No match')).toBeTruthy();
   });
 });
 

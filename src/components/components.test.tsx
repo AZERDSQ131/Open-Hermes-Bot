@@ -140,6 +140,37 @@ describe('a line in a group', () => {
     );
     expect(container.querySelector('.mention')?.textContent).toBe('@Bob');
   });
+
+  it('marks the words of a search without losing the names in them', () => {
+    const { container } = render(
+      <MentionText
+        text="hey @Bob, hello"
+        members={[bob]}
+        find={{ query: 'hello', firstHit: 0, currentHit: 0 }}
+      />,
+    );
+    expect(container.querySelector('.mention')?.textContent).toBe('@Bob');
+    const marks = container.querySelectorAll('mark.find-hit');
+    expect(marks).toHaveLength(1);
+    expect(marks[0].textContent).toBe('hello');
+    expect(marks[0].className).toContain('is-current');
+  });
+
+  it('knows which of its hits is the one being walked', () => {
+    const { container } = render(
+      <MentionText
+        text="hello and hello"
+        find={{ query: 'hello', firstHit: 4, currentHit: 5 }}
+      />,
+    );
+    const marks = Array.from(container.querySelectorAll('mark.find-hit'));
+    // The line's own first hit is the fifth of the whole search, so the one on
+    // is the second mark, not the first.
+    expect(marks.map((mark) => mark.className.includes('is-current'))).toEqual([
+      false,
+      true,
+    ]);
+  });
 });
 
 describe('the logo editor', () => {

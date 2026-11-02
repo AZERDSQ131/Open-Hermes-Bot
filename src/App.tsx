@@ -26,7 +26,7 @@ import {
   type ClarifyRequest,
 } from './clarify';
 import { COPIED_LABEL, COPY_LABEL, COPY_WORD, copyableText } from './copy';
-import { findMatches, splitMatch, stepFind } from './find';
+import { findMatches, stepFind } from './find';
 import { joinsRunningTurn, STEERED_NOTE } from './steer';
 import { botShape } from './components/Bloub';
 import { type BloubShape } from './components/bloubFrames';
@@ -3279,15 +3279,24 @@ export default function App() {
 
   /** The messages the current query is in, in transcript order. */
   const findHits = findMatches(shownMessages, findQuery);
+  // Where each line's hits start in that list, so a mark can tell whether it is
+  // the one the walk is on. A line says the word five times: five hits, one row.
+  const findSpans = new Map<string, { first: number; count: number }>();
+  findHits.forEach((hit, index) => {
+    const span = findSpans.get(hit.messageId);
+    if (span) span.count += 1;
+    else findSpans.set(hit.messageId, { first: index, count: 1 });
+  });
 
   // The hit the window is on, brought into view. It is read from the DOM by
   // the id the transcript gives each row, so nothing has to be ref-crawled.
   useEffect(() => {
     if (!findOpen || !findHits.length) return;
-    const id = findHits[Math.min(findAt, findHits.length - 1)];
-    document
-      .querySelector(`[data-message-id="${id}"]`)
-      ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const hit = findHits[Math.min(findAt, findHits.length - 1)];
+    const row = Array.from(document.querySelectorAll('.message-row')).find(
+      (element) => element.getAttribute('data-message-id') === hit.messageId,
+    );
+    row?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [findOpen, findAt, findQuery, findHits.length]);
 
   function closeFind() {
@@ -3888,8 +3897,15 @@ export default function App() {
                   }
                 }}
               />
-              <span className="find-count" aria-live="polite">
-                {findHits.length ? `${Math.min(findAt + 1, findHits.length)}/${findHits.length}` : '0/0'}
+              <span
+                className={`find-count ${findQuery.trim() && !findHits.length ? 'is-empty' : ''}`}
+                aria-live="polite"
+              >
+                {findHits.length
+                  ? `${Math.min(findAt + 1, findHits.length)}/${findHits.length}`
+                  : findQuery.trim()
+                    ? 'No match'
+                    : '0/0'}
               </span>
               <button
                 type="button"
@@ -4057,10 +4073,6 @@ export default function App() {
                     <div
                       className={`message-row ${message.role} ${
                         message.authorName ? 'is-group-line' : ''
-                      } ${
-                        findOpen && findHits[findAt] === message.id
-                          ? 'is-find-current'
-                          : ''
                       }`}
                       key={message.id}
                       data-message-id={message.id}
@@ -4082,24 +4094,19 @@ export default function App() {
                           </span>
                         ) : null}
                         <div className={`bubble bubble-${message.role}`}>
-                          {findOpen && findQuery.trim() && findHits.includes(message.id) ? (
-                            <>
-                              {splitMatch(message.text, findQuery).map((piece, index) =>
-                                piece.hit ? (
-                                  <mark className="find-hit" key={index}>
-                                    {piece.text}
-                                  </mark>
-                                ) : (
-                                  <span key={index}>{piece.text}</span>
-                                ),
-                              )}
-                            </>
-                          ) : (
-                            <MentionText
-                              text={message.text}
-                              members={activeThread.members}
-                            />
-                          )}
+                          <MentionText
+                            text={message.text}
+                            members={activeThread.members}
+                            find={
+                              findOpen && findSpans.has(message.id)
+                                ? {
+                                    query: findQuery,
+                                    firstHit: findSpans.get(message.id)!.first,
+                                    currentHit: findAt,
+                                  }
+                                : undefined
+                            }
+                          />
                         </div>
                         {copyableText(message) ? (
                           <button

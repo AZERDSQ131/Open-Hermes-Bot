@@ -9,16 +9,32 @@ const conversation = [
 ];
 
 describe('looking for a word in the conversation', () => {
-  it('finds every message that holds it, in order', () => {
-    expect(findMatches(conversation, 'bleu')).toEqual(['a', 'b']);
+  it('finds every occurrence, in reading order', () => {
+    expect(findMatches(conversation, 'bleu')).toEqual([
+      { messageId: 'a', start: 21 },
+      { messageId: 'b', start: 12 },
+      { messageId: 'b', start: 38 },
+    ]);
+  });
+
+  it('counts a line that says the word twice as two hits', () => {
+    const twice = [{ id: 'x', role: 'assistant', text: 'bleu, encore bleu' }];
+    expect(findMatches(twice, 'bleu')).toEqual([
+      { messageId: 'x', start: 0 },
+      { messageId: 'x', start: 13 },
+    ]);
   });
 
   it('does not care about case', () => {
-    expect(findMatches(conversation, 'BLEU')).toEqual(['a', 'b']);
+    expect(findMatches(conversation, 'BLEU').map((hit) => hit.messageId)).toEqual([
+      'a',
+      'b',
+      'b',
+    ]);
   });
 
   it('ignores the padding around the query', () => {
-    expect(findMatches(conversation, '  bleu  ')).toEqual(['a', 'b']);
+    expect(findMatches(conversation, '  bleu  ')).toHaveLength(3);
   });
 
   it('never searches a note about the turn', () => {
