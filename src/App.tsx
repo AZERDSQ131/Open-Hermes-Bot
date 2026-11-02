@@ -4421,7 +4421,7 @@ export default function App() {
                 <div className="composer-context">
                   <AgentAvatar
                     avatar={pastOpen.group.avatar}
-                    size={18}
+                    size={40}
                     showBadge={false}
                   />
                   <span className="composer-context-copy">
