@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bloub, BloubGroup } from '../components/Bloub';
 import { BackIcon, FileIcon, MicIcon, MoreIcon, PhotoIcon } from '../components/Icons';
 import { Composer, type Outgoing } from '../components/Composer';
-import { GlassButton } from '../components/GlassButton';
+import { GlassButton, GlassSurface } from '../components/GlassButton';
 import { TypingDots } from '../components/TypingDots';
 import { ReactionBar } from '../components/ReactionBar';
 import { EmojiPicker } from '../components/EmojiPicker';
@@ -315,9 +315,11 @@ export function ChatScreen({ route, navigation }: Props) {
                 accessibilityRole="button"
                 accessibilityLabel={`Open ${thread.name}`}
               >
-                <Text style={styles.nameText} numberOfLines={1}>
-                  {thread.name}
-                </Text>
+                <GlassSurface style={styles.nameGlass} tint="rgba(42,42,48,0.58)">
+                  <Text style={styles.nameText} numberOfLines={1}>
+                    {thread.name}
+                  </Text>
+                </GlassSurface>
               </Pressable>
             </View>
 
@@ -428,20 +430,24 @@ const styles = createStyles({
   namePill: {
     minWidth: 74,
     maxWidth: 180,
+    marginTop: -20,
+    borderRadius: 999,
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  // The label is the same glass as the two buttons, so the masthead is one
+  // material from edge to edge.
+  nameGlass: {
+    minWidth: 74,
+    maxWidth: 180,
     height: 26,
-    marginTop: -10,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 999,
-    backgroundColor: '#2b2b2e',
-    shadowColor: '#000',
-    shadowOpacity: 0.24,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
   },
   nameText: {
     color: C.text,
