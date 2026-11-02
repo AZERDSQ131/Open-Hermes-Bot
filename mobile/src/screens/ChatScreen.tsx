@@ -290,38 +290,45 @@ export function ChatScreen({ route, navigation }: Props) {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-        <View style={styles.nav}>
-          <GlassButton label="Back" onPress={() => navigation.goBack()}>
-            <BackIcon color="#e9e9ed" />
-          </GlassButton>
+        <View style={styles.header}>
+          <View style={styles.headTop}>
+            <GlassButton size={44} label="Back" onPress={() => navigation.goBack()}>
+              <BackIcon size={17} color="#e9e9ed" />
+            </GlassButton>
 
-          <Pressable
-            style={styles.chatId}
-            onPress={() => (isGroup ? setDetailsOpen(true) : setBotOpen(true))}
-            accessibilityRole="button"
-            accessibilityLabel={`Open ${thread.name}`}
-          >
-            {isGroup ? (
-              <BloubGroup members={faces} size={30} />
-            ) : (
-              <Bloub shape={bot?.shape} color={bot?.color ?? '#8b5cf6'} size={30} />
-            )}
-            <View style={styles.chatTitles}>
-              <Text style={styles.chatName} numberOfLines={1}>
-                {thread.name}
-              </Text>
-              <Text style={styles.chatSub} numberOfLines={1}>
-                {isGroup ? thread.subtitle : `Hermes host · ${thread.threadModel}`}
-              </Text>
+            <View style={styles.headCenter}>
+              <Pressable
+                onPress={() => (isGroup ? setDetailsOpen(true) : setBotOpen(true))}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${thread.name}`}
+              >
+                {isGroup ? (
+                  <BloubGroup members={faces} size={42} />
+                ) : (
+                  <Bloub shape={bot?.shape} color={bot?.color ?? '#8b5cf6'} size={42} />
+                )}
+              </Pressable>
+
+              <Pressable
+                style={styles.namePill}
+                onPress={() => (isGroup ? setDetailsOpen(true) : setBotOpen(true))}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${thread.name}`}
+              >
+                <Text style={styles.nameText} numberOfLines={1}>
+                  {thread.name}
+                </Text>
+              </Pressable>
             </View>
-          </Pressable>
 
-          <GlassButton
-            label={isGroup ? 'Group details' : 'Conversation details'}
-            onPress={() => (isGroup ? setDetailsOpen(true) : setModelsOpen(true))}
-          >
-            <MoreIcon color="#e9e9ed" />
-          </GlassButton>
+            <GlassButton
+              size={44}
+              label={isGroup ? 'Group details' : 'Conversation details'}
+              onPress={() => (isGroup ? setDetailsOpen(true) : setModelsOpen(true))}
+            >
+              <MoreIcon size={18} color="#e9e9ed" />
+            </GlassButton>
+          </View>
         </View>
 
         <Animated.View style={[styles.stage, { paddingBottom: rise }]}>
@@ -407,6 +414,39 @@ export function ChatScreen({ route, navigation }: Props) {
 const styles = createStyles({
   root: { flex: 1, backgroundColor: C.bg },
   missing: { color: INK.quiet, padding: 20, fontSize: 12 },
+
+  // The face and the name pill, with the two glass buttons beside the face.
+  header: { paddingTop: 6, paddingBottom: 10 },
+  headTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: 9,
+  },
+  headCenter: { alignItems: 'center', gap: 4 },
+  // The pill sits over the bottom of the face, as the masthead does.
+  namePill: {
+    minWidth: 74,
+    height: 26,
+    marginTop: -6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 999,
+    backgroundColor: '#2b2b2e',
+    shadowColor: '#000',
+    shadowOpacity: 0.24,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  nameText: {
+    color: C.text,
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 0.1,
+  },
 
   nav: {
     height: 56,
