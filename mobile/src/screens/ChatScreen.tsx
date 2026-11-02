@@ -267,6 +267,12 @@ export function ChatScreen({ route, navigation }: Props) {
             )}
           </Pressable>
 
+          {message.interrupted ? (
+            <Text style={styles.interrupted} numberOfLines={2}>
+              {`Stopped · ${message.interrupted}`}
+            </Text>
+          ) : null}
+
           {message.reaction ? (
             <Pressable
               style={styles.tapback}
@@ -454,6 +460,14 @@ const styles = createStyles({
   voiceTime: { color: '#a9a9b0', fontSize: 10, fontVariant: ['tabular-nums'] },
 
   author: { marginLeft: 3, marginBottom: 3, color: '#98989f', fontSize: 10, fontWeight: '600' },
+  // Why an answer stopped: a note under the words, quieter than a warning.
+  interrupted: {
+    marginTop: 3,
+    marginLeft: 3,
+    color: '#a06a6a',
+    fontSize: 9,
+    lineHeight: 12,
+  },
   tapback: {
     flexDirection: 'row',
     alignItems: 'center',

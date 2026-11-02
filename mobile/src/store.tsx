@@ -735,17 +735,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const settle = (text: string, failed: boolean) => {
         if (settled) return;
         settled = true;
+        // A stream can stop after the bot has said most of its answer. The
+        // words already written are the person's; the reason is a note under
+        // them, not a replacement for them.
+        const partial = answer.trim();
+        const kept = failed && partial;
         setMessages((current) => ({
           ...current,
           [threadId]: (current[threadId] ?? []).map((message) =>
             message.id === assistantId
-              ? { ...message, text: failed ? `⚠︎ ${text}` : text }
+              ? {
+                  ...message,
+                  text: failed ? (kept ? partial : `⚠︎ ${text}`) : text,
+                  interrupted: kept ? text : undefined,
+                }
               : message,
           ),
         }));
+        const said = (kept ? partial : text).replace(/\s+/g, ' ').trim().slice(0, 90);
         patchThread(threadId, {
           typing: false,
-          preview: failed ? text : text.replace(/\s+/g, ' ').slice(0, 90),
+          preview: failed ? (kept ? `${said} · cut` : said) : said,
           time: 'now',
         });
       };

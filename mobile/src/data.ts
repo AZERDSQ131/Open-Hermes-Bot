@@ -31,6 +31,8 @@ export type Message = {
   duration?: string;
   /** Said rather than typed: the bubble sets it in italics. */
   dictated?: boolean;
+  /** Why an answer stopped before its end; the words already said remain. */
+  interrupted?: string;
   reaction?: Reaction;
 };
 
