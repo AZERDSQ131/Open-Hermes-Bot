@@ -1908,6 +1908,25 @@ describe('finding a word', () => {
     await waitFor(() => expect(screen.queryByRole('search')).toBeNull());
   });
 
+  it('closes when the pointer goes anywhere else, and stays while it is in the bar', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    await waitFor(() => expect(bridge.messages).toHaveBeenCalled());
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Find in this conversation' }),
+    );
+    const bar = await screen.findByRole('search');
+    // A click on the field the person is typing in is not a click elsewhere.
+    await userEvent.click(within(bar).getByPlaceholderText('Find in this conversation'));
+    expect(screen.getByRole('search')).toBeTruthy();
+
+    // A click on the conversation ends the search, and the bar slides away.
+    await userEvent.click(screen.getByText('Hello'));
+    await waitFor(() => expect(screen.queryByRole('search')).toBeNull());
+  });
+
   it('counts what the query hits, and steps through it from the bar', async () => {
     const bridge = makeBridge();
     await renderApp(bridge);
