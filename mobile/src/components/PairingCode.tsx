@@ -87,7 +87,6 @@ export function PairingCode({
           onSubmitEditing={() => {
             if (ready) onSubmit?.();
           }}
-          maxLength={PAIRING_LENGTH}
           autoCapitalize="characters"
           autoCorrect={false}
           spellCheck={false}
