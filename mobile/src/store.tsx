@@ -23,6 +23,7 @@ import {
   type Thread,
 } from './data';
 import type { BloubShape } from './bloubFrames';
+import { pairingCodeReady } from './pairing';
 import {
   BridgeError,
   bridgeHealth,
@@ -385,6 +386,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const url = normalizeUrl(rawUrl);
       if (!url) throw new BridgeError('Give the bridge an address first.', 'no_url');
       if (!code.trim()) throw new BridgeError('The pairing code is on the host.', 'no_code');
+      if (!pairingCodeReady(code)) {
+        throw new BridgeError(
+          'The code is eight characters — four, then four.',
+          'bad_code',
+        );
+      }
       setConnection((state) => ({ ...state, status: 'connecting', url, error: undefined }));
 
       try {
