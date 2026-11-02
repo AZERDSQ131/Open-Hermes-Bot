@@ -9,11 +9,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import {
   PAIRING_LENGTH,
   normalizePairingCode,
   pairingCodeReady,
 } from '../pairing';
+import { useStore } from '../store';
 import { C, INK, createStyles } from '../theme';
 
 /**
@@ -31,6 +33,7 @@ export function PairingCode({
   onChange: (value: string) => void;
   onSubmit?: () => void;
 }) {
+  const { toggles } = useStore();
   const [focused, setFocused] = useState(false);
   const input = useRef<ComponentRef<typeof TextInput>>(null);
   const blink = useRef(new Animated.Value(1)).current;
@@ -111,7 +114,18 @@ export function PairingCode({
         <TextInput
           ref={input}
           value={raw}
-          onChangeText={(text) => onChange(normalizePairingCode(text))}
+          onChangeText={(text) => {
+            const next = normalizePairingCode(text);
+            if (next === raw) return;
+            if (toggles.haptics) {
+              if (next.length === PAIRING_LENGTH && raw.length < PAIRING_LENGTH) {
+                void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              } else if (next.length > raw.length) {
+                void Haptics.selectionAsync();
+              }
+            }
+            onChange(next);
+          }}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           onSubmitEditing={() => {
