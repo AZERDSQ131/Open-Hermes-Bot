@@ -556,6 +556,15 @@ export default function App() {
   const [findQuery, setFindQuery] = useState('');
   const [findAt, setFindAt] = useState(0);
   const findInputRef = useRef<HTMLInputElement>(null);
+  // The bar and its caret, from the shortcut or the mark in the header: both
+  // are the same gesture, so the person never has to learn two.
+  const openFind = useCallback(() => {
+    setFindOpen(true);
+    window.requestAnimationFrame(() => {
+      findInputRef.current?.focus();
+      findInputRef.current?.select();
+    });
+  }, []);
   const [historyOpen, setHistoryOpen] = useState(false);
   // Folded, a group shows a few conversations and counts the rest; this opens
   // the count. It is not kept: the fold is a mood, not a setting.
@@ -1346,11 +1355,7 @@ export default function App() {
       }
       if (event.key.toLowerCase() === 'f') {
         event.preventDefault();
-        setFindOpen(true);
-        window.requestAnimationFrame(() => {
-          findInputRef.current?.focus();
-          findInputRef.current?.select();
-        });
+        openFind();
       }
       if (event.key.toLowerCase() === 'n') {
         event.preventDefault();
@@ -1371,7 +1376,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onboardingOpen]);
+  }, [onboardingOpen, openFind]);
 
   useEffect(() => {
     const bridge = window.hermes;
@@ -3817,6 +3822,19 @@ export default function App() {
                 </button>
               </h1>
             )}
+
+            {/* The way into the find bar without the shortcut: the same gesture,
+                reachable with a pointer, and it reads as on while the bar is. */}
+            <button
+              type="button"
+              className={`header-find ${findOpen ? 'is-open' : ''}`}
+              onClick={() => (findOpen ? closeFind() : openFind())}
+              aria-label="Find in this conversation"
+              aria-expanded={findOpen}
+              title="Find in this conversation"
+            >
+              <SearchIcon size={16} />
+            </button>
           </div>
         </header>
 
