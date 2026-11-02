@@ -1901,8 +1901,11 @@ describe('finding a word', () => {
     expect(mark.getAttribute('aria-expanded')).toBe('true');
 
     await userEvent.click(mark);
-    expect(screen.queryByRole('search')).toBeNull();
+    // It goes back under the header instead of vanishing: still on screen for
+    // the length of its slide, then gone.
     expect(mark.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByRole('search')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('search')).toBeNull());
   });
 
   it('counts what the query hits, and steps through it from the bar', async () => {

@@ -556,9 +556,15 @@ export default function App() {
   const [findQuery, setFindQuery] = useState('');
   const [findAt, setFindAt] = useState(0);
   const findInputRef = useRef<HTMLInputElement>(null);
+  // The bar leaves the way it came: it stays mounted for the length of its own
+  // slide back under the header, so closing is a movement and not a blink.
+  const [findLeaving, setFindLeaving] = useState(false);
+  const findLeaveTimer = useRef<number | null>(null);
   // The bar and its caret, from the shortcut or the mark in the header: both
   // are the same gesture, so the person never has to learn two.
   const openFind = useCallback(() => {
+    if (findLeaveTimer.current) window.clearTimeout(findLeaveTimer.current);
+    setFindLeaving(false);
     setFindOpen(true);
     window.requestAnimationFrame(() => {
       findInputRef.current?.focus();
@@ -3285,9 +3291,14 @@ export default function App() {
   }, [findOpen, findAt, findQuery, findHits.length]);
 
   function closeFind() {
+    // The search ends now: the marks, the count and the walk are over. What is
+    // left is the bar going back where it came from.
     setFindOpen(false);
     setFindQuery('');
     setFindAt(0);
+    setFindLeaving(true);
+    if (findLeaveTimer.current) window.clearTimeout(findLeaveTimer.current);
+    findLeaveTimer.current = window.setTimeout(() => setFindLeaving(false), 220);
   }
 
   function stepToMatch(direction: 1 | -1) {
@@ -3838,61 +3849,63 @@ export default function App() {
           </div>
         </header>
 
-        {findOpen ? (
-          <div className="find-bar" role="search">
-            <input
-              ref={findInputRef}
-              className="find-input"
-              value={findQuery}
-              spellCheck={false}
-              placeholder="Find in this conversation"
-              aria-label="Find in this conversation"
-              onChange={(event) => {
-                setFindQuery(event.target.value);
-                setFindAt(0);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  event.preventDefault();
-                  closeFind();
-                } else if (event.key === 'Enter') {
-                  event.preventDefault();
-                  stepToMatch(event.shiftKey ? -1 : 1);
-                }
-              }}
-            />
-            <span className="find-count" aria-live="polite">
-              {findHits.length ? `${Math.min(findAt + 1, findHits.length)}/${findHits.length}` : '0/0'}
-            </span>
-            <button
-              type="button"
-              className="find-step is-previous"
-              aria-label="Previous match"
-              title="Previous match"
-              disabled={!findHits.length}
-              onClick={() => stepToMatch(-1)}
-            >
-              <ChevronLeftIcon size={14} />
-            </button>
-            <button
-              type="button"
-              className="find-step is-next"
-              aria-label="Next match"
-              title="Next match"
-              disabled={!findHits.length}
-              onClick={() => stepToMatch(1)}
-            >
-              <ChevronLeftIcon size={14} />
-            </button>
-            <button
-              type="button"
-              className="find-close"
-              aria-label="Close the search"
-              title="Close"
-              onClick={closeFind}
-            >
-              ×
-            </button>
+        {findOpen || findLeaving ? (
+          <div className={`find-layer ${findLeaving ? 'is-leaving' : ''}`}>
+            <div className="find-bar" role="search">
+              <input
+                ref={findInputRef}
+                className="find-input"
+                value={findQuery}
+                spellCheck={false}
+                placeholder="Find in this conversation"
+                aria-label="Find in this conversation"
+                onChange={(event) => {
+                  setFindQuery(event.target.value);
+                  setFindAt(0);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    closeFind();
+                  } else if (event.key === 'Enter') {
+                    event.preventDefault();
+                    stepToMatch(event.shiftKey ? -1 : 1);
+                  }
+                }}
+              />
+              <span className="find-count" aria-live="polite">
+                {findHits.length ? `${Math.min(findAt + 1, findHits.length)}/${findHits.length}` : '0/0'}
+              </span>
+              <button
+                type="button"
+                className="find-step is-previous"
+                aria-label="Previous match"
+                title="Previous match"
+                disabled={!findHits.length}
+                onClick={() => stepToMatch(-1)}
+              >
+                <ChevronLeftIcon size={14} />
+              </button>
+              <button
+                type="button"
+                className="find-step is-next"
+                aria-label="Next match"
+                title="Next match"
+                disabled={!findHits.length}
+                onClick={() => stepToMatch(1)}
+              >
+                <ChevronLeftIcon size={14} />
+              </button>
+              <button
+                type="button"
+                className="find-close"
+                aria-label="Close the search"
+                title="Close"
+                onClick={closeFind}
+              >
+                ×
+              </button>
+            </div>
           </div>
         ) : null}
 
