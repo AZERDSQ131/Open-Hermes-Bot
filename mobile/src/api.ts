@@ -7,6 +7,8 @@
  * else, and it never sees a Hermes key.
  */
 
+import { canonicalPairingCode } from './pairing';
+
 export type BridgeHealth = {
   ok: boolean;
   service: string;
@@ -136,7 +138,7 @@ export async function bridgePair(
     const response = await fetch(`${root}/v1/pair`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ code: code.trim().toUpperCase(), name: deviceName }),
+      body: JSON.stringify({ code: canonicalPairingCode(code), name: deviceName }),
       signal,
     });
     if (!response.ok) throw await readError(response, 'That code was refused.');
