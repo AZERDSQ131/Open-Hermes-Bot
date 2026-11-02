@@ -429,7 +429,7 @@ const styles = createStyles({
     minWidth: 74,
     maxWidth: 180,
     height: 26,
-    marginTop: -6,
+    marginTop: -10,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 18,
