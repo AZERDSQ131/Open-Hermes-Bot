@@ -94,10 +94,12 @@ export function PrimaryButton({
   label,
   onPress,
   tone = 'paper',
+  disabled = false,
 }: {
   label: string;
   onPress: () => void;
   tone?: 'paper' | 'danger' | 'quiet';
+  disabled?: boolean;
 }) {
   return (
     <GlassSurface
@@ -108,9 +110,15 @@ export function PrimaryButton({
             ? C.red
             : 'rgba(255,255,255,0.07)'
       }
-      style={styles.button}
+      style={[styles.button, disabled && styles.buttonOff]}
     >
-      <Pressable style={styles.buttonPress} onPress={onPress} accessibilityRole="button">
+      <Pressable
+        style={styles.buttonPress}
+        onPress={onPress}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+      >
         <Text
           style={[
             styles.buttonText,
@@ -261,6 +269,7 @@ const styles = createStyles({
   rowValue: { color: '#82828a', fontSize: 11 },
 
   button: { height: 44, borderRadius: 999 },
+  buttonOff: { opacity: 0.4 },
   buttonPress: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   buttonText: { color: '#1b1b19', fontSize: 14, fontWeight: '600' },
 
