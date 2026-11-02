@@ -750,8 +750,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const assistantId = `a-${Date.now()}`;
       let answer = '';
       let settled = false;
+      let streaming = false;
 
-      const settle = (text: string, failed: boolean) => {
+      const settle = (outcome: string, failed: boolean) => {
         if (settled) return;
         settled = true;
         // A stream can stop after the bot has said most of its answer. The
@@ -759,19 +760,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // them, not a replacement for them.
         const partial = answer.trim();
         const kept = failed && partial;
-        setMessages((current) => ({
-          ...current,
-          [threadId]: (current[threadId] ?? []).map((message) =>
-            message.id === assistantId
-              ? {
-                  ...message,
-                  text: failed ? (kept ? partial : `⚠︎ ${text}`) : text,
-                  interrupted: kept ? text : undefined,
-                }
-              : message,
-          ),
-        }));
-        const said = (kept ? partial : text).replace(/\s+/g, ' ').trim().slice(0, 90);
+        const shown = failed ? (kept ? partial : `⚠︎ ${outcome}`) : outcome;
+        const note = kept ? outcome : undefined;
+        setMessages((current) => {
+          const rows = current[threadId] ?? [];
+          const known = rows.some((message) => message.id === assistantId);
+          const next = known
+            ? rows.map((message) =>
+                message.id === assistantId
+                  ? { ...message, text: shown, interrupted: note }
+                  : message,
+              )
+            : shown
+              ? [...rows, { id: assistantId, from: botId, text: shown, interrupted: note }]
+              : rows;
+          return { ...current, [threadId]: next };
+        });
+        const said = (kept ? partial : outcome).replace(/\s+/g, ' ').trim().slice(0, 90);
         patchThread(threadId, {
           typing: false,
           preview: failed ? (kept ? `${said} · cut` : said) : said,
@@ -779,14 +784,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
       };
 
+      // The waiting is the dots, not a bubble: the empty bubble the answer
+      // would fill is added when the first word arrives.
       patchThread(threadId, { typing: true });
-      setMessages((current) => ({
-        ...current,
-        [threadId]: [
-          ...(current[threadId] ?? []),
-          { id: assistantId, from: botId, text: '' },
-        ],
-      }));
 
       void (async () => {
         try {
@@ -810,13 +810,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             },
             {
               onDelta: (delta) => {
+                if (!delta) return;
+                const first = !streaming;
+                streaming = true;
                 answer += delta;
-                setMessages((current) => ({
-                  ...current,
-                  [threadId]: (current[threadId] ?? []).map((message) =>
-                    message.id === assistantId ? { ...message, text: answer } : message,
-                  ),
-                }));
+                setMessages((current) => {
+                  const rows = current[threadId] ?? [];
+                  const known = rows.some((message) => message.id === assistantId);
+                  return {
+                    ...current,
+                    [threadId]: known
+                      ? rows.map((message) =>
+                          message.id === assistantId
+                            ? { ...message, text: answer }
+                            : message,
+                        )
+                      : [...rows, { id: assistantId, from: botId, text: answer }],
+                  };
+                });
+                if (first) patchThread(threadId, { typing: false });
+              },
+              onTool: () => {
+                // A tool is a silence with a reason: the dots come back until
+                // the answer writes again.
+                streaming = false;
+                patchThread(threadId, { typing: true });
               },
               onDone: (text) => settle(text || answer, false),
               onError: (message) => settle(message, true),
