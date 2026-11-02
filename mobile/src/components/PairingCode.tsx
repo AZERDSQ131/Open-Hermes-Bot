@@ -1,5 +1,7 @@
-import { Fragment, useRef, useState, type ComponentRef } from 'react';
+import { Fragment, useEffect, useRef, useState, type ComponentRef } from 'react';
 import {
+  Animated,
+  Easing,
   Platform,
   Pressable,
   StyleSheet,
@@ -31,11 +33,39 @@ export function PairingCode({
 }) {
   const [focused, setFocused] = useState(false);
   const input = useRef<ComponentRef<typeof TextInput>>(null);
+  const blink = useRef(new Animated.Value(1)).current;
   const raw = normalizePairingCode(value);
   const ready = pairingCodeReady(raw);
   // The slot the next letter lands in; the last one keeps the caret when the
   // code is whole.
   const active = focused ? Math.min(raw.length, PAIRING_LENGTH - 1) : -1;
+
+  // A caret that sits still reads as a coloured bar; one that breathes reads
+  // as a place the next letter will land.
+  useEffect(() => {
+    if (!focused) {
+      blink.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(blink, {
+          toValue: 0,
+          duration: 520,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(blink, {
+          toValue: 1,
+          duration: 520,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [blink, focused]);
 
   return (
     <View style={styles.root}>
@@ -68,7 +98,7 @@ export function PairingCode({
                   {filled ? (
                     <Text style={styles.slotText}>{raw[index]}</Text>
                   ) : on ? (
-                    <View style={styles.caret} />
+                    <Animated.View style={[styles.caret, { opacity: blink }]} />
                   ) : (
                     <View style={styles.dot} />
                   )}
