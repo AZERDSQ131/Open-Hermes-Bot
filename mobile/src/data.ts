@@ -108,11 +108,47 @@ export const BOTS: Record<string, Bot> = {
     role: 'Notes',
     session: '1d44',
   },
+  ember: {
+    id: 'ember',
+    name: 'Ember',
+    shape: 'triangle',
+    color: '#e5484d',
+    role: 'Incidents',
+    session: '7e10',
+  },
+  lyra: {
+    id: 'lyra',
+    name: 'Lyra',
+    shape: 'squircle',
+    color: '#7a5bc2',
+    role: 'Voice',
+    session: 'b2c8',
+  },
+  moss: {
+    id: 'moss',
+    name: 'Moss',
+    shape: 'capsule',
+    color: '#3ecf8e',
+    role: 'Calendar',
+    session: '5aa1',
+  },
+  pixel: {
+    id: 'pixel',
+    name: 'Pixel',
+    shape: 'hexagone',
+    color: '#5b5bda',
+    role: 'Design',
+    session: 'd904',
+  },
 };
 
 export const PINNED = ['chief', 'atlas', 'june'];
 
 export const CREW = ['atlas', 'june', 'chief'];
+
+export const LAUNCH = ['june', 'rook', 'pixel'];
+
+export const NIGHT = ['sage', 'ember', 'moss'];
 
 export const DEFAULT_MODEL = 'Sonnet 4.5';
 
@@ -185,6 +221,65 @@ export const THREADS: Thread[] = [
     name: 'Nova',
     preview: 'The interview notes are in the vault.',
     time: 'Sat',
+    threadModel: DEFAULT_MODEL,
+  },
+  {
+    id: 'launch',
+    kind: 'group',
+    botId: 'june',
+    name: 'Launch',
+    preview: 'Rook · Two options: one page per tier.',
+    time: '1h',
+    unread: true,
+    threadModel: DEFAULT_MODEL,
+    members: LAUNCH,
+    subtitle: '3 bots · one session each',
+  },
+  {
+    id: 'night',
+    kind: 'group',
+    botId: 'sage',
+    name: 'Night Watch',
+    preview: 'Ember · Nothing on fire.',
+    time: '3h',
+    threadModel: DEFAULT_MODEL,
+    members: NIGHT,
+    subtitle: '3 bots · one session each',
+  },
+  {
+    id: 'ember-thread',
+    kind: 'bot',
+    botId: 'ember',
+    name: 'Ember',
+    preview: 'One alert at 03:12, autoscaled.',
+    time: 'Fri',
+    threadModel: DEFAULT_MODEL,
+  },
+  {
+    id: 'lyra-thread',
+    kind: 'bot',
+    botId: 'lyra',
+    name: 'Lyra',
+    preview: 'Say the word and I read the 240 words.',
+    time: 'Thu',
+    threadModel: DEFAULT_MODEL,
+  },
+  {
+    id: 'moss-thread',
+    kind: 'bot',
+    botId: 'moss',
+    name: 'Moss',
+    preview: 'Nothing after 16:00.',
+    time: 'Wed',
+    threadModel: DEFAULT_MODEL,
+  },
+  {
+    id: 'pixel-thread',
+    kind: 'bot',
+    botId: 'pixel',
+    name: 'Pixel',
+    preview: 'The switch wins on mobile.',
+    time: 'Tue',
     threadModel: DEFAULT_MODEL,
   },
 ];
@@ -269,6 +364,85 @@ export const MESSAGES: Record<string, Message[]> = {
       id: 'n1',
       from: 'nova',
       text: 'The interview notes are in the vault. Six sessions, three themes.',
+    },
+  ],
+  launch: [
+    {
+      id: 'l1',
+      from: 'rook',
+      text: 'Two options: one page per tier, or one page and a switch.',
+      reaction: { emoji: '👍', count: 2 },
+    },
+    {
+      id: 'l2',
+      from: 'june',
+      text: "I'll draft the announcement — 120 words, same voice as the launch note.",
+    },
+    {
+      id: 'l3',
+      from: 'user',
+      text: 'Pricing page goes live Thursday. @Rook, what are the options?',
+    },
+    {
+      id: 'l4',
+      from: 'pixel',
+      text: 'Mocked both. The switch wins on mobile.',
+      reaction: { emoji: '🎯', count: 1 },
+    },
+  ],
+  night: [
+    {
+      id: 'w1',
+      from: 'sage',
+      text: 'Three routes checked, all green. The middle one is 40 lines shorter.',
+    },
+    {
+      id: 'w2',
+      from: 'ember',
+      text: 'One alert at 03:12, autoscaled. Nothing on fire.',
+      reaction: { emoji: '👍', count: 1 },
+    },
+    {
+      id: 'w3',
+      from: 'user',
+      text: 'Anything I should know before bed?',
+    },
+    {
+      id: 'w4',
+      from: 'moss',
+      text: 'Thursday is clear after 16:00. Sleep well.',
+    },
+  ],
+  'ember-thread': [
+    { id: 'e1', from: 'user', text: 'Anything on fire right now?' },
+    {
+      id: 'e2',
+      from: 'ember',
+      text: 'One alert at 03:12 — autoscaled before I woke up. Nothing on fire.',
+    },
+  ],
+  'lyra-thread': [
+    { id: 'y1', from: 'user', text: 'Read the launch note back to me.' },
+    {
+      id: 'y2',
+      from: 'lyra',
+      text: "Ready when you are — say the word and I'll read the 240 words, no exclamation marks.",
+    },
+  ],
+  'moss-thread': [
+    { id: 'm1', from: 'user', text: "What's Thursday look like?" },
+    {
+      id: 'm2',
+      from: 'moss',
+      text: 'Three blocks: deploy review at 10:00, dentist at 14:30, and nothing after 16:00.',
+    },
+  ],
+  'pixel-thread': [
+    { id: 'p1', from: 'user', text: 'The settings page feels cramped.' },
+    {
+      id: 'p2',
+      from: 'pixel',
+      text: 'Opened it up: more air, one column, and the toggle stays where your thumb is.',
     },
   ],
 };
