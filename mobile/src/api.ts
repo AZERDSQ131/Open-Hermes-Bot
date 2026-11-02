@@ -328,7 +328,10 @@ export function createBridgeClient(rawBase: string, token: string) {
       xhr.setRequestHeader('Accept', 'text/event-stream');
       xhr.timeout = 5 * 60 * 1000;
 
-      xhr.onprogress = () => {
+      // The last frame can arrive with the close: iOS does not always fire a
+      // progress for the bytes that end the response. Read them here before
+      // saying the stream stopped early.
+      const consume = () => {
         const text = xhr.responseText ?? '';
         if (text.length <= seen) return;
         buffer += text.slice(seen);
@@ -340,6 +343,10 @@ export function createBridgeClient(rawBase: string, token: string) {
           split = buffer.indexOf('\n\n');
           if (frame.trim()) emit(frame);
         }
+      };
+
+      xhr.onprogress = () => {
+        consume();
       };
 
       xhr.onerror = () => {
@@ -355,6 +362,7 @@ export function createBridgeClient(rawBase: string, token: string) {
       };
 
       xhr.onload = () => {
+        consume();
         if (finished) return;
         if (xhr.status >= 400) {
           let message = `The bridge answered HTTP ${xhr.status}`;
