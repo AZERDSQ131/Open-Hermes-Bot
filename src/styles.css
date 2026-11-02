@@ -2079,11 +2079,15 @@ mark.find-hit.is-current {
 }
 
 /* Which session the composer writes into. The person is in a conversation the
-   app did not open, so the field says whose it is and how to leave it. */
+   app did not open, so the field says whose it is and how to leave it.
+   The bar is the only thing in the composer, so it takes exactly the height of
+   the field it replaces: the face is that height too, and its circle follows
+   the pill's inner curve. */
 .composer-context {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  min-height: 40px;
   margin: 0;
   padding: 0 6px 0 0;
 }
