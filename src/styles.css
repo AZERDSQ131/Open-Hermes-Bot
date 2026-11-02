@@ -1498,7 +1498,7 @@ button:focus-visible {
   align-items: center;
   gap: 6px;
   width: min(100% - 36px, 896px);
-  margin: 0 auto var(--find-bar-gap);
+  margin: 10px auto var(--find-bar-gap);
   padding: 0 8px 0 16px;
   height: var(--find-bar-height);
   border: 1px solid rgba(242, 239, 229, 0.14);
