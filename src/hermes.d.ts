@@ -287,7 +287,16 @@ export type HermesChatResult = {
 };
 
 export type HermesChatDelta = { requestId: string; text: string };
-export type HermesChatTool = { requestId: string; tool: string };
+export type HermesChatTool = {
+  requestId: string;
+  tool: string;
+  /** The tool's own words: the command, the file, the query. */
+  detail?: string;
+};
+/** What the model is thinking, while it thinks it. */
+export type HermesChatReasoning = { requestId: string; delta: string };
+/** A line the model wrote beside its tool calls. */
+export type HermesChatCommentary = { requestId: string; text: string };
 /** A command the host is holding, still in its wire shape. */
 export type HermesChatApproval = {
   requestId: string;
@@ -582,6 +591,12 @@ export type HermesBridge = {
   ) => () => void;
   onChatDelta: (callback: (delta: HermesChatDelta) => void) => () => void;
   onChatTool: (callback: (tool: HermesChatTool) => void) => () => void;
+  onChatReasoning: (
+    callback: (reasoning: HermesChatReasoning) => void,
+  ) => () => void;
+  onChatCommentary: (
+    callback: (commentary: HermesChatCommentary) => void,
+  ) => () => void;
   onChatApproval: (
     callback: (event: HermesChatApproval) => void,
   ) => () => void;

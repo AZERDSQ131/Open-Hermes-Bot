@@ -5,7 +5,9 @@ import {
   elapsedLabel,
   isInstallingDependencies,
   isQuotaFailure,
+  reasoningTail,
   retryWhileDependenciesInstall,
+  toolDetail,
   toolWords,
   waitingLabel,
   withTurnNote,
@@ -261,6 +263,24 @@ describe('naming the tool a turn is using', () => {
     expect(toolWords('process_manage')).toBe('a background command');
     expect(toolWords('read_file')).toBe('files');
     expect(toolWords('web_search')).toBe('the web');
+
+    // The host sends the tool's own words beside its name: the command, the
+    // file, the query. One line, cut, because a row is one line.
+    expect(toolDetail('ls -la ~/Projects')).toBe('ls -la ~/Projects');
+    expect(toolDetail('  git   status \n')).toBe('git status');
+    expect(toolDetail('')).toBe('');
+    expect(toolDetail(undefined)).toBe('');
+    const long = toolDetail('x'.repeat(120));
+    expect(long).toHaveLength(64);
+    expect(long.endsWith('…')).toBe(true);
+
+    // A thought is read at its live end, not its opening.
+    expect(reasoningTail('weighing the two options')).toBe('weighing the two options');
+    expect(reasoningTail('')).toBe('');
+    const tail = reasoningTail(`${'a'.repeat(200)}TAIL`, 20);
+    expect(tail).toHaveLength(20);
+    expect(tail.endsWith('TAIL')).toBe(true);
+    expect(tail.startsWith('…')).toBe(true);
     expect(toolWords('browser_exec')).toBe('the browser');
   });
 

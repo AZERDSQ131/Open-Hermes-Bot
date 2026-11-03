@@ -96,7 +96,9 @@ import {
   attachReaction,
   elapsedLabel,
   isQuotaFailure,
+  reasoningTail,
   retryWhileDependenciesInstall,
+  toolDetail,
   waitingLabel,
   withTurnNote,
 } from './turns';
@@ -1150,6 +1152,8 @@ export default function App() {
           ...thread,
           streaming: `${thread.streaming ?? ''}${text}`,
           tool: undefined,
+          toolDetail: undefined,
+          reasoning: undefined,
         }))
       ) {
         return;
@@ -1158,12 +1162,48 @@ export default function App() {
         ...live,
         text: `${live.text}${text}`,
         tool: undefined,
+        toolDetail: undefined,
+        reasoning: undefined,
       }));
       stopForMention(requestId, text);
     });
-    const offTool = bridge.onChatTool?.(({ requestId, tool }) => {
-      if (applySingle(requestId, (thread) => ({ ...thread, tool }))) return;
-      applyLive(requestId, (live) => ({ ...live, tool }));
+    const offTool = bridge.onChatTool?.(({ requestId, tool, detail }) => {
+      if (applySingle(requestId, (thread) => ({ ...thread, tool, toolDetail: detail })))
+        return;
+      applyLive(requestId, (live) => ({ ...live, tool, toolDetail: detail }));
+    });
+    // What the model is thinking and what it says beside its tools are live
+    // facts about the turn: they ride the stream, never the stored message, so
+    // they are kept on the thread while it runs and gone with it.
+    const offReasoning = bridge.onChatReasoning?.(({ requestId, delta }) => {
+      if (
+        applySingle(requestId, (thread) => ({
+          ...thread,
+          reasoning: `${thread.reasoning ?? ''}${delta}`,
+        }))
+      ) {
+        return;
+      }
+      applyLive(requestId, (live) => ({
+        ...live,
+        reasoning: `${live.reasoning ?? ''}${delta}`,
+      }));
+    });
+    const offCommentary = bridge.onChatCommentary?.(({ requestId, text }) => {
+      const withLine = (current?: string) =>
+        current ? `${current}\n${text}` : text;
+      if (
+        applySingle(requestId, (thread) => ({
+          ...thread,
+          commentary: withLine(thread.commentary),
+        }))
+      ) {
+        return;
+      }
+      applyLive(requestId, (live) => ({
+        ...live,
+        commentary: withLine(live.commentary),
+      }));
     });
 
     // A command the bot is holding. The turn is paused until it is answered,
@@ -1276,6 +1316,8 @@ export default function App() {
     return () => {
       offDelta?.();
       offTool?.();
+      offReasoning?.();
+      offCommentary?.();
       offApproval?.();
       offApprovalSettled?.();
       offClarify?.();
@@ -4168,6 +4210,16 @@ export default function App() {
                   ),
                 )}
 
+                {!pastOpen && activeThread.thinking && activeThread.commentary ? (
+                  <div className="commentary-block">
+                    {activeThread.commentary.split('\n').map((line, index) => (
+                      <p className="commentary-line" key={index}>
+                        {line}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+
                 {!pastOpen && activeThread.thinking ? (
                   activeThread.avatar.kind === 'group' ? (
                     activeThread.live?.length ? (
@@ -4214,6 +4266,11 @@ export default function App() {
                                 {live.tool
                                   ? `${live.member.name} is using ${live.tool}…`
                                   : `${live.member.name} is thinking…`}
+                                <span className="thinking-detail">
+                                  {live.tool
+                                    ? toolDetail(live.toolDetail)
+                                    : reasoningTail(live.reasoning)}
+                                </span>
                               </span>
                             </div>
                           );
@@ -4249,6 +4306,11 @@ export default function App() {
                             writing: true,
                           })}
                           {waitedFor(activeThread.id) ? ` · ${waitedFor(activeThread.id)}` : ''}
+                          <span className="thinking-detail">
+                            {activeThread.tool
+                              ? toolDetail(activeThread.toolDetail)
+                              : reasoningTail(activeThread.reasoning)}
+                          </span>
                         </span>
                       </div>
                       <div className="message-row assistant">
@@ -4274,6 +4336,11 @@ export default function App() {
                           effort: activeThread.effort,
                         })}
                         {waitedFor(activeThread.id) ? ` · ${waitedFor(activeThread.id)}` : ''}
+                        <span className="thinking-detail">
+                          {activeThread.tool
+                            ? toolDetail(activeThread.toolDetail)
+                            : reasoningTail(activeThread.reasoning)}
+                        </span>
                       </span>
                     </div>
                   )

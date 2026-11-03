@@ -1236,6 +1236,113 @@ describe('the rest of the conversation', () => {
     expect((await screen.findAllByText(/terminal/)).length).toBeGreaterThan(0);
   });
 
+  it('says which command the tool is running, not only which tool', async () => {
+    let onTool: ((payload: { requestId: string; tool: string; detail?: string }) => void) | null =
+      null;
+    const bridge = makeBridge({
+      onChatDelta: vi.fn(() => () => undefined),
+      onChatTool: vi.fn((callback) => {
+        onTool = callback;
+        return () => undefined;
+      }),
+      sendChat: vi.fn(
+        async () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve({ ok: true, text: 'Done' }), 200);
+          }),
+      ),
+    });
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Do it');
+    await userEvent.keyboard('{Enter}');
+    const requestId = bridge.sendChat.mock.calls[0]?.[0]?.requestId;
+    await act(async () => {
+      onTool?.({
+        requestId: requestId ?? 'any',
+        tool: 'terminal',
+        detail: 'ls -la ~/Projects',
+      });
+    });
+    // The label names the tool, the line under it names the command.
+    expect(await screen.findByText('ls -la ~/Projects')).toBeTruthy();
+  });
+
+  it('shows the thought while the bot thinks, and drops it once it writes', async () => {
+    let onReasoning: ((payload: { requestId: string; delta: string }) => void) | null =
+      null;
+    let onDelta: ((payload: { requestId: string; text: string }) => void) | null =
+      null;
+    const bridge = makeBridge({
+      onChatDelta: vi.fn((callback) => {
+        onDelta = callback;
+        return () => undefined;
+      }),
+      onChatReasoning: vi.fn((callback) => {
+        onReasoning = callback;
+        return () => undefined;
+      }),
+      sendChat: vi.fn(
+        async () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve({ ok: true, text: 'Done' }), 400);
+          }),
+      ),
+    });
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Think');
+    await userEvent.keyboard('{Enter}');
+    const requestId = bridge.sendChat.mock.calls[0]?.[0]?.requestId;
+    await act(async () => {
+      onReasoning?.({ requestId: requestId ?? 'any', delta: 'weighing the two ' });
+    });
+    await act(async () => {
+      onReasoning?.({ requestId: requestId ?? 'any', delta: 'options' });
+    });
+    expect(await screen.findByText('weighing the two options')).toBeTruthy();
+
+    // The answer starts: the thought is over and goes with the tool line.
+    await act(async () => {
+      onDelta?.({ requestId: requestId ?? 'any', text: 'Here it is' });
+    });
+    expect(screen.queryByText('weighing the two options')).toBeNull();
+  });
+
+  it('shows what the model says beside its tools, above the answer', async () => {
+    let onCommentary: ((payload: { requestId: string; text: string }) => void) | null =
+      null;
+    const bridge = makeBridge({
+      onChatDelta: vi.fn(() => () => undefined),
+      onChatCommentary: vi.fn((callback) => {
+        onCommentary = callback;
+        return () => undefined;
+      }),
+      sendChat: vi.fn(
+        async () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve({ ok: true, text: 'Done' }), 300);
+          }),
+      ),
+    });
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    const composer = await screen.findByLabelText(/Message/);
+    await userEvent.type(composer, 'Go');
+    await userEvent.keyboard('{Enter}');
+    const requestId = bridge.sendChat.mock.calls[0]?.[0]?.requestId;
+    await act(async () => {
+      onCommentary?.({
+        requestId: requestId ?? 'any',
+        text: 'Checking the folder first.',
+      });
+    });
+    const line = await screen.findByText('Checking the folder first.');
+    expect(line.className).toContain('commentary-line');
+  });
+
   it('comes back to the conversation a notification was about', async () => {
     let onOpen: ((event: { threadId: string }) => void) | null = null;
     const bridge = makeBridge({

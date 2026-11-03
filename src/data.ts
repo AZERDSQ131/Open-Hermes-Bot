@@ -57,6 +57,12 @@ export type LiveGroupTurn = {
   member: GroupMember;
   text: string;
   tool?: string;
+  /** What the tool is doing, in its own words: the command, the file. */
+  toolDetail?: string;
+  /** What the model is thinking, while it thinks it. */
+  reasoning?: string;
+  /** Lines the model wrote beside its tool calls, before its answer. */
+  commentary?: string;
 };
 
 export type Message =
@@ -128,6 +134,12 @@ export type Thread = {
   streaming?: string;
   /** Tool the bot is using right now, if any. */
   tool?: string;
+  /** What that tool is doing, in its own words: the command, the file, the query. */
+  toolDetail?: string;
+  /** What the model is thinking, while it thinks it. Absent until it says so. */
+  reasoning?: string;
+  /** Lines the model wrote beside its tool calls, before the answer. */
+  commentary?: string;
   /**
    * The commands bots are holding for an answer. A turn is paused until each
    * is answered, and the card lives with the thread: in a group the member

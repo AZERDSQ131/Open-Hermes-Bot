@@ -3290,6 +3290,13 @@ ipcMain.handle('hermes:profiles', async () => {
   };
 });
 
+/** A tool's own words as one line: the host sends a string, or an object with text. */
+function toolPreview(preview) {
+  if (typeof preview === 'string') return preview.trim();
+  if (preview && typeof preview.text === 'string') return preview.text.trim();
+  return '';
+}
+
 function parseSseFrame(frame) {
   let event = 'message';
   const data = [];
@@ -3533,7 +3540,13 @@ async function runChatTurn(event, payload) {
           awaitingApproval = false;
           toolRunning = true;
           activeTool = parsed.tool_name;
-          send('hermes:chat:tool', { tool: parsed.tool_name });
+          // The host names the tool and says what it is doing with it, in the
+          // same frame: the command, the file, the query. Dropping the second
+          // half leaves the window saying "a tool" about everything.
+          send('hermes:chat:tool', {
+            tool: parsed.tool_name,
+            detail: toolPreview(parsed.preview),
+          });
           // A question does not ride the stream as its own frame on every
           // host: the run reports it as a pending control, and the status of
           // the run is where a streaming client reads it. The tool starting is
@@ -3547,6 +3560,16 @@ async function runChatTurn(event, payload) {
         ) {
           toolRunning = false;
           activeTool = '';
+        } else if (name === 'tool.progress') {
+          // What the model is thinking while it thinks it: the host folds the
+          // reasoning channel into a progress frame named `_thinking`, and this
+          // is the only place a window can see it.
+          const thought = parsed?.tool_name === '_thinking' ? parsed?.delta : '';
+          if (thought) send('hermes:chat:reasoning', { delta: String(thought) });
+        } else if (name === 'assistant.commentary' && parsed?.text) {
+          // A line the model writes beside its tool calls: its own event, never
+          // folded into the answer, and never part of the stored message.
+          send('hermes:chat:commentary', { text: String(parsed.text) });
         } else if (name === 'approval.request') {
           // The turn is paused until this is answered: the window draws the
           // command and posts the choice back against the run it names.
