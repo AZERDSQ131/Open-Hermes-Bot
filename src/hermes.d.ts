@@ -32,6 +32,30 @@ export type HermesStatus = {
   reason?: 'api-server-off';
 };
 
+/** What the desktop minted for a phone: the address, the code, the link. */
+export type HermesPairing = {
+  ok: boolean;
+  /** The code, `ABCD-EFGH`, when the host minted one. */
+  code?: string;
+  /** The HTTPS address the bridge is published at. */
+  url?: string;
+  /** `hermesbot://pair?url=…&code=…`, what the QR draws. */
+  link?: string;
+  /** The QR of the link, as a PNG data URL. */
+  qr?: string;
+  /** The machine the code was minted on, as the app names it. */
+  label?: string;
+  /** Whether `tailscale serve` publishes this bridge. */
+  published?: boolean;
+  /** Whether the bridge answers on the host itself. */
+  bridge?: boolean;
+  /** How long the code has left, in seconds. */
+  expiresIn?: number;
+  error?: string;
+  /** What to do about the error, in one line. */
+  hint?: string;
+};
+
 export type HermesSettings = {
   /** Where Hermes runs. */
   mode: HermesConnectionMode;
@@ -653,6 +677,11 @@ export type HermesBridge = {
     hosts: string[];
     error?: string;
   }>;
+  /**
+   * Mints a bridge pairing code on the host and folds it with the tailnet
+   * address into the one link the phone scans.
+   */
+  pairingCode: () => Promise<HermesPairing>;
   /** Remembers that the person has been through the setup. */
   setOnboarding: (payload: {
     completed: boolean;

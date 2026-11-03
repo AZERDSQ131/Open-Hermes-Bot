@@ -166,6 +166,14 @@ export default defineConfig({
           branches: 100,
           statements: 100,
         },
+        // The code a phone scans: what the host is asked for it, and what
+        // its answer means. The bridge cannot be checked by hand.
+        'electron/pairing.js': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
         // The link and the reason the host prints when a service signs in:
         // the only two things the shell reads out of a login.
         'electron/mcp.js': {
@@ -198,6 +206,7 @@ export default defineConfig({
         'electron/watch.js',
         'electron/models.js',
         'electron/connectors.js',
+        'electron/pairing.js',
         'electron/mcp.js',
         'scripts/release-rules.js',
       ],

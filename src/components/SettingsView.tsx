@@ -7,6 +7,7 @@ import type {
 } from '../hermes';
 import { ChevronLeftIcon } from './Icons';
 import { ConnectorsSettings } from './ConnectorsSettings';
+import { PhonePairing } from './PhonePairing';
 import { ModelsSettings } from './ModelsSettings';
 import { SkillsSettings } from './SkillsSettings';
 import { ToolsetsSettings } from './ToolsetsSettings';
@@ -28,7 +29,8 @@ export type Section =
   | 'schedules'
   | 'connectors'
   | 'skills'
-  | 'tools';
+  | 'tools'
+  | 'phone';
 
 type SettingsViewProps = {
   status: HermesStatus;
@@ -488,6 +490,16 @@ export function SettingsView({
             Schedules
           </button>
           <span className="settings-nav-group">Apps</span>
+          <button
+            type="button"
+            className={`settings-nav-item ${
+              section === 'phone' ? 'is-active' : ''
+            }`}
+            aria-current={section === 'phone' ? 'page' : undefined}
+            onClick={() => setSection('phone')}
+          >
+            Phone
+          </button>
           <button
             type="button"
             className={`settings-nav-item ${
@@ -1008,6 +1020,8 @@ export function SettingsView({
             </div>
           ) : section === 'updates' ? (
             <UpdatesSettings />
+          ) : section === 'phone' ? (
+            <PhonePairing />
           ) : section === 'schedules' ? (
             <SchedulesSettings onOpenRun={onOpenRun} />
           ) : section === 'connectors' ? (

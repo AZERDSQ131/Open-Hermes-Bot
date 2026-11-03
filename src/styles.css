@@ -3864,6 +3864,59 @@ mark.find-hit.is-current {
   white-space: nowrap;
 }
 
+/* The phone's door: a picture to point a camera at, and the words beside it. */
+.phone-pairing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.phone-pairing-qr {
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  border-radius: 14px;
+  background: #f2efe5;
+  line-height: 0;
+}
+
+.phone-pairing-qr img {
+  display: block;
+  border-radius: 6px;
+}
+
+.phone-pairing-copy {
+  display: flex;
+  flex: 1 1 240px;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.phone-pairing-lead {
+  margin: 0;
+  color: #a4a4ab;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.phone-pairing-code {
+  margin: 4px 0 0;
+  color: var(--paper);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 20px;
+  letter-spacing: 0.12em;
+}
+
+.phone-pairing .settings-notice {
+  margin: 6px 0 0;
+}
+
+.phone-pairing .settings-field-actions {
+  margin-top: 8px;
+}
+
 .settings-card-body {
   display: flex;
   flex-direction: column;
