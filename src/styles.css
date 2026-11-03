@@ -2289,6 +2289,43 @@ mark.find-hit.is-current {
   animation: thinking-fade 2.8s ease-in-out infinite;
 }
 
+/* The tool's own words, or the live end of a thought, under the label: one
+   line, cut, dimmer than the label so the sentence still reads first. */
+.thinking-detail {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #6f6f76;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thinking-detail:empty {
+  display: none;
+}
+
+/* What the model says beside its tool calls, before the answer: its own faint
+   lines, never the answer's voice. */
+.commentary-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 14px 52px;
+  max-width: 720px;
+}
+
+.commentary-line {
+  margin: 0;
+  color: #8d8d94;
+  font-size: 14px;
+  line-height: 1.5;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 @keyframes thinking-breathe {
   0%,
   100% {

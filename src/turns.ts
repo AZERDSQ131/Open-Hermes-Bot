@@ -48,6 +48,33 @@ export function toolWords(tool: string): string {
   return TOOL_WORDS[tool] ?? tool;
 }
 
+/** How much of a tool's own words the waiting line can hold. */
+const TOOL_DETAIL_MAX = 64;
+
+/**
+ * What the tool said about itself, ready for the waiting line: the command the
+ * bot runs, the file it reads, the words it searches. The host sends it beside
+ * the tool's name, and without it the window can only say "a tool".
+ */
+export function toolDetail(preview?: string): string {
+  const line = (preview ?? '').replace(/\s+/g, ' ').trim();
+  if (!line) return '';
+  return line.length <= TOOL_DETAIL_MAX
+    ? line
+    : `${line.slice(0, TOOL_DETAIL_MAX - 1)}…`;
+}
+
+/**
+ * The tail of a reasoning stream: what is being thought right now, not its
+ * opening. Someone watching a long thought wants the live end of it, and the
+ * row has one line to show it in.
+ */
+export function reasoningTail(reasoning?: string, max = 120): string {
+  const flat = (reasoning ?? '').replace(/\s+/g, ' ').trim();
+  if (!flat) return '';
+  return flat.length <= max ? flat : `…${flat.slice(flat.length - max + 1)}`;
+}
+
 /**
  * What the waiting line says while a turn runs, in the order the turn lives it:
  * watching the host, using a tool, writing the answer, or thinking first. A

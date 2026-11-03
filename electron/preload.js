@@ -112,6 +112,18 @@ if (process.env.VITE_DEMO !== '1') contextBridge.exposeInMainWorld('hermes', {
     ipcRenderer.on('hermes:chat:tool', listener);
     return () => ipcRenderer.removeListener('hermes:chat:tool', listener);
   },
+  /** What the model is thinking, while it thinks it. */
+  onChatReasoning: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('hermes:chat:reasoning', listener);
+    return () => ipcRenderer.removeListener('hermes:chat:reasoning', listener);
+  },
+  /** A line the model wrote beside its tool calls. */
+  onChatCommentary: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('hermes:chat:commentary', listener);
+    return () => ipcRenderer.removeListener('hermes:chat:commentary', listener);
+  },
   /** The stream went quiet but the host kept the run: the app watches it. */
   onChatWatch: (callback) => {
     const listener = (_event, data) => callback(data);
