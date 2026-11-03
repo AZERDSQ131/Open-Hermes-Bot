@@ -27,6 +27,12 @@
       "expo-secure-store",
       "expo-audio",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Hermes Bot reads the pairing code the desktop app shows. Nothing else uses the camera."
+        }
+      ],
+      [
         "expo-speech-recognition",
         {
           "microphonePermission": "Hermes Bot listens to your voice to write the message.",

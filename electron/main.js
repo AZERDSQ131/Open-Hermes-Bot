@@ -17,7 +17,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const { spawn, spawnSync, execFileSync } = require('node:child_process');
 const { autoUpdater } = require('electron-updater');
+const QRCode = require('qrcode');
 const { createUpdater } = require('./updater');
+const pairingRules = require('./pairing.js');
 const {
   apiBaseUrl,
   apiUrl,
@@ -964,6 +966,45 @@ ipcMain.handle('hermes:ssh:hosts', () => {
   } catch {
     return { ok: true, hosts: [] };
   }
+});
+
+// The phone's door. The desktop is the only side that holds a way to the
+// host, so it is the one that mints the bridge's code there — and the phone
+// gets both halves of a pairing (the tailnet address and the code) in one
+// link its camera reads.
+ipcMain.handle('hermes:pairing', async () => {
+  const connection = storedConnection();
+  const mode = connection?.mode === 'local' ? 'local' : 'ssh';
+  const label = connectionLabel(mode, connection?.sshHost);
+  if (mode === 'ssh' && !connection?.sshHost) {
+    return {
+      ok: false,
+      error: 'No host configured — open Settings to say where Hermes runs.',
+    };
+  }
+  const result = await runHostCommand(
+    connection,
+    pairingRules.pairingScript(),
+    30000,
+  );
+  const stdout = String(result?.stdout ?? '');
+  if (!stdout.trim()) {
+    return {
+      ok: false,
+      error: stderrOf(result) || `${label} did not answer.`,
+    };
+  }
+  const described = pairingRules.describePairing(stdout, label);
+  if (!described.ok) return described;
+  // The link is drawn once, where the host's answer already is: the window
+  // shows a picture, and the phone reads it.
+  const qr = await QRCode.toDataURL(described.link, {
+    margin: 1,
+    width: 320,
+    errorCorrectionLevel: 'M',
+    color: { dark: '#121214', light: '#f2efe5' },
+  }).catch(() => '');
+  return { ...described, label, qr };
 });
 
 async function connectNow() {

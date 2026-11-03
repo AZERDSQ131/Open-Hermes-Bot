@@ -3,8 +3,9 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Page } from '../components/Page';
 import { Card, Field, Hint, PrimaryButton, Row, SectionLabel } from '../components/UI';
 import { PairingCode } from '../components/PairingCode';
+import { PairingScanner } from '../components/PairingScanner';
 import { BridgeError } from '../api';
-import { pairingCodeReady } from '../pairing';
+import { pairingCodeReady, parsePairingLink } from '../pairing';
 import { useStore } from '../store';
 import { C, INK, createStyles } from '../theme';
 
@@ -21,6 +22,7 @@ export function ConnectionScreen() {
   const [url, setUrl] = useState(connection.url);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -28,12 +30,12 @@ export function ConnectionScreen() {
   const working = busy || connection.status === 'connecting';
   const ready = pairingCodeReady(code);
 
-  async function pair() {
+  async function pair(nextUrl = url, nextCode = code) {
     setError('');
     setNotice('');
     setBusy(true);
     try {
-      await connect(url, code);
+      await connect(nextUrl, nextCode);
       setCode('');
       setNotice('Paired. The bots below come from Hermes, not from this phone.');
     } catch (failure) {
@@ -45,6 +47,22 @@ export function ConnectionScreen() {
     } finally {
       setBusy(false);
     }
+  }
+
+  /**
+   * What the camera read, or what was pasted into the address field: the
+   * desktop's link already holds both halves, so the page fills them and
+   * pairs without asking for the code a second time.
+   */
+  function adopt(value: string) {
+    const pairing = parsePairingLink(value);
+    if (!pairing) {
+      setError('That is not a pairing link. The desktop app draws one under Settings → Phone.');
+      return;
+    }
+    setUrl(pairing.url);
+    setCode(pairing.code);
+    void pair(pairing.url, pairing.code);
   }
 
   return (
@@ -136,13 +154,33 @@ export function ConnectionScreen() {
           </>
         ) : (
           <>
-            <SectionLabel>Bridge</SectionLabel>
+            <View style={styles.buttons}>
+              <PrimaryButton
+                label="Scan the code from the desktop"
+                onPress={() => setScanning(true)}
+              />
+            </View>
+            <Hint>
+              In the desktop app: Settings → Phone → Mint a code. The QR holds the address and
+              the code together.
+            </Hint>
+
+            <SectionLabel>Or type it</SectionLabel>
             <Card>
               <View style={styles.card}>
                 <Field
                   label="Address"
                   value={url}
-                  onChange={setUrl}
+                  onChange={(value) => {
+                    setError('');
+                    const pairing = parsePairingLink(value);
+                    if (pairing) {
+                      setUrl(pairing.url);
+                      setCode(pairing.code);
+                      return;
+                    }
+                    setUrl(value);
+                  }}
                   placeholder="https://host.tailnet.ts.net"
                 />
               </View>
@@ -170,8 +208,7 @@ export function ConnectionScreen() {
 
             <Hint>
               The address is the bridge on the machine that runs Hermes, published by Tailscale.
-              The phone must be on the same tailnet. On the host, a code is minted with
-              `python3 -m hermes_bridge pair`; it works once, and for twenty minutes.
+              The phone must be on the same tailnet. The code works once, and for twenty minutes.
             </Hint>
             <Hint>
               Nothing about the conversations is kept here. The token this page earns opens the
@@ -187,6 +224,15 @@ export function ConnectionScreen() {
           </>
         )}
       </ScrollView>
+
+      <PairingScanner
+        visible={scanning}
+        onClose={() => setScanning(false)}
+        onRead={(value) => {
+          setScanning(false);
+          adopt(value);
+        }}
+      />
     </Page>
   );
 }

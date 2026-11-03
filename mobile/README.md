@@ -12,11 +12,16 @@ The bridge runs on the machine that runs Hermes (`bridge/`), published on the
 tailnet by `tailscale serve`. The phone must be on the same tailnet.
 
 1. Put Tailscale on, on the phone.
-2. On the host, mint a code: `cd ~/hermes-bridge && python3 -m hermes_bridge pair`.
-3. In the app: **Settings → Connection**, type the address
-   (`https://<host>.<tailnet>.ts.net`), the code, and pair. The code is eight
-   characters: type them as they come, the dash between the two groups lands
-   on its own.
+2. In the desktop app: **Settings → Phone → Mint a code**. It mints the code on
+   the host and shows the tailnet address and the code together, as a QR.
+3. In the app: **Settings → Connection → Scan the code from the desktop**. One
+   scan pairs: the link carries both halves, and the page fills them in.
+
+Without the desktop app, the same page still takes the address
+(`https://<host>.<tailnet>.ts.net`) and a code minted on the host
+(`cd ~/hermes-bridge && python3 -m hermes_bridge pair`). The code is eight
+characters: type them as they come, the dash between the two groups lands on
+its own.
 
 From then on the chat list is Hermes': one thread per bot, its newest session,
 read back from the host. A message sent there is a real turn, streamed as it

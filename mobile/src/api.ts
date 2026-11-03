@@ -7,7 +7,7 @@
  * else, and it never sees a Hermes key.
  */
 
-import { canonicalPairingCode } from './pairing';
+import { canonicalPairingCode, normalizeBridgeUrl } from './pairing';
 
 export type BridgeHealth = {
   ok: boolean;
@@ -67,10 +67,7 @@ export class BridgeError extends Error {
 }
 
 export function normalizeUrl(raw: string): string {
-  let url = raw.trim();
-  if (!url) return '';
-  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-  return url.replace(/\/+$/, '');
+  return normalizeBridgeUrl(raw);
 }
 
 async function readError(response: Response, fallback: string): Promise<BridgeError> {

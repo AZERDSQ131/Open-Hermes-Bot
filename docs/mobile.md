@@ -34,11 +34,16 @@ phone ──HTTPS──> tailscale serve ──> 127.0.0.1:8765 (bridge) ──>
 ```
 
 1. Put Tailscale on, on the phone: it must be on the same tailnet.
-2. On the host, mint a code: `cd ~/hermes-bridge && python3 -m hermes_bridge pair`.
-3. In the app: **Settings → Connection**, the address
-   (`https://<host>.<tailnet>.ts.net`), the code, then pair. The code is eight
-   characters, typed without its dash: the two groups of four are drawn by
-   the field.
+2. In the desktop app, **Settings → Phone → Mint a code**: the desktop is the
+   side that holds the way to the host, so it mints the bridge's code there
+   and shows the address and the code together as a QR (`hermesbot://pair?…`).
+3. In the app, **Settings → Connection → Scan the code from the desktop**. One
+   scan pairs; the two fields fill themselves.
+
+Without the desktop window, the page still takes the address
+(`https://<host>.<tailnet>.ts.net`) and a code minted on the host
+(`cd ~/hermes-bridge && python3 -m hermes_bridge pair`), typed without its
+dash: the two groups of four are drawn by the field.
 
 The code works once and for twenty minutes. What the phone keeps afterwards is
 the bridge's address and its own device token, in the Keychain — nothing else.
