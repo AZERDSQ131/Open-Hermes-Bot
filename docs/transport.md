@@ -160,6 +160,11 @@ back with an id of its own, and the window and the phone recognise it by what
 it says and who said it. The rules live in `src/live.ts` and
 `mobile/src/live.ts`, tested on the desktop side.
 
+A person who does not want to wait for the beat has a button on each side: the
+round arrow in the window's header, and **Sync everything** in the phone's
+connection page. Both ask the gateway for everything again and forget what
+they had read, so the next beat trusts nothing from before the click.
+
 ## The host commands
 
 Some of what the app needs is not on the API, and is done on the machine that
