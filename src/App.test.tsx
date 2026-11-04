@@ -207,6 +207,47 @@ describe('the app', () => {
     expect(screen.getAllByText('Hi there').length).toBeGreaterThan(0);
   });
 
+  it('draws a line the host stored after the room was opened', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const bridge = makeBridge();
+      await renderApp(bridge);
+      await userEvent.click(screen.getByText('Bob'));
+      expect((await screen.findAllByText('Hi there')).length).toBeGreaterThan(0);
+
+      // The phone answers on the host: the session the window is showing moved.
+      bridge.sessions.mockResolvedValue({
+        ok: true,
+        sessions: [
+          {
+            id: 'sess-bob',
+            title: 'Bob',
+            messageCount: 3,
+            lastActive: 11,
+            archived: false,
+          },
+        ],
+      });
+      bridge.messages.mockResolvedValue({
+        ok: true,
+        messages: [
+          { role: 'user', content: 'Hello', timestamp: 1 },
+          { role: 'assistant', content: 'Hi there', timestamp: 2 },
+          { role: 'user', content: 'From the phone', timestamp: 3 },
+        ],
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect((await screen.findAllByText('From the phone')).length).toBeGreaterThan(
+        0,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('sends what the person wrote', async () => {
     const bridge = makeBridge();
     await renderApp(bridge);
