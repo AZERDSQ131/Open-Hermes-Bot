@@ -155,6 +155,12 @@ export type Thread = {
   time: string;
   chatTime: string;
   thinking?: boolean;
+  /**
+   * A turn running somewhere else — from the phone — that this window is only
+   * reading. The conversation shows the same waiting row, but the turn is not
+   * this window's: it cannot stream, and it must keep being read.
+   */
+  elsewhere?: boolean;
   pinned?: boolean;
   unread?: boolean;
   messages: Message[];

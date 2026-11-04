@@ -496,12 +496,12 @@ export default function App() {
   const [, setClock] = useState(0);
   useEffect(() => {
     for (const thread of threads) {
-      if (thread.thinking && !turnStartedAt.current.has(thread.id)) {
+      if ((thread.thinking || thread.elsewhere) && !turnStartedAt.current.has(thread.id)) {
         turnStartedAt.current.set(thread.id, Date.now());
       }
-      if (!thread.thinking) turnStartedAt.current.delete(thread.id);
+      if (!thread.thinking && !thread.elsewhere) turnStartedAt.current.delete(thread.id);
     }
-    if (!threads.some((thread) => thread.thinking)) return;
+    if (!threads.some((thread) => thread.thinking || thread.elsewhere)) return;
     const tick = setInterval(() => setClock((count) => count + 1), 1000);
     return () => clearInterval(tick);
   }, [threads]);
@@ -650,6 +650,9 @@ export default function App() {
   // conversation said, so nothing is read twice for nothing.
   const liveProfiles = useRef<HermesProfile[]>([]);
   const liveDigests = useRef(new Map<string, string>());
+  // A turn running elsewhere, and when this window started following it: the
+  // row stays until the answer lands, and not for ever if it never does.
+  const elsewhereSince = useRef(new Map<string, number>());
   const liveRunning = useRef(false);
   const liveTicks = useRef(0);
   const threadsRef = useRef<Thread[]>(threads);
@@ -856,38 +859,108 @@ export default function App() {
       });
 
       const known = withConversations(threadsRef.current, read.perProfile);
+      const openId = activeIdRef.current;
+      const now = Date.now();
       for (const thread of known) {
-        if (liveBusy(thread)) continue;
+        if (liveBusy(thread)) {
+          // A turn of this window owns the thread again: the waiting row is
+          // the stream's, not the host's.
+          if (elsewhereSince.current.delete(thread.id)) {
+            setThreads((current) =>
+              current.map((entry) =>
+                entry.id === thread.id ? { ...entry, elsewhere: false } : entry,
+              ),
+            );
+          }
+          continue;
+        }
         const facts = sessionFactsOf(thread, read.perProfile);
         if (!facts.length) continue;
         const digest = sessionDigest(facts);
-        if (digest === liveDigests.current.get(thread.id)) continue;
+        const following = elsewhereSince.current.has(thread.id);
+        // The open conversation is read on every beat: a turn sent from the
+        // phone may not move anything the session list shows until it ends,
+        // and the answer would then land all at once instead of appearing.
+        if (
+          !following &&
+          thread.id !== openId &&
+          digest === liveDigests.current.get(thread.id)
+        ) {
+          continue;
+        }
+        // A turn that was stopped elsewhere leaves a user line with no answer
+        // under it: it is not followed for ever.
+        if (
+          following &&
+          now - (elsewhereSince.current.get(thread.id) ?? now) > 4 * 60_000
+        ) {
+          elsewhereSince.current.delete(thread.id);
+          setThreads((current) =>
+            current.map((entry) =>
+              entry.id === thread.id ? { ...entry, elsewhere: false } : entry,
+            ),
+          );
+          continue;
+        }
         const transcript = await readThreadTranscript(thread);
         if (!transcript.ok) continue;
-        liveDigests.current.set(thread.id, digest);
+        if (digest) liveDigests.current.set(thread.id, digest);
         const last = [...transcript.messages]
           .reverse()
           .find((line) => line.role !== 'event');
-        const preview = last?.text.replace(/\s+/g, ' ').trim().slice(0, 90);
         const at = Math.max(...facts.map((fact) => fact.lastActive));
-        const open = activeIdRef.current || known[0]?.id;
-        setThreads((current) =>
-          current.map((entry) => {
+        const open = thread.id === openId || Boolean(thread.messages.length);
+        // What the host gave that this window did not have: a line already on
+        // screen is not a turn starting, it is the same turn.
+        const arrived = open
+          ? mergeTranscript(thread.messages, transcript.messages) !== null
+          : transcript.messages.length > 0;
+        // A user line with no answer under it is a turn still in flight, from
+        // this window or from the phone. This window can only read it, not
+        // stream it, so it keeps the waiting row and reads again on the beat
+        // until the answer is there. A conversation that ended on a question
+        // long ago is not a turn: only a session that just moved is.
+        const running =
+          last?.role === 'user' &&
+          (following || (arrived && now / 1000 - at < 120));
+        if (running) {
+          if (!elsewhereSince.current.has(thread.id)) {
+            elsewhereSince.current.set(thread.id, now);
+          }
+        } else {
+          elsewhereSince.current.delete(thread.id);
+        }
+        const preview = last?.text.replace(/\s+/g, ' ').trim().slice(0, 90);
+        setThreads((current) => {
+          let changed = false;
+          const next = current.map((entry) => {
             if (entry.id !== thread.id) return entry;
             // A conversation nobody opened is not kept: only its row is
             // refreshed, so the window still holds nothing of it.
-            const merged =
-              entry.id === open || entry.messages.length
-                ? mergeTranscript(entry.messages, transcript.messages)
-                : null;
+            const merged = open
+              ? mergeTranscript(entry.messages, transcript.messages)
+              : null;
+            const time = relativeDay(Date.now(), at);
+            const follows = Boolean(entry.elsewhere);
+            if (
+              !merged &&
+              follows === running &&
+              entry.preview === (preview || entry.preview) &&
+              entry.time === time
+            ) {
+              return entry;
+            }
+            changed = true;
             return {
               ...entry,
               messages: merged ?? entry.messages,
               preview: preview || entry.preview,
-              time: relativeDay(Date.now(), at),
+              time,
+              elsewhere: running,
             };
-          }),
-        );
+          });
+          return changed ? next : current;
+        });
       }
 
       // A past conversation is drawn over its bot, and read on its own.
@@ -1756,6 +1829,7 @@ export default function App() {
     activeId,
     activeThread?.messages.length,
     activeThread?.thinking,
+    activeThread?.elsewhere,
     activeThread?.streaming,
     activeThread?.live,
   ]);
@@ -3879,8 +3953,8 @@ export default function App() {
                       {warming ? '…' : thread.time}
                     </span>
                   </span>
-                  <span className={`thread-preview ${thread.thinking ? 'is-typing' : ''}`}>
-                    {thread.thinking
+                  <span className={`thread-preview ${thread.thinking || thread.elsewhere ? 'is-typing' : ''}`}>
+                    {thread.thinking || thread.elsewhere
                       ? 'Typing...'
                       : warming
                         ? (thread.serveFailed
@@ -4447,7 +4521,7 @@ export default function App() {
                   </div>
                 ) : null}
 
-                {!pastOpen && activeThread.thinking ? (
+                {!pastOpen && (activeThread.thinking || activeThread.elsewhere) ? (
                   activeThread.avatar.kind === 'group' ? (
                     activeThread.live?.length ? (
                       <div className="group-live">
