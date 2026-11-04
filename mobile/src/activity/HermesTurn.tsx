@@ -31,6 +31,13 @@ import { createLiveActivity, type LiveActivityEnvironment } from 'expo-widgets';
 
 export type TurnPhase = 'thinking' | 'writing' | 'answered' | 'cut';
 
+/** One bot on the Island's queue: the face, and the turn's own clock. */
+export type QueueFace = {
+  color: string;
+  shape?: string;
+  startedAt: number;
+};
+
 export type HermesTurnProps = {
   /** The bot's name, as the conversation shows it. */
   botName: string;
@@ -50,6 +57,12 @@ export type HermesTurnProps = {
    * One picture per variant; the beat cycles through them.
    */
   faceUris?: string[];
+  /**
+   * Every bot with a turn in flight, in the order the turns started. With
+   * several agents running, the compact Island walks this queue: one face,
+   * then its own clock, then the next.
+   */
+  queue?: QueueFace[];
 };
 
 const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironment) => {
@@ -81,7 +94,6 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
         ? 'Writing the answer…'
         : status);
 
-  const started = new Date(props.startedAt);
   const beat = props.beat ?? 0;
   // The app writes the real Bloub variants beside the activity; the beat walks
   // them, one every two beats, so the face blinks and looks around.
@@ -89,6 +101,13 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
   const faceUri = frames.length
     ? frames[Math.floor(beat / 2) % frames.length]
     : undefined;
+  // Every running agent is on the compact Island in turn: its face, then its
+  // own clock, then the next. One agent is a queue of one, and never moves.
+  const roster: QueueFace[] =
+    props.queue && props.queue.length
+      ? props.queue
+      : [{ color: props.color, shape: props.shape, startedAt: props.startedAt }];
+  const queued = roster[Math.floor(Date.now() / 1400) % roster.length] ?? roster[0];
   // Every beat flips the face between two sizes: the activity is updated
   // while the turn runs, and the movement between the two is what the person
   // sees. Thinking breathes slowly and deep; writing keeps a quicker, smaller
@@ -105,21 +124,34 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
   const tempo = props.phase === 'thinking' ? 0.9 : 0.5;
 
   /** The bot's Bloub face: the drawn shape, or the real sprite when it fits. */
-  const Face = ({ size, soft = false, still = false }: { size: number; soft?: boolean; still?: boolean }) => {
-    // A sprite is only used where there is room to read it; the compact
-    // regions keep the drawn face, which never has a background of its own.
-    const picture = faceUri && size >= 30 ? (still ? frames[0] : faceUri) : undefined;
+  const Face = ({
+    size,
+    soft = false,
+    still = false,
+    tint,
+  }: {
+    size: number;
+    soft?: boolean;
+    still?: boolean;
+    tint?: QueueFace;
+  }) => {
+    const faceColor = tint?.color || accent;
+    const faceShape = tint?.shape ?? props.shape;
+    // A sprite is only used where there is room to read it, and only for the
+    // activity's own bot; a face from the queue is drawn in its colour.
+    const picture =
+      !tint && faceUri && size >= 30 ? (still ? frames[0] : faceUri) : undefined;
     const body =
-      props.shape === 'capsule' ? (
-        <Capsule modifiers={[foregroundStyle(accent)]} />
-      ) : props.shape === 'goutte' ? (
-        <Ellipse modifiers={[foregroundStyle(accent)]} />
-      ) : props.shape === 'cercle' || !props.shape ? (
-        <Circle modifiers={[foregroundStyle(accent)]} />
+      faceShape === 'capsule' ? (
+        <Capsule modifiers={[foregroundStyle(faceColor)]} />
+      ) : faceShape === 'goutte' ? (
+        <Ellipse modifiers={[foregroundStyle(faceColor)]} />
+      ) : faceShape === 'cercle' || !faceShape ? (
+        <Circle modifiers={[foregroundStyle(faceColor)]} />
       ) : (
         <RoundedRectangle
           cornerRadius={Math.round(size * 0.32)}
-          modifiers={[foregroundStyle(accent)]}
+          modifiers={[foregroundStyle(faceColor)]}
         />
       );
     const eye = Math.max(2, Math.round(size * 0.13));
@@ -156,14 +188,15 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
   };
 
   /** While the turn runs, the seconds; once it is over, the sign that it is. */
-  const Pulse = ({ size = 12 }: { size?: number }) =>
-    active ? (
+  const Pulse = ({ size = 12, from }: { size?: number; from?: number }) => {
+    const clock = new Date(from ?? props.startedAt);
+    return active ? (
       // Fixed width, and intrinsic: a flexible timer would ask the compact
       // Island for all the room it can give, and stretch the pill.
       <HStack spacing={5} modifiers={[fixedSize({ horizontal: true })]}>
         <Circle modifiers={[foregroundStyle(accent), frame({ width: 6, height: 6 })]} />
         <Text
-          date={started}
+          date={clock}
           dateStyle="timer"
           countsDown={false}
           modifiers={[
@@ -182,6 +215,7 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
         color={props.phase === 'answered' ? accent : FAINT}
       />
     );
+  };
 
   return {
     // The Lock Screen, and the notification the turn leaves behind.
@@ -237,20 +271,20 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
       </ZStack>
     ),
 
-    // Compact Island: the face, and the timer that keeps the seconds honest.
+    // Compact Island: the queue's face, and that face's own clock.
     compactLeading: (
       <ZStack modifiers={[frame({ width: 26, height: 26 })]}>
-        <Face size={24} soft={!active} still />
+        <Face size={24} still tint={queued} />
       </ZStack>
     ),
     compactTrailing: (
       <ZStack modifiers={[frame({ width: 50, height: 26, alignment: 'trailing' })]}>
-        <Pulse size={12} />
+        <Pulse size={12} from={queued.startedAt} />
       </ZStack>
     ),
 
     // Minimal Island: the bot's face, small — the same face as everywhere.
-    minimal: <Face size={18} soft={!active} still />,
+    minimal: <Face size={18} still tint={queued} />,
 
     // Expanded Island: the compact's two things — the face and the clock —
     // with the room the expanded shape gives them. No transcript, no card.

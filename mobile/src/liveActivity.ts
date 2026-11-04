@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import type { LiveActivity, LiveActivityFactory } from 'expo-widgets';
-import type { HermesTurnProps } from './activity/HermesTurn';
+import type { HermesTurnProps, QueueFace } from './activity/HermesTurn';
 
 /**
  * The turn, as the Lock Screen sees it.
@@ -100,6 +100,43 @@ function flush(threadId: string, force: boolean): void {
   }
 }
 
+function sameQueue(left: QueueFace[], right: QueueFace[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every(
+      (face, index) =>
+        face.color === right[index].color &&
+        face.shape === right[index].shape &&
+        face.startedAt === right[index].startedAt,
+    )
+  );
+}
+
+/**
+ * The running agents, in the order their turns started, given to every
+ * activity: when several are in flight the compact Island walks them one by
+ * one, each with its own clock.
+ */
+function syncQueue(): void {
+  const roster: QueueFace[] = [];
+  for (const props of shown.values()) {
+    if (props.phase !== 'thinking' && props.phase !== 'writing') continue;
+    const key = `${props.color}|${props.shape ?? ''}`;
+    if (roster.some((face) => `${face.color}|${face.shape ?? ''}` === key)) continue;
+    roster.push({
+      color: props.color,
+      shape: props.shape,
+      startedAt: props.startedAt,
+    });
+  }
+  if (!roster.length) return;
+  for (const [threadId, props] of shown) {
+    if (props.queue && sameQueue(props.queue, roster)) continue;
+    shown.set(threadId, { ...props, queue: roster });
+    flush(threadId, true);
+  }
+}
+
 /** A turn has begun: its first line is "thinking", and the clock starts here. */
 export function startTurnActivity(threadId: string, props: HermesTurnProps): void {
   const factory = turnFactory();
@@ -114,6 +151,7 @@ export function startTurnActivity(threadId: string, props: HermesTurnProps): voi
     shown.set(threadId, { ...props, beat: 0 });
     sentAt.set(threadId, Date.now());
     ticks.set(threadId, 0);
+    syncQueue();
     // The face is given a new beat while the turn runs: that is the animation
     // the Island can show without asking the system for a running clock.
     beats.set(
@@ -164,6 +202,7 @@ export function finishTurnActivity(
   const handle = handles.get(threadId);
   const current = shown.get(threadId);
   forget(threadId);
+  syncQueue();
   if (!handle || !current) return;
   // The face comes to rest on the first frame, not on whichever look the
   // beat stopped at.
@@ -182,6 +221,7 @@ export function finishTurnActivity(
 export function stopTurnActivity(threadId: string): void {
   const handle = handles.get(threadId);
   forget(threadId);
+  syncQueue();
   if (!handle) return;
   try {
     void handle.end('immediate').catch(() => undefined);
