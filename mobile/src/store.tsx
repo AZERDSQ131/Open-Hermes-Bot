@@ -24,6 +24,14 @@ import {
 } from './data';
 import type { BloubShape } from './bloubFrames';
 import { LIVE_MS, mergeMessages } from './live';
+import {
+  finishTurnActivity,
+  startTurnActivity,
+  stopAllTurnActivities,
+  stopTurnActivity,
+  sweepTurnActivities,
+  updateTurnActivity,
+} from './liveActivity';
 import { pairingCodeReady } from './pairing';
 import {
   BridgeError,
@@ -258,6 +266,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const client = useRef<BridgeClient | null>(null);
   const threadsRef = useRef<Thread[]>(threads);
   const messagesRef = useRef(messages);
+  const botsRef = useRef<Bot[]>(bots);
   // The threads with a turn in flight: the host has not caught up with them,
   // and reading now would draw the same answer twice.
   const busy = useRef(new Set<string>());
@@ -272,8 +281,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     messagesRef.current = messages;
   }, [messages]);
   useEffect(() => {
+    botsRef.current = bots;
+  }, [bots]);
+  useEffect(() => {
     connectionRef.current = connection;
   }, [connection]);
+
+  // A Live Activity outlives the app process that started it. Anything the
+  // Lock Screen still holds on launch is a turn nobody is running any more.
+  useEffect(() => {
+    sweepTurnActivities();
+  }, []);
 
   const toggle = useCallback((key: keyof Toggles) => {
     setToggles((current) => ({ ...current, [key]: !current[key] }));
@@ -588,6 +606,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const disconnect = useCallback(async () => {
     client.current = null;
+    stopAllTurnActivities();
     await writeSaved(null);
     setConnection({ status: 'offline', url: '', device: '', model: '', provider: '' });
     setDevices([]);
@@ -837,6 +856,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const removeThread = useCallback<Store['removeThread']>((threadId) => {
     const thread = threadsRef.current.find((entry) => entry.id === threadId);
+    stopTurnActivity(threadId);
     setThreads((current) => current.filter((entry) => entry.id !== threadId));
     setMessages((current) => {
       const next = { ...current };
@@ -853,6 +873,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearThread = useCallback<Store['clearThread']>((threadId) => {
+    stopTurnActivity(threadId);
     setMessages((current) => ({ ...current, [threadId]: [] }));
   }, []);
 
@@ -897,6 +918,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       busy.current.add(threadId);
       const botId = thread.botId;
       const assistantId = `a-${Date.now()}`;
+      const accent = botsRef.current.find((bot) => bot.id === botId)?.color ?? '#8b5cf6';
       let answer = '';
       let settled = false;
       let streaming = false;
@@ -912,6 +934,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const kept = failed && partial;
         const shown = failed ? (kept ? partial : `⚠︎ ${outcome}`) : outcome;
         const note = kept ? outcome : undefined;
+        // The Lock Screen keeps the line the turn ended on for a few seconds.
+        finishTurnActivity(threadId, {
+          phase: failed ? 'cut' : 'answered',
+          preview: (kept ? partial : outcome).replace(/\s+/g, ' ').trim().slice(0, 160),
+        });
         setMessages((current) => {
           const rows = current[threadId] ?? [];
           const known = rows.some((message) => message.id === assistantId);
@@ -937,6 +964,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // The waiting is the dots, not a bubble: the empty bubble the answer
       // would fill is added when the first word arrives.
       patchThread(threadId, { typing: true });
+
+      // The Lock Screen sees the turn from its first second: the bot, the
+      // conversation, and a clock that only stops when the answer settles.
+      startTurnActivity(threadId, {
+        botName: thread.name,
+        color: accent,
+        phase: 'thinking',
+        preview: '',
+        startedAt: Date.now(),
+      });
 
       void (async () => {
         try {
@@ -964,6 +1001,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 const first = !streaming;
                 streaming = true;
                 answer += delta;
+                // The activity reads the tail of the answer: a Lock Screen
+                // line, not a transcript.
+                updateTurnActivity(threadId, {
+                  phase: 'writing',
+                  preview: answer.replace(/\s+/g, ' ').trim().slice(-180),
+                });
                 setMessages((current) => {
                   const rows = current[threadId] ?? [];
                   const known = rows.some((message) => message.id === assistantId);
@@ -984,6 +1027,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 // A tool is a silence with a reason: the dots come back until
                 // the answer writes again.
                 streaming = false;
+                updateTurnActivity(threadId, { phase: 'thinking', preview: '' });
                 patchThread(threadId, { typing: true });
               },
               onDone: (text) => settle(text || answer, false),
