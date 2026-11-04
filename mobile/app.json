@@ -7,9 +7,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#1d1d1f",
+    "scheme": "hermesbot",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.hermesbot.mobile"
+      "bundleIdentifier": "com.hermesbot.mobile",
+      "appleTeamId": "8M5UCCN46W"
     },
     "android": {
       "adaptiveIcon": {
@@ -37,6 +39,13 @@
         {
           "microphonePermission": "Hermes Bot listens to your voice to write the message.",
           "speechRecognitionPermission": "Hermes Bot transcribes your dictation on this phone, never on a server."
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "com.hermesbot.mobile.ExpoWidgetsTarget",
+          "groupIdentifier": "group.com.hermesbot.mobile"
         }
       ]
     ]

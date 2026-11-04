@@ -4,6 +4,7 @@
   "main": "index.ts",
   "dependencies": {
     "@expo/metro-runtime": "~58.0.15",
+    "@expo/ui": "~58.0.27",
     "@react-navigation/native": "^7.5.1",
     "@react-navigation/native-stack": "^7.21.0",
     "expo": "~58.0.17",
@@ -14,6 +15,7 @@
     "expo-secure-store": "~58.0.2",
     "expo-speech-recognition": "^58.0.1",
     "expo-status-bar": "~58.0.4",
+    "expo-widgets": "~58.0.27",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.0",

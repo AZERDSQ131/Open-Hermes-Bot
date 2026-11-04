@@ -1,6 +1,7 @@
 import {
   NavigationContainer,
   DarkTheme,
+  type LinkingOptions,
   type Theme,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -21,6 +22,20 @@ import { C } from './src/theme';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+/**
+ * A tap on a Live Activity opens the conversation it was about: the widget
+ * hands over `hermesbot://chat/<thread>`, and the stack takes it from there.
+ */
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: ['hermesbot://'],
+  config: {
+    screens: {
+      Chats: '',
+      Chat: 'chat/:threadId',
+    },
+  },
+};
+
 /** The app is dark by construction: the system's light theme is not ours. */
 const theme: Theme = {
   ...DarkTheme,
@@ -39,7 +54,7 @@ export default function App() {
     <SafeAreaProvider>
       <StoreProvider>
         <StatusBar style="light" />
-        <NavigationContainer theme={theme}>
+        <NavigationContainer theme={theme} linking={linking}>
           <Stack.Navigator
             screenOptions={{
               headerShown: false,
