@@ -1789,6 +1789,47 @@ mark.find-hit.is-current {
   color: #e3e3e7;
 }
 
+.header-sync {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #7d7d85;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.header-sync:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.055);
+  color: #e3e3e7;
+}
+
+.header-sync:disabled {
+  cursor: default;
+  color: #5a5a61;
+}
+
+.header-sync.is-running svg {
+  animation: header-sync-turn 900ms linear infinite;
+}
+
+.header-sync.is-done {
+  color: #7fcfaa;
+}
+
+.header-sync.is-error {
+  color: #e09248;
+}
+
+@keyframes header-sync-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .sidebar-scrim {
   display: none;
 }

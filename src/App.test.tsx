@@ -321,6 +321,25 @@ describe('the app', () => {
     }
   });
 
+  it('reads everything again from the host on demand', async () => {
+    const bridge = makeBridge();
+    await renderApp(bridge);
+    await userEvent.click(screen.getByText('Bob'));
+    await waitFor(() => expect(bridge.messages).toHaveBeenCalled());
+
+    const profiles = bridge.profiles.mock.calls.length;
+    const messages = bridge.messages.mock.calls.length;
+    await userEvent.click(
+      screen.getByLabelText('Sync everything from Hermes'),
+    );
+    await waitFor(() =>
+      expect(bridge.profiles.mock.calls.length).toBeGreaterThan(profiles),
+    );
+    await waitFor(() =>
+      expect(bridge.messages.mock.calls.length).toBeGreaterThan(messages),
+    );
+  });
+
   it('sends what the person wrote', async () => {
     const bridge = makeBridge();
     await renderApp(bridge);

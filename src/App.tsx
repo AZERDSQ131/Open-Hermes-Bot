@@ -51,6 +51,7 @@ import {
   PlusIcon,
   SearchIcon,
   StopIcon,
+  SyncIcon,
 } from './components/Icons';
 import type {
   HermesConnectorList,
@@ -553,6 +554,10 @@ export default function App() {
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   // Bumped when the setup touched the server, so the sidebar is read again.
   const [refreshToken, setRefreshToken] = useState(0);
+  // The round arrow in the header: what a full read is doing, so the button
+  // can say it is working and then that it is done.
+  const [syncState, setSyncState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const syncTimer = useRef<number | null>(null);
   const [hermesStatus, setHermesStatus] = useState<HermesStatus>({
     state: 'disconnected',
   });
@@ -2333,6 +2338,87 @@ export default function App() {
     if (!result.ok || !result.profiles) return;
     await loadConversations(result.profiles);
     await loadHistory(result.profiles);
+  }
+
+  // Everything the window knows, read again from the gateway in one gesture:
+  // the bots, their conversations, the ones before, and the room on screen.
+  // A click is a full breath, not a beat — and the beats are cleared too, so
+  // the next one reads every row instead of trusting what it saw before.
+  async function syncEverything() {
+    const bridge = window.hermes;
+    if (!bridge?.profiles || syncState === 'running') return;
+    setSyncState('running');
+    try {
+      const listed = await bridge.profiles();
+      if (listed.ok && listed.profiles) {
+        liveProfiles.current = listed.profiles;
+        const served = listed.profiles.filter((entry) => entry.served !== false);
+        setThreads((current) =>
+          mergeBots(
+            current,
+            listed.profiles ?? [],
+            pendingBots.current,
+            listed.primary,
+            Date.now(),
+          ),
+        );
+        await loadConversations(served);
+        await loadHistory(served);
+      }
+
+      // What was read before is not evidence any more: the next beat reads
+      // every conversation again.
+      liveDigests.current.clear();
+      elsewhereSince.current.clear();
+      transcriptState.current.clear();
+
+      const thread = activeThread;
+      if (thread) {
+        const read = await readThreadTranscript(thread);
+        if (read.ok) {
+          setThreads((current) =>
+            current.map((entry) => {
+              if (entry.id !== thread.id) return entry;
+              // A turn of this window is still streaming: its words win.
+              const messages = liveBusy(entry)
+                ? (mergeTranscript(entry.messages, read.messages) ?? entry.messages)
+                : read.messages;
+              const last = [...messages]
+                .reverse()
+                .find((line) => line.role !== 'event');
+              return {
+                ...entry,
+                messages,
+                preview: last
+                  ? last.text.replace(/\s+/g, ' ').trim().slice(0, 90)
+                  : entry.preview,
+                elsewhere: false,
+              };
+            }),
+          );
+          transcriptState.current.set(thread.id, 'loaded');
+        }
+      }
+
+      const past = pastOpenRef.current;
+      if (past) {
+        const result = await bridge.messages({
+          profile: past.group.profile,
+          sessionId: past.session.id,
+        });
+        if (result.ok && result.messages) {
+          setPastMessages(privateTranscript(result.messages));
+        }
+      }
+
+      setSyncState('done');
+      if (syncTimer.current) window.clearTimeout(syncTimer.current);
+      syncTimer.current = window.setTimeout(() => setSyncState('idle'), 1800);
+    } catch {
+      setSyncState('error');
+      if (syncTimer.current) window.clearTimeout(syncTimer.current);
+      syncTimer.current = window.setTimeout(() => setSyncState('idle'), 2500);
+    }
   }
 
   // The deletion happens where the conversation is kept. A bot is a Hermes
@@ -4197,6 +4283,27 @@ export default function App() {
                 </button>
               </h1>
             )}
+
+            {/* The whole window read again from the gateway, without waiting
+                for the beat to catch up: the arrow turns while it works. */}
+            <button
+              type="button"
+              className={`header-sync is-${syncState}`}
+              onClick={() => void syncEverything()}
+              aria-label="Sync everything from Hermes"
+              title={
+                syncState === 'running'
+                  ? 'Syncing everything from Hermes…'
+                  : syncState === 'done'
+                    ? 'Everything is in sync'
+                    : syncState === 'error'
+                      ? 'Hermes did not answer — try again'
+                      : 'Sync everything from Hermes'
+              }
+              disabled={syncState === 'running' || hermesStatus.state !== 'connected'}
+            >
+              <SyncIcon size={16} />
+            </button>
 
             {/* The way into the find bar without the shortcut: the same gesture,
                 reachable with a pointer, and it reads as on while the bar is. */}
