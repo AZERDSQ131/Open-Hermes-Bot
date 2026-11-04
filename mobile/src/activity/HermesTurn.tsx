@@ -104,8 +104,11 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
         : 1;
   const tempo = props.phase === 'thinking' ? 0.9 : 0.5;
 
-  /** The bot's Bloub face: its body shape and its two eyes, not a dot. */
-  const Face = ({ size, soft = false }: { size: number; soft?: boolean }) => {
+  /** The bot's Bloub face: the drawn shape, or the real sprite when it fits. */
+  const Face = ({ size, soft = false, still = false }: { size: number; soft?: boolean; still?: boolean }) => {
+    // A sprite is only used where there is room to read it; the compact
+    // regions keep the drawn face, which never has a background of its own.
+    const picture = faceUri && size >= 30 ? (still ? frames[0] : faceUri) : undefined;
     const body =
       props.shape === 'capsule' ? (
         <Capsule modifiers={[foregroundStyle(accent)]} />
@@ -126,13 +129,17 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
         modifiers={[
           frame({ width: size, height: size }),
           opacity(soft ? 0.55 : 1),
-          scaleEffect(breathe),
-          animation(Animation.easeInOut({ duration: tempo }), beat),
+          ...(still
+            ? []
+            : [
+                scaleEffect(breathe),
+                animation(Animation.easeInOut({ duration: tempo }), beat),
+              ]),
         ]}
       >
-        {faceUri ? (
+        {picture ? (
           <Image
-            uiImage={faceUri}
+            uiImage={picture}
             modifiers={[resizable(), frame({ width: size, height: size })]}
           />
         ) : (
@@ -255,7 +262,7 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
           offset({ x: 4 }),
         ]}
       >
-        <Face size={48} soft={!active} />
+        <Face size={48} soft={!active} still />
       </HStack>
     ),
     expandedTrailing: (
