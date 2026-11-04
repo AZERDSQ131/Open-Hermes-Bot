@@ -210,29 +210,29 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
 
     // Compact Island: the face, and the timer that keeps the seconds honest.
     compactLeading: (
-      <ZStack modifiers={[frame({ width: 22, height: 22 })]}>
-        <Face size={20} soft={!active} />
+      <ZStack modifiers={[frame({ width: 26, height: 26 })]}>
+        <Face size={24} soft={!active} />
       </ZStack>
     ),
     compactTrailing: (
-      <ZStack modifiers={[frame({ width: 46, height: 20, alignment: 'trailing' })]}>
-        <Pulse size={11} />
+      <ZStack modifiers={[frame({ width: 50, height: 22, alignment: 'trailing' })]}>
+        <Pulse size={12} />
       </ZStack>
     ),
 
     // Minimal Island: the bot's face, small — the same face as everywhere.
-    minimal: <Face size={16} soft={!active} />,
+    minimal: <Face size={18} soft={!active} />,
 
     // Expanded Island: the compact's two things — the face and the clock —
     // with the room the expanded shape gives them. No transcript, no card.
     expandedLeading: (
-      <HStack modifiers={[padding({ leading: 12 })]}>
-        <Face size={36} soft={!active} />
+      <HStack modifiers={[padding({ leading: -6 })]}>
+        <Face size={44} soft={!active} />
       </HStack>
     ),
     expandedTrailing: (
-      <HStack modifiers={[padding({ trailing: 12 })]}>
-        <Pulse size={15} />
+      <HStack modifiers={[padding({ trailing: -6 })]}>
+        <Pulse size={18} />
       </HStack>
     ),
   };
