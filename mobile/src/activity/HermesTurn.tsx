@@ -1,7 +1,5 @@
 import { Capsule, Circle, Ellipse, HStack, Image, RoundedRectangle, Spacer, Text, VStack, ZStack } from '@expo/ui/swift-ui';
 import {
-  Animation,
-  animation,
   clipShape,
   containerBackground,
   fixedSize,
@@ -14,7 +12,6 @@ import {
   opacity,
   padding,
   resizable,
-  scaleEffect,
 } from '@expo/ui/swift-ui/modifiers';
 import { createLiveActivity, type LiveActivityEnvironment } from 'expo-widgets';
 
@@ -50,11 +47,9 @@ export type HermesTurnProps = {
   preview: string;
   /** Epoch milliseconds; the timer under the name counts from here. */
   startedAt: number;
-  /** Bumped by the app while the turn runs: the face breathes with it. */
-  beat?: number;
   /**
    * The real Bloub, drawn by the app and stored where the widget can read it.
-   * One picture per variant; the beat cycles through them.
+   * One picture per variant; the activity uses the first, still.
    */
   faceUris?: string[];
   /**
@@ -93,11 +88,7 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
         ? 'Writing the answer…'
         : status);
 
-  const beat = props.beat ?? 0;
-  // The app writes the real Bloub variants beside the activity; the beat walks
-  // them, one every two beats, so the face blinks and looks around.
   const frames = props.faceUris ?? [];
-  // One still frame: the face does not blink or change while it waits.
   const faceUri = frames[0];
   // Every running agent is on the Island at once, side by side, in the order
   // their turns started. One agent is a face; several are a row of faces.
@@ -105,39 +96,22 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
     props.queue && props.queue.length
       ? props.queue
       : [{ color: props.color, shape: props.shape, startedAt: props.startedAt }];
-  // Every beat flips the face between two sizes: the activity is updated
-  // while the turn runs, and the movement between the two is what the person
-  // sees. Thinking breathes slowly and deep; writing keeps a quicker, smaller
-  // pulse. A face that is over no longer moves.
-  const breathe = !active
-    ? 1
-    : props.phase === 'thinking'
-      ? beat % 2 === 0
-        ? 0.9
-        : 1
-      : beat % 2 === 0
-        ? 0.96
-        : 1;
-  const tempo = props.phase === 'thinking' ? 0.9 : 0.5;
 
   /** The bot's Bloub face: the drawn shape, or the real sprite when it fits. */
   const Face = ({
     size,
     soft = false,
-    still = false,
     tint,
   }: {
     size: number;
     soft?: boolean;
-    still?: boolean;
     tint?: QueueFace;
   }) => {
     const faceColor = tint?.color || accent;
     const faceShape = tint?.shape ?? props.shape;
     // A sprite is only used where there is room to read it, and only for the
     // activity's own bot; a face from the queue is drawn in its colour.
-    const picture =
-      !tint && faceUri && size >= 30 ? (still ? frames[0] : faceUri) : undefined;
+    const picture = !tint && faceUri && size >= 30 ? faceUri : undefined;
     const body =
       faceShape === 'capsule' ? (
         <Capsule modifiers={[foregroundStyle(faceColor)]} />
@@ -158,12 +132,6 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
         modifiers={[
           frame({ width: size, height: size }),
           opacity(soft ? 0.55 : 1),
-          ...(still
-            ? []
-            : [
-                scaleEffect(breathe),
-                animation(Animation.easeInOut({ duration: tempo }), beat),
-              ]),
         ]}
       >
         {picture ? (
@@ -187,11 +155,11 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
   /** The running agents, all of them, in the order their turns started. */
   const Roster = ({ size, overlap = 4 }: { size: number; overlap?: number }) =>
     roster.length === 1 ? (
-      <Face size={size} still />
+      <Face size={size} />
     ) : (
       <HStack spacing={-overlap}>
         {roster.slice(0, 4).map((face, index) => (
-          <Face key={index} size={size} still tint={face} />
+          <Face key={index} size={size} tint={face} />
         ))}
       </HStack>
     );
