@@ -30,7 +30,6 @@ import {
   stopAllTurnActivities,
   stopTurnActivity,
   sweepTurnActivities,
-  updateTurnActivity,
 } from './liveActivity';
 import { pairingCodeReady } from './pairing';
 import {
@@ -1059,12 +1058,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 const first = !streaming;
                 streaming = true;
                 answer += delta;
-                // The activity reads the tail of the answer: a Lock Screen
-                // line, not a transcript.
-                updateTurnActivity(threadId, {
-                  phase: 'writing',
-                  preview: answer.replace(/\s+/g, ' ').trim().slice(-180),
-                });
                 setMessages((current) => {
                   const rows = current[threadId] ?? [];
                   const known = rows.some((message) => message.id === assistantId);
@@ -1085,7 +1078,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 // A tool is a silence with a reason: the dots come back until
                 // the answer writes again.
                 streaming = false;
-                updateTurnActivity(threadId, { phase: 'thinking', preview: '' });
                 patchThread(threadId, { typing: true });
               },
               onDone: (text) => settle(text || answer, false),
