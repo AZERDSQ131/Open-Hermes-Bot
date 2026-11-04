@@ -127,6 +127,18 @@ export function startTurnActivity(threadId: string, props: HermesTurnProps): voi
         flush(threadId, true);
       }, BEAT_MS),
     );
+    // The real Bloub is drawn by the app and written beside the activity. It
+    // arrives a moment after the activity starts: until then the activity
+    // draws the shape, then switches to the picture the conversation has.
+    void (async () => {
+      try {
+        const { faceSprites } = require('./activity/bloubSprite') as typeof import('./activity/bloubSprite');
+        const uris = await faceSprites(props.shape, props.color);
+        if (uris.length) updateTurnActivity(threadId, { faceUris: uris });
+      } catch {
+        // No sprite is not a broken turn: the drawn face stays.
+      }
+    })();
   } catch {
     // Live Activities are off, or this iOS is older than the feature. The
     // turn runs the same without a Lock Screen.
@@ -153,9 +165,13 @@ export function finishTurnActivity(
   const current = shown.get(threadId);
   forget(threadId);
   if (!handle || !current) return;
+  // The face comes to rest on the first frame, not on whichever look the
+  // beat stopped at.
+  const final: HermesTurnProps = { ...current, ...patch };
+  if (final.faceUris?.length) final.faceUris = final.faceUris.slice(0, 1);
   try {
     void handle
-      .end({ after: new Date(Date.now() + LINGER_MS) }, { ...current, ...patch })
+      .end({ after: new Date(Date.now() + LINGER_MS) }, final)
       .catch(() => undefined);
   } catch {
     // Nothing left to end.

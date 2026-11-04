@@ -8,6 +8,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StoreProvider } from './src/store';
+import { BloubSpriteHost } from './src/activity/bloubSprite';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { ConversationsScreen } from './src/screens/ConversationsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
@@ -53,6 +54,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StoreProvider>
+        <BloubSpriteHost />
         <StatusBar style="light" />
         <NavigationContainer theme={theme} linking={linking}>
           <Stack.Navigator
