@@ -2,6 +2,7 @@ import { Capsule, Circle, Ellipse, HStack, Image, RoundedRectangle, Spacer, Text
 import {
   clipShape,
   containerBackground,
+  fixedSize,
   font,
   foregroundStyle,
   frame,
@@ -106,7 +107,9 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
   /** While the turn runs, the seconds; once it is over, the sign that it is. */
   const Pulse = ({ size = 12 }: { size?: number }) =>
     active ? (
-      <HStack spacing={5}>
+      // Fixed width, and intrinsic: a flexible timer would ask the compact
+      // Island for all the room it can give, and stretch the pill.
+      <HStack spacing={5} modifiers={[fixedSize({ horizontal: true })]}>
         <Circle modifiers={[foregroundStyle(accent), frame({ width: 6, height: 6 })]} />
         <Text
           date={started}
@@ -116,6 +119,8 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
             font({ weight: 'medium', size }),
             monospacedDigit(),
             foregroundStyle(DIM),
+            frame({ width: Math.round(size * 3), alignment: 'trailing' }),
+            fixedSize({ horizontal: true }),
           ]}
         />
       </HStack>
@@ -182,8 +187,16 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
     ),
 
     // Compact Island: the face, and the timer that keeps the seconds honest.
-    compactLeading: <Face size={20} soft={!active} />,
-    compactTrailing: <Pulse size={11} />,
+    compactLeading: (
+      <ZStack modifiers={[frame({ width: 22, height: 22 })]}>
+        <Face size={20} soft={!active} />
+      </ZStack>
+    ),
+    compactTrailing: (
+      <ZStack modifiers={[frame({ width: 46, height: 20, alignment: 'trailing' })]}>
+        <Pulse size={11} />
+      </ZStack>
+    ),
 
     // Minimal Island: the bot's face, small — the same face as everywhere.
     minimal: <Face size={16} soft={!active} />,
