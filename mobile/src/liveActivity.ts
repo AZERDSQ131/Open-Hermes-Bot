@@ -114,8 +114,8 @@ function sameQueue(left: QueueFace[], right: QueueFace[]): boolean {
 
 /**
  * The running agents, in the order their turns started, given to every
- * activity: when several are in flight the compact Island walks them one by
- * one, each with its own clock.
+ * activity: the Island draws all of them side by side, and the clock is the
+ * oldest running turn's.
  */
 function syncQueue(): void {
   const roster: QueueFace[] = [];

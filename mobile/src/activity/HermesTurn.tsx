@@ -58,9 +58,8 @@ export type HermesTurnProps = {
    */
   faceUris?: string[];
   /**
-   * Every bot with a turn in flight, in the order the turns started. With
-   * several agents running, the compact Island walks this queue: one face,
-   * then its own clock, then the next.
+   * Every bot with a turn in flight, in the order the turns started. All of
+   * them are drawn side by side; the clock is the oldest running turn's.
    */
   queue?: QueueFace[];
 };
@@ -98,16 +97,14 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
   // The app writes the real Bloub variants beside the activity; the beat walks
   // them, one every two beats, so the face blinks and looks around.
   const frames = props.faceUris ?? [];
-  const faceUri = frames.length
-    ? frames[Math.floor(beat / 2) % frames.length]
-    : undefined;
-  // Every running agent is on the compact Island in turn: its face, then its
-  // own clock, then the next. One agent is a queue of one, and never moves.
+  // One still frame: the face does not blink or change while it waits.
+  const faceUri = frames[0];
+  // Every running agent is on the Island at once, side by side, in the order
+  // their turns started. One agent is a face; several are a row of faces.
   const roster: QueueFace[] =
     props.queue && props.queue.length
       ? props.queue
       : [{ color: props.color, shape: props.shape, startedAt: props.startedAt }];
-  const queued = roster[Math.floor(Date.now() / 1400) % roster.length] ?? roster[0];
   // Every beat flips the face between two sizes: the activity is updated
   // while the turn runs, and the movement between the two is what the person
   // sees. Thinking breathes slowly and deep; writing keeps a quicker, smaller
@@ -186,6 +183,18 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
       </ZStack>
     );
   };
+
+  /** The running agents, all of them, in the order their turns started. */
+  const Roster = ({ size, overlap = 4 }: { size: number; overlap?: number }) =>
+    roster.length === 1 ? (
+      <Face size={size} still />
+    ) : (
+      <HStack spacing={-overlap}>
+        {roster.slice(0, 4).map((face, index) => (
+          <Face key={index} size={size} still tint={face} />
+        ))}
+      </HStack>
+    );
 
   /** While the turn runs, the seconds; once it is over, the sign that it is. */
   const Pulse = ({ size = 12, from }: { size?: number; from?: number }) => {
@@ -272,22 +281,18 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
     ),
 
     // Compact Island: the queue's face, and that face's own clock.
-    compactLeading: (
-      <ZStack modifiers={[frame({ width: 26, height: 26 })]}>
-        <Face size={24} still tint={queued} />
-      </ZStack>
-    ),
+    compactLeading: <Roster size={14} overlap={6} />,
     compactTrailing: (
       <ZStack modifiers={[frame({ width: 50, height: 26, alignment: 'trailing' })]}>
-        <Pulse size={12} from={queued.startedAt} />
+        <Pulse size={12} from={roster[0].startedAt} />
       </ZStack>
     ),
 
-    // Minimal Island: the bot's face, small — the same face as everywhere.
-    minimal: <Face size={18} still tint={queued} />,
+    // Minimal Island: every running bot, small, all at once.
+    minimal: <Roster size={9} overlap={4} />,
 
-    // Expanded Island: the compact's two things — the face and the clock —
-    // with the room the expanded shape gives them. No transcript, no card.
+    // Expanded Island: the compact's bubbles and clock, larger. No transcript,
+    // no card.
     expandedLeading: (
       <HStack
         modifiers={[
@@ -296,7 +301,7 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
           offset({ x: 4 }),
         ]}
       >
-        <Face size={48} soft={!active} still />
+        <Roster size={30} overlap={8} />
       </HStack>
     ),
     expandedTrailing: (
@@ -307,7 +312,7 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
           offset({ x: -2 }),
         ]}
       >
-        <Pulse size={19} />
+        <Pulse size={19} from={roster[0].startedAt} />
       </HStack>
     ),
   };
