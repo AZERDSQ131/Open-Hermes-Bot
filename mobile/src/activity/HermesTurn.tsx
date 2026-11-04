@@ -223,50 +223,17 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
     // Minimal Island: the bot's face, small — the same face as everywhere.
     minimal: <Face size={16} soft={!active} />,
 
-    // Expanded Island: the banner's own rows, at the size the island allows.
+    // Expanded Island: the compact's two things — the face and the clock —
+    // with the room the expanded shape gives them. No transcript, no card.
     expandedLeading: (
-      <HStack spacing={10} modifiers={[padding({ leading: 10 })]}>
+      <HStack modifiers={[padding({ leading: 12 })]}>
         <Face size={36} soft={!active} />
-        <VStack alignment="leading" spacing={2}>
-          <Text
-            modifiers={[
-              font({ weight: 'semibold', size: 17 }),
-              foregroundStyle(TEXT),
-              lineLimit(1),
-            ]}
-          >
-            {props.botName}
-          </Text>
-          <Text modifiers={[font({ size: 12 }), foregroundStyle(FAINT)]}>{status}</Text>
-        </VStack>
       </HStack>
     ),
     expandedTrailing: (
-      <HStack modifiers={[padding({ trailing: 10 })]}>
-        <Pulse size={14} />
+      <HStack modifiers={[padding({ trailing: 12 })]}>
+        <Pulse size={15} />
       </HStack>
-    ),
-    expandedBottom: (
-      <VStack alignment="leading" spacing={6} modifiers={[padding({ horizontal: 10, bottom: 2 })]}>
-        <Text
-          modifiers={[
-            font({ size: 15 }),
-            foregroundStyle(active ? DIM : TEXT),
-            lineLimit(2),
-          ]}
-        >
-          {line}
-        </Text>
-        <HStack spacing={6}>
-          <Text modifiers={[font({ size: 10, weight: 'medium' }), foregroundStyle(FAINT)]}>
-            Hermes Bot
-          </Text>
-          <Spacer />
-          <Text modifiers={[font({ size: 10 }), foregroundStyle(FAINT)]}>
-            {props.phase === 'cut' ? 'interrupted' : 'on the host'}
-          </Text>
-        </HStack>
-      </VStack>
     ),
   };
 };
