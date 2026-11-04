@@ -20,13 +20,6 @@ type Handle = LiveActivity<HermesTurnProps>;
 /** How often the activity is allowed to be rewritten while words stream in. */
 const THROTTLE_MS = 750;
 
-/**
- * How often the face is given a new beat while a turn runs. A Live Activity
- * does not animate by itself: each content update animates the change from the
- * beat before it, so this is also the pulse of the bot.
- */
-const BEAT_MS = 700;
-
 /** How long the final line stays on the Lock Screen once a turn settles. */
 const LINGER_MS = 8000;
 
@@ -54,17 +47,11 @@ const handles = new Map<string, Handle>();
 const shown = new Map<string, HermesTurnProps>();
 const sentAt = new Map<string, number>();
 const queued = new Map<string, ReturnType<typeof setTimeout>>();
-const beats = new Map<string, ReturnType<typeof setInterval>>();
-const ticks = new Map<string, number>();
 
 function forget(threadId: string): void {
   const timer = queued.get(threadId);
   if (timer) clearTimeout(timer);
   queued.delete(threadId);
-  const beat = beats.get(threadId);
-  if (beat) clearInterval(beat);
-  beats.delete(threadId);
-  ticks.delete(threadId);
   handles.delete(threadId);
   shown.delete(threadId);
   sentAt.delete(threadId);
@@ -148,23 +135,9 @@ export function startTurnActivity(threadId: string, props: HermesTurnProps): voi
       `hermesbot://chat/${encodeURIComponent(threadId)}`,
     );
     handles.set(threadId, handle);
-    shown.set(threadId, { ...props, beat: 0 });
+    shown.set(threadId, props);
     sentAt.set(threadId, Date.now());
-    ticks.set(threadId, 0);
     syncQueue();
-    // The face is given a new beat while the turn runs: that is the animation
-    // the Island can show without asking the system for a running clock.
-    beats.set(
-      threadId,
-      setInterval(() => {
-        const next = (ticks.get(threadId) ?? 0) + 1;
-        const current = shown.get(threadId);
-        if (!current) return;
-        ticks.set(threadId, next);
-        shown.set(threadId, { ...current, beat: next });
-        flush(threadId, true);
-      }, BEAT_MS),
-    );
     // The real Bloub is drawn by the app and written beside the activity. It
     // arrives a moment after the activity starts: until then the activity
     // draws the shape, then switches to the picture the conversation has.
@@ -204,8 +177,6 @@ export function finishTurnActivity(
   forget(threadId);
   syncQueue();
   if (!handle || !current) return;
-  // The face comes to rest on the first frame, not on whichever look the
-  // beat stopped at.
   const final: HermesTurnProps = { ...current, ...patch };
   if (final.faceUris?.length) final.faceUris = final.faceUris.slice(0, 1);
   try {
