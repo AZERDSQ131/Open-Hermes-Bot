@@ -170,8 +170,7 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
     return active ? (
       // Fixed width, and intrinsic: a flexible timer would ask the compact
       // Island for all the room it can give, and stretch the pill.
-      <HStack spacing={5} modifiers={[fixedSize({ horizontal: true })]}>
-        <Circle modifiers={[foregroundStyle(accent), frame({ width: 6, height: 6 })]} />
+      <HStack modifiers={[fixedSize({ horizontal: true })]}>
         <Text
           date={clock}
           dateStyle="timer"
