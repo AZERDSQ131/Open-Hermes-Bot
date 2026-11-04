@@ -98,8 +98,6 @@ type Store = {
   setPref: <K extends keyof Prefs>(key: K, value: Prefs[K]) => void;
 
   connection: Connection;
-  /** The conversation on screen: read on every beat, not only when it moves. */
-  openThread: (id: string | null) => void;
   connect: (url: string, code: string) => Promise<void>;
   disconnect: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -274,14 +272,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const busy = useRef(new Set<string>());
   // What each conversation looked like the last time it was read.
   const digests = useRef(new Map<string, string>());
-  // The conversation on screen, and the turns running somewhere else that
-  // this phone follows until the answer is stored.
-  const open = useRef<string | null>(null);
+  // The turns running somewhere else that this phone follows until the
+  // answer is stored.
   const following = useRef(new Map<string, number>());
   const syncing = useRef(false);
-  const openThread = useCallback((id: string | null) => {
-    open.current = id;
-  }, []);
   const connectionRef = useRef(connection);
   useEffect(() => {
     threadsRef.current = threads;
@@ -492,13 +486,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // the room the person would be in, not the one before it.
         const rebound = Boolean(latest && thread.sessionId && latest.id !== thread.sessionId);
 
-        // A turn on the desktop may not move anything the session list shows
-        // until it ends, so the open room is read every beat. The same is true
-        // of a turn this phone is following until its answer lands.
+        // A session moves when a line is stored: the count and the last
+        // activity travel with it. A turn this phone is following is read on
+        // every beat, so its answer cannot wait on a list that stopped.
         if (
           latest &&
           !busy.current.has(threadId) &&
-          (rebound || moved || watching || open.current === threadId)
+          (rebound || moved || watching)
         ) {
           const rows = await active
             .messages(raw.id, latest.id, 80)
@@ -1114,7 +1108,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       prefs,
       setPref,
       connection,
-      openThread,
       connect,
       disconnect,
       refresh,
@@ -1151,7 +1144,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       markRead,
       markUnread,
       messages,
-      openThread,
       prefs,
       react,
       refresh,
