@@ -879,14 +879,11 @@ export default function App() {
         if (!facts.length) continue;
         const digest = sessionDigest(facts);
         const following = elsewhereSince.current.has(thread.id);
-        // The open conversation is read on every beat: a turn sent from the
-        // phone may not move anything the session list shows until it ends,
-        // and the answer would then land all at once instead of appearing.
-        if (
-          !following &&
-          thread.id !== openId &&
-          digest === liveDigests.current.get(thread.id)
-        ) {
+        // The session list is what says a conversation moved: the host stores
+        // the line as it is sent, and the count and the stamp move with it.
+        // A turn being followed is read anyway, so its answer cannot wait on
+        // a list that has stopped moving.
+        if (!following && digest === liveDigests.current.get(thread.id)) {
           continue;
         }
         // A turn that was stopped elsewhere leaves a user line with no answer
