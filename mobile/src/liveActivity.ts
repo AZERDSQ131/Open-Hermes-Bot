@@ -94,9 +94,38 @@ function sameQueue(left: QueueFace[], right: QueueFace[]): boolean {
       (face, index) =>
         face.color === right[index].color &&
         face.shape === right[index].shape &&
-        face.startedAt === right[index].startedAt,
+        face.startedAt === right[index].startedAt &&
+        (face.faceUris?.length ?? 0) === (right[index].faceUris?.length ?? 0),
     )
   );
+}
+
+const spriteRequests = new Set<string>();
+
+function cachedFaces(shape: string | undefined, color: string): string[] {
+  if (Platform.OS !== 'ios') return [];
+  try {
+    const sprites = require('./activity/bloubSprite') as typeof import('./activity/bloubSprite');
+    return sprites.cachedFaceSprites(shape, color);
+  } catch {
+    return [];
+  }
+}
+
+function requestFaces(shape: string | undefined, color: string, key: string): void {
+  if (Platform.OS !== 'ios' || spriteRequests.has(key)) return;
+  spriteRequests.add(key);
+  void (async () => {
+    try {
+      const sprites = require('./activity/bloubSprite') as typeof import('./activity/bloubSprite');
+      const uris = await sprites.faceSprites(shape, color);
+      if (uris.length) syncQueue();
+    } catch {
+      // The drawn face stays.
+    } finally {
+      spriteRequests.delete(key);
+    }
+  })();
 }
 
 /**
@@ -110,10 +139,13 @@ function syncQueue(): void {
     if (props.phase !== 'thinking' && props.phase !== 'writing') continue;
     const key = `${props.color}|${props.shape ?? ''}`;
     if (roster.some((face) => `${face.color}|${face.shape ?? ''}` === key)) continue;
+    const uris = cachedFaces(props.shape, props.color);
+    if (!uris.length) requestFaces(props.shape, props.color, key);
     roster.push({
       color: props.color,
       shape: props.shape,
       startedAt: props.startedAt,
+      ...(uris.length ? { faceUris: uris } : {}),
     });
   }
   if (!roster.length) return;
@@ -145,7 +177,10 @@ export function startTurnActivity(threadId: string, props: HermesTurnProps): voi
       try {
         const { faceSprites } = require('./activity/bloubSprite') as typeof import('./activity/bloubSprite');
         const uris = await faceSprites(props.shape, props.color);
-        if (uris.length) updateTurnActivity(threadId, { faceUris: uris });
+        if (uris.length) {
+          updateTurnActivity(threadId, { faceUris: uris });
+          syncQueue();
+        }
       } catch {
         // No sprite is not a broken turn: the drawn face stays.
       }
