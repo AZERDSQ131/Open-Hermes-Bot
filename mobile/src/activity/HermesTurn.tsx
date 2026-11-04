@@ -1,5 +1,7 @@
 import { Capsule, Circle, Ellipse, HStack, Image, RoundedRectangle, Spacer, Text, VStack, ZStack } from '@expo/ui/swift-ui';
 import {
+  Animation,
+  animation,
   clipShape,
   containerBackground,
   fixedSize,
@@ -10,6 +12,7 @@ import {
   monospacedDigit,
   opacity,
   padding,
+  scaleEffect,
 } from '@expo/ui/swift-ui/modifiers';
 import { createLiveActivity, type LiveActivityEnvironment } from 'expo-widgets';
 
@@ -38,6 +41,8 @@ export type HermesTurnProps = {
   preview: string;
   /** Epoch milliseconds; the timer under the name counts from here. */
   startedAt: number;
+  /** Bumped by the app while the turn runs: the face breathes with it. */
+  beat?: number;
 };
 
 const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironment) => {
@@ -70,6 +75,21 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
         : status);
 
   const started = new Date(props.startedAt);
+  const beat = props.beat ?? 0;
+  // Every beat flips the face between two sizes: the activity is updated
+  // while the turn runs, and the movement between the two is what the person
+  // sees. Thinking breathes slowly and deep; writing keeps a quicker, smaller
+  // pulse. A face that is over no longer moves.
+  const breathe = !active
+    ? 1
+    : props.phase === 'thinking'
+      ? beat % 2 === 0
+        ? 0.9
+        : 1
+      : beat % 2 === 0
+        ? 0.96
+        : 1;
+  const tempo = props.phase === 'thinking' ? 0.9 : 0.5;
 
   /** The bot's Bloub face: its body shape and its two eyes, not a dot. */
   const Face = ({ size, soft = false }: { size: number; soft?: boolean }) => {
@@ -93,6 +113,8 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
         modifiers={[
           frame({ width: size, height: size }),
           opacity(soft ? 0.55 : 1),
+          scaleEffect(breathe),
+          animation(Animation.easeInOut({ duration: tempo }), beat),
         ]}
       >
         {body}
@@ -201,35 +223,49 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
     // Minimal Island: the bot's face, small — the same face as everywhere.
     minimal: <Face size={16} soft={!active} />,
 
-    // Expanded Island: who is working, for how long, and what was said.
+    // Expanded Island: the banner's own rows, at the size the island allows.
     expandedLeading: (
-      <HStack spacing={7} modifiers={[padding({ leading: 10 })]}>
-        <Face size={22} soft={!active} />
-        <Text
-          modifiers={[
-            font({ weight: 'semibold', size: 14 }),
-            foregroundStyle(TEXT),
-            lineLimit(1),
-          ]}
-        >
-          {props.botName}
-        </Text>
+      <HStack spacing={10} modifiers={[padding({ leading: 10 })]}>
+        <Face size={36} soft={!active} />
+        <VStack alignment="leading" spacing={2}>
+          <Text
+            modifiers={[
+              font({ weight: 'semibold', size: 17 }),
+              foregroundStyle(TEXT),
+              lineLimit(1),
+            ]}
+          >
+            {props.botName}
+          </Text>
+          <Text modifiers={[font({ size: 12 }), foregroundStyle(FAINT)]}>{status}</Text>
+        </VStack>
       </HStack>
     ),
     expandedTrailing: (
       <HStack modifiers={[padding({ trailing: 10 })]}>
-        <Pulse size={12} />
+        <Pulse size={14} />
       </HStack>
     ),
-    expandedCenter: active ? (
-      <Text modifiers={[font({ size: 12, weight: 'medium' }), foregroundStyle(DIM)]}>{status}</Text>
-    ) : undefined,
     expandedBottom: (
-      <VStack alignment="leading" spacing={4} modifiers={[padding({ horizontal: 10, bottom: 2 })]}>
-        <Text modifiers={[font({ size: 13 }), foregroundStyle(active ? DIM : TEXT), lineLimit(2)]}>
+      <VStack alignment="leading" spacing={6} modifiers={[padding({ horizontal: 10, bottom: 2 })]}>
+        <Text
+          modifiers={[
+            font({ size: 15 }),
+            foregroundStyle(active ? DIM : TEXT),
+            lineLimit(2),
+          ]}
+        >
           {line}
         </Text>
-        <Text modifiers={[font({ size: 10 }), foregroundStyle(FAINT)]}>Hermes Bot</Text>
+        <HStack spacing={6}>
+          <Text modifiers={[font({ size: 10, weight: 'medium' }), foregroundStyle(FAINT)]}>
+            Hermes Bot
+          </Text>
+          <Spacer />
+          <Text modifiers={[font({ size: 10 }), foregroundStyle(FAINT)]}>
+            {props.phase === 'cut' ? 'interrupted' : 'on the host'}
+          </Text>
+        </HStack>
       </VStack>
     ),
   };
