@@ -50,6 +50,19 @@ the bridge's address and its own device token, in the Keychain — nothing else.
 A device can be revoked from the same page, and the Hermes keys never left the
 host. `bridge/README.md` is the contract on the other side.
 
+## Keeping up
+
+While the app is in front it reads the host on a beat: the bots, their
+sessions, and the conversation that moved. A turn sent from the desktop lands
+on the phone a few seconds later, and the other way round. In the background
+the beat waits; coming back reads the host once, so a real absence is repaired
+and a glance at Control Center is not.
+
+The lines the phone typed itself are not drawn twice: the host stores them
+with its own ids, and the app recognises them by what they say. A conversation
+just started on the desktop takes the thread over, since the phone shows the
+newest room of each bot.
+
 ## Where things are
 
 | Path | What lives there |
