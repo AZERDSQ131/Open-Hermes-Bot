@@ -98,6 +98,8 @@ type Store = {
   setPref: <K extends keyof Prefs>(key: K, value: Prefs[K]) => void;
 
   connection: Connection;
+  /** The conversation on screen: read on every beat, not only when it moves. */
+  openThread: (id: string | null) => void;
   connect: (url: string, code: string) => Promise<void>;
   disconnect: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -272,7 +274,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const busy = useRef(new Set<string>());
   // What each conversation looked like the last time it was read.
   const digests = useRef(new Map<string, string>());
+  // The conversation on screen, and the turns running somewhere else that
+  // this phone follows until the answer is stored.
+  const open = useRef<string | null>(null);
+  const following = useRef(new Map<string, number>());
   const syncing = useRef(false);
+  const openThread = useCallback((id: string | null) => {
+    open.current = id;
+  }, []);
   const connectionRef = useRef(connection);
   useEffect(() => {
     threadsRef.current = threads;
@@ -474,37 +483,74 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           sessionId: latest?.id,
         };
         const patch: Partial<Thread> = {};
+        const digest = latest
+          ? `${latest.id}:${latest.messageCount}:${latest.lastActive}`
+          : '';
+        const watching = following.current.has(threadId);
+        const moved = Boolean(latest) && digest !== digests.current.get(threadId);
+        // A new conversation on the bot takes the thread over: the phone shows
+        // the room the person would be in, not the one before it.
+        const rebound = Boolean(latest && thread.sessionId && latest.id !== thread.sessionId);
 
-        if (latest && !thread.typing && !busy.current.has(threadId)) {
-          // A new conversation on the bot takes the thread over: the phone
-          // shows the room the person would be in, not the one before it.
-          const rebound = Boolean(thread.sessionId) && latest.id !== thread.sessionId;
-          const digest = `${latest.id}:${latest.messageCount}:${latest.lastActive}`;
-          if (rebound || digest !== digests.current.get(threadId)) {
-            const rows = await active
-              .messages(raw.id, latest.id, 80)
-              .catch(() => null);
-            if (rows) {
-              digests.current.set(threadId, digest);
-              const incoming = toMessages(threadId, raw.id, rows);
-              const merged = rebound
-                ? incoming
-                : mergeMessages(shown[threadId] ?? [], incoming);
-              if (merged) transcripts.set(threadId, merged);
-              const last = [...incoming]
-                .reverse()
-                .find((message) => message.text.trim());
-              patch.sessionId = latest.id;
-              patch.time = relativeTime(latest.lastActive);
-              if (last) {
-                patch.preview = last.text.replace(/\s+/g, ' ').trim().slice(0, 90);
-              }
+        // A turn on the desktop may not move anything the session list shows
+        // until it ends, so the open room is read every beat. The same is true
+        // of a turn this phone is following until its answer lands.
+        if (
+          latest &&
+          !busy.current.has(threadId) &&
+          (rebound || moved || watching || open.current === threadId)
+        ) {
+          const rows = await active
+            .messages(raw.id, latest.id, 80)
+            .catch(() => null);
+          if (rows) {
+            digests.current.set(threadId, digest);
+            const incoming = toMessages(threadId, raw.id, rows);
+            const merged = rebound
+              ? incoming
+              : mergeMessages(shown[threadId] ?? [], incoming);
+            if (merged) transcripts.set(threadId, merged);
+            const last = [...incoming]
+              .reverse()
+              .find((message) => message.text.trim());
+            const arrived = rebound || merged !== null;
+            // A line the person wrote with no answer under it is a turn still
+            // in flight somewhere else: the phone keeps the waiting state and
+            // reads again on the next beat.
+            let running =
+              last?.from === 'user' &&
+              (watching ||
+                (arrived && Date.now() / 1000 - latest.lastActive < 2 * 60));
+            const since = following.current.get(threadId);
+            if (running && since !== undefined && Date.now() - since > 4 * 60_000) {
+              // An answer that never comes is not a turn for ever.
+              following.current.delete(threadId);
+              running = false;
+            } else if (running) {
+              if (since === undefined) following.current.set(threadId, Date.now());
+            } else {
+              following.current.delete(threadId);
+            }
+            patch.sessionId = latest.id;
+            patch.time = relativeTime(latest.lastActive);
+            patch.typing = running;
+            if (running) {
+              patch.preview = 'Typing…';
+            } else if (last) {
+              patch.preview = last.text.replace(/\s+/g, ' ').trim().slice(0, 90);
             }
           }
         }
 
-        if (!before) additions.push({ ...thread, ...patch });
-        else if (Object.keys(patch).length) updates.set(threadId, patch);
+        if (!before) {
+          additions.push({ ...thread, ...patch });
+        } else if (
+          (Object.keys(patch) as Array<keyof Thread>).some(
+            (key) => thread[key] !== patch[key],
+          )
+        ) {
+          updates.set(threadId, patch);
+        }
       }
 
       if (additions.length || updates.size) {
@@ -1068,6 +1114,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       prefs,
       setPref,
       connection,
+      openThread,
       connect,
       disconnect,
       refresh,
@@ -1104,6 +1151,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       markRead,
       markUnread,
       messages,
+      openThread,
       prefs,
       react,
       refresh,

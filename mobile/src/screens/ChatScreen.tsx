@@ -68,6 +68,7 @@ export function ChatScreen({ route, navigation }: Props) {
     send,
     react,
     markRead,
+    openThread,
     threadById,
   } = useStore();
 
@@ -125,6 +126,12 @@ export function ChatScreen({ route, navigation }: Props) {
   useEffect(() => {
     markRead(threadId);
   }, [markRead, threadId]);
+
+  // The room on screen is read on every beat, so a turn sent from the desktop
+  // shows its waiting state here while it runs, not when the list moves.
+  useEffect(() => {
+    openThread(threadId);
+  }, [openThread, threadId]);
 
   if (!thread) {
     return (
