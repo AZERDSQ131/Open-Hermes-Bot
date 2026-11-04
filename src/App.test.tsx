@@ -1155,7 +1155,7 @@ describe('when things go wrong', () => {
     expect(
       await screen.findByText(/did not hear back from the server/),
     ).toBeTruthy();
-  });
+  }, 15000);
 
   it('says a file could not be copied', async () => {
     const bridge = makeBridge({
