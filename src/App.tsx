@@ -832,7 +832,8 @@ export default function App() {
     const bridge = window.hermes;
     if (!bridge?.sessions) return;
     if (hermesStatus.state !== 'connected') return;
-    if (document.visibilityState === 'hidden') return;
+    // The window keeps up whether it is in front or not: coming back must
+    // never be the moment the conversation is read for the first time.
     if (liveRunning.current) return;
     const served = liveProfiles.current.filter(
       (profile) => profile.served !== false,
@@ -990,9 +991,8 @@ export default function App() {
     }
   }, [hermesStatus.state]);
 
-  // While the window is in front, the conversation keeps up: a beat reads what
-  // the host holds, and the room on screen follows it. Behind another window
-  // there is nothing to keep up with, and the beat waits for the way back.
+  // The conversation keeps up all the time: a beat reads what the host holds,
+  // and the room on screen follows it, whether the window is in front or not.
   useEffect(() => {
     if (hermesStatus.state !== 'connected') return;
     let stopped = false;
