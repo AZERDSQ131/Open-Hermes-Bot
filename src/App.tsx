@@ -4284,6 +4284,19 @@ export default function App() {
               </h1>
             )}
 
+            {/* The way into the find bar without the shortcut: the same gesture,
+                reachable with a pointer, and it reads as on while the bar is. */}
+            <button
+              type="button"
+              className={`header-find ${findOpen ? 'is-open' : ''}`}
+              onClick={() => (findOpen ? closeFind() : openFind())}
+              aria-label="Find in this conversation"
+              aria-expanded={findOpen}
+              title="Find in this conversation"
+            >
+              <SearchIcon size={16} />
+            </button>
+
             {/* The whole window read again from the gateway, without waiting
                 for the beat to catch up: the arrow turns while it works. */}
             <button
@@ -4303,19 +4316,6 @@ export default function App() {
               disabled={syncState === 'running' || hermesStatus.state !== 'connected'}
             >
               <SyncIcon size={16} />
-            </button>
-
-            {/* The way into the find bar without the shortcut: the same gesture,
-                reachable with a pointer, and it reads as on while the bar is. */}
-            <button
-              type="button"
-              className={`header-find ${findOpen ? 'is-open' : ''}`}
-              onClick={() => (findOpen ? closeFind() : openFind())}
-              aria-label="Find in this conversation"
-              aria-expanded={findOpen}
-              title="Find in this conversation"
-            >
-              <SearchIcon size={16} />
             </button>
           </div>
         </header>
