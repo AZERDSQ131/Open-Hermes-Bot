@@ -216,7 +216,7 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
       </ZStack>
     ),
     compactTrailing: (
-      <ZStack modifiers={[frame({ width: 50, height: 22, alignment: 'trailing' })]}>
+      <ZStack modifiers={[frame({ width: 50, height: 26, alignment: 'trailing' })]}>
         <Pulse size={12} />
       </ZStack>
     ),
@@ -227,12 +227,24 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
     // Expanded Island: the compact's two things — the face and the clock —
     // with the room the expanded shape gives them. No transcript, no card.
     expandedLeading: (
-      <HStack modifiers={[padding({ leading: -6 }), offset({ x: 4, y: 7 })]}>
+      <HStack
+        modifiers={[
+          frame({ height: 48 }),
+          padding({ leading: -6 }),
+          offset({ x: 4 }),
+        ]}
+      >
         <Face size={48} soft={!active} />
       </HStack>
     ),
     expandedTrailing: (
-      <HStack modifiers={[padding({ trailing: -6 }), offset({ x: -2, y: 7 })]}>
+      <HStack
+        modifiers={[
+          frame({ height: 48 }),
+          padding({ trailing: -6 }),
+          offset({ x: -2 }),
+        ]}
+      >
         <Pulse size={19} />
       </HStack>
     ),
