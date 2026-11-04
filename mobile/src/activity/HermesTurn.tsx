@@ -240,7 +240,7 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
     // Compact Island: the face, and the timer that keeps the seconds honest.
     compactLeading: (
       <ZStack modifiers={[frame({ width: 26, height: 26 })]}>
-        <Face size={24} soft={!active} />
+        <Face size={24} soft={!active} still />
       </ZStack>
     ),
     compactTrailing: (
@@ -250,7 +250,7 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
     ),
 
     // Minimal Island: the bot's face, small — the same face as everywhere.
-    minimal: <Face size={18} soft={!active} />,
+    minimal: <Face size={18} soft={!active} still />,
 
     // Expanded Island: the compact's two things — the face and the clock —
     // with the room the expanded shape gives them. No transcript, no card.
