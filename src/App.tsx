@@ -922,7 +922,7 @@ export default function App() {
         // long ago is not a turn: only a session that just moved is.
         const running =
           last?.role === 'user' &&
-          (following || (arrived && now / 1000 - at < 120));
+          (following || (arrived && now - at < 2 * 60_000));
         if (running) {
           if (!elsewhereSince.current.has(thread.id)) {
             elsewhereSince.current.set(thread.id, now);
@@ -1000,9 +1000,9 @@ export default function App() {
       if (!stopped) void syncLive();
     };
     const timer = window.setInterval(beat, LIVE_MS);
-    const wake = () => {
-      if (document.visibilityState !== 'hidden') beat();
-    };
+    // Coming back is a reason to read now: the beat itself decides whether
+    // the window is on screen yet.
+    const wake = () => beat();
     document.addEventListener('visibilitychange', wake);
     window.addEventListener('focus', wake);
     beat();

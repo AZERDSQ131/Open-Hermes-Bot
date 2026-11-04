@@ -248,6 +248,79 @@ describe('the app', () => {
     }
   });
 
+  it('keeps the waiting row while a turn runs on the phone', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const bridge = makeBridge();
+      await renderApp(bridge);
+      await userEvent.click(screen.getByText('Bob'));
+      expect((await screen.findAllByText('Hi there')).length).toBeGreaterThan(0);
+
+      // The phone speaks: the host stores the line, and the answer is not
+      // there yet. The session moved a moment ago.
+      bridge.sessions.mockResolvedValue({
+        ok: true,
+        sessions: [
+          {
+            id: 'sess-bob',
+            title: 'Bob',
+            messageCount: 3,
+            lastActive: Date.now(),
+            archived: false,
+          },
+        ],
+      });
+      bridge.messages.mockResolvedValue({
+        ok: true,
+        messages: [
+          { role: 'user', content: 'Hello', timestamp: 1 },
+          { role: 'assistant', content: 'Hi there', timestamp: 2 },
+          { role: 'user', content: 'From the phone', timestamp: 3 },
+        ],
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(await screen.findByText('Typing...')).toBeTruthy();
+      expect(
+        (await screen.findAllByText('From the phone')).length,
+      ).toBeGreaterThan(0);
+
+      // The answer lands: the waiting row goes, the words stay.
+      bridge.sessions.mockResolvedValue({
+        ok: true,
+        sessions: [
+          {
+            id: 'sess-bob',
+            title: 'Bob',
+            messageCount: 4,
+            lastActive: Date.now(),
+            archived: false,
+          },
+        ],
+      });
+      bridge.messages.mockResolvedValue({
+        ok: true,
+        messages: [
+          { role: 'user', content: 'Hello', timestamp: 1 },
+          { role: 'assistant', content: 'Hi there', timestamp: 2 },
+          { role: 'user', content: 'From the phone', timestamp: 3 },
+          { role: 'assistant', content: 'Phone answer', timestamp: 4 },
+        ],
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(
+        (await screen.findAllByText('Phone answer')).length,
+      ).toBeGreaterThan(0);
+      await waitFor(() => expect(screen.queryByText('Typing...')).toBeNull());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('sends what the person wrote', async () => {
     const bridge = makeBridge();
     await renderApp(bridge);
