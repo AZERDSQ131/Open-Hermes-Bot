@@ -129,7 +129,7 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
       ? tint.faceUris[seed % tint.faceUris.length]
       : undefined;
     const picture =
-      size >= 24 ? tinted || (!tint ? faceUri : undefined) : undefined;
+      size >= 12 ? tinted || (!tint ? faceUri : undefined) : undefined;
     const corner =
       faceShape === 'galet'
         ? 0.42
