@@ -146,6 +146,20 @@ profile's key. The app reads that key from
 already has in `ssh` mode, straight off the disk in `local` mode — and keeps
 it for the session.
 
+## Keeping up
+
+Neither app is pushed to. Hermes answers; it does not call. So both sides
+read: while its window is in front, the desktop asks the host what the bots
+hold on a beat, and reads back only the conversations whose session moved —
+a count and a last-active stamp are enough to know. The phone does the same
+through the bridge while it is in the foreground. A turn sent on one is on the
+other a few seconds later, and neither a reconnect nor a click is needed.
+
+What was just typed here is not read twice: the line the host stores comes
+back with an id of its own, and the window and the phone recognise it by what
+it says and who said it. The rules live in `src/live.ts` and
+`mobile/src/live.ts`, tested on the desktop side.
+
 ## The host commands
 
 Some of what the app needs is not on the API, and is done on the machine that
