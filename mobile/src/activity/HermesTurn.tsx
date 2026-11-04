@@ -13,6 +13,7 @@ import {
   offset,
   opacity,
   padding,
+  resizable,
   scaleEffect,
 } from '@expo/ui/swift-ui/modifiers';
 import { createLiveActivity, type LiveActivityEnvironment } from 'expo-widgets';
@@ -44,6 +45,11 @@ export type HermesTurnProps = {
   startedAt: number;
   /** Bumped by the app while the turn runs: the face breathes with it. */
   beat?: number;
+  /**
+   * The real Bloub, drawn by the app and stored where the widget can read it.
+   * One picture per variant; the beat cycles through them.
+   */
+  faceUris?: string[];
 };
 
 const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironment) => {
@@ -77,6 +83,12 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
 
   const started = new Date(props.startedAt);
   const beat = props.beat ?? 0;
+  // The app writes the real Bloub variants beside the activity; the beat walks
+  // them, one every two beats, so the face blinks and looks around.
+  const frames = props.faceUris ?? [];
+  const faceUri = frames.length
+    ? frames[Math.floor(beat / 2) % frames.length]
+    : undefined;
   // Every beat flips the face between two sizes: the activity is updated
   // while the turn runs, and the movement between the two is what the person
   // sees. Thinking breathes slowly and deep; writing keeps a quicker, smaller
@@ -118,11 +130,20 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
           animation(Animation.easeInOut({ duration: tempo }), beat),
         ]}
       >
-        {body}
-        <HStack spacing={Math.max(2, Math.round(size * 0.17))}>
-          <Circle modifiers={[foregroundStyle('#FFFFFF'), frame({ width: eye, height: eye })]} />
-          <Circle modifiers={[foregroundStyle('#FFFFFF'), frame({ width: eye, height: eye })]} />
-        </HStack>
+        {faceUri ? (
+          <Image
+            uiImage={faceUri}
+            modifiers={[resizable(), frame({ width: size, height: size })]}
+          />
+        ) : (
+          <>
+            {body}
+            <HStack spacing={Math.max(2, Math.round(size * 0.17))}>
+              <Circle modifiers={[foregroundStyle('#FFFFFF'), frame({ width: eye, height: eye })]} />
+              <Circle modifiers={[foregroundStyle('#FFFFFF'), frame({ width: eye, height: eye })]} />
+            </HStack>
+          </>
+        )}
       </ZStack>
     );
   };
