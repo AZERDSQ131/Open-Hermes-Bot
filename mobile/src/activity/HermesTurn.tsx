@@ -10,6 +10,7 @@ import {
   frame,
   lineLimit,
   monospacedDigit,
+  offset,
   opacity,
   padding,
   scaleEffect,
@@ -226,13 +227,13 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
     // Expanded Island: the compact's two things — the face and the clock —
     // with the room the expanded shape gives them. No transcript, no card.
     expandedLeading: (
-      <HStack modifiers={[padding({ leading: -6 })]}>
-        <Face size={44} soft={!active} />
+      <HStack modifiers={[padding({ leading: -6 }), offset({ x: 4, y: 7 })]}>
+        <Face size={48} soft={!active} />
       </HStack>
     ),
     expandedTrailing: (
-      <HStack modifiers={[padding({ trailing: -6 })]}>
-        <Pulse size={18} />
+      <HStack modifiers={[padding({ trailing: -6 }), offset({ x: -2, y: 7 })]}>
+        <Pulse size={19} />
       </HStack>
     ),
   };
