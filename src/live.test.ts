@@ -74,7 +74,7 @@ describe('mergeTranscript', () => {
     expect(mergeTranscript(shown, read)).toEqual(read);
   });
 
-  it('does not draw the window own message twice', () => {
+  it('does not draw the window own message twice, and takes its host id', () => {
     const shown = [
       line('h-1', 'user', 'hi'),
       line('h-2', 'assistant', 'there'),
@@ -87,7 +87,39 @@ describe('mergeTranscript', () => {
       line('h-3', 'user', 'listen'),
       line('h-4', 'assistant', 'I am'),
     ];
-    expect(mergeTranscript(shown, read)).toBeNull();
+    expect(mergeTranscript(shown, read)?.map((entry) => entry.id)).toEqual([
+      'h-1',
+      'h-2',
+      'h-3',
+      'h-4',
+    ]);
+  });
+
+  it('does not take the next turn for the window own words', () => {
+    // Two turns that say the same thing: the first one is the window's own,
+    // the second one is another client's, and it must not be swallowed.
+    const shown = [line('h-1', 'user', 'hi'), line('m-2', 'user', 'Test'), line('a-2', 'assistant', 'Rien')];
+    const first = mergeTranscript(shown, [
+      line('h-1', 'user', 'hi'),
+      line('h-2', 'user', 'Test'),
+      line('h-3', 'assistant', 'Rien'),
+    ]);
+    expect(first?.map((entry) => entry.id)).toEqual(['h-1', 'h-2', 'h-3']);
+
+    const second = mergeTranscript(first ?? [], [
+      line('h-1', 'user', 'hi'),
+      line('h-2', 'user', 'Test'),
+      line('h-3', 'assistant', 'Rien'),
+      line('h-4', 'user', 'Test'),
+      line('h-5', 'assistant', 'Autre'),
+    ]);
+    expect(second?.map((entry) => entry.id)).toEqual([
+      'h-1',
+      'h-2',
+      'h-3',
+      'h-4',
+      'h-5',
+    ]);
   });
 
   it('still appends what another client said after the window own turn', () => {
@@ -105,8 +137,8 @@ describe('mergeTranscript', () => {
     const merged = mergeTranscript(shown, read);
     expect(merged?.map((entry) => entry.id)).toEqual([
       'h-1',
-      'm-9',
-      'a-9',
+      'h-2',
+      'h-3',
       'h-4',
     ]);
   });

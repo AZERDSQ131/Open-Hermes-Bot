@@ -65,14 +65,18 @@ export function mergeTranscript<T extends LiveLine>(
   if (!shown.length) return read;
 
   const stored = new Map(read.map((line) => [line.id, line]));
-  let edited = false;
-  const next = shown.map((line) => {
-    const fresh = stored.get(line.id);
-    if (!fresh) return line;
-    if (sameLine(fresh, line)) return line;
-    edited = true;
-    return fresh;
-  });
+  const next: T[] = shown.slice();
+  let changed = false;
+
+  // A line the window drew itself, now stored by the host under an id of its
+  // own: it takes that id, so the next beat knows it is not a new line.
+  for (let index = 0; index < next.length; index += 1) {
+    const fresh = stored.get(next[index].id);
+    if (!fresh) continue;
+    if (sameLine(fresh, next[index])) continue;
+    next[index] = fresh;
+    changed = true;
+  }
 
   const known = new Set(shown.map((line) => line.id));
   // Where the two copies still agree: everything after it was drawn here and
@@ -81,22 +85,29 @@ export function mergeTranscript<T extends LiveLine>(
   shown.forEach((line, index) => {
     if (stored.has(line.id)) lastShared = index;
   });
-  const echoes = shown
-    .slice(lastShared + 1)
-    .filter((line) => !stored.has(line.id) && line.role !== 'event');
+  const echoes: number[] = [];
+  for (let index = lastShared + 1; index < next.length; index += 1) {
+    const line = next[index];
+    if (!stored.has(line.id) && line.role !== 'event') echoes.push(index);
+  }
 
   const fresh: T[] = [];
+  let echo = 0;
   for (const line of read) {
     if (known.has(line.id)) continue;
-    // The host's copy of the line this window already drew.
-    if (echoes.length && sameLine(echoes[0], line)) {
-      echoes.shift();
+    // The host's copy of the line this window already drew: the same words,
+    // now with the host's id. It is taken, not added again — and no longer
+    // an echo, so a later turn that says the same thing is its own line.
+    if (echo < echoes.length && sameLine(shown[echoes[echo]], line)) {
+      next[echoes[echo]] = line;
+      changed = true;
+      echo += 1;
       continue;
     }
     fresh.push(line);
   }
 
-  if (!fresh.length) return edited ? next : null;
+  if (!fresh.length) return changed ? next : null;
   // Nothing on screen is on the host any more: the transcript was replaced,
   // or the session is not the one that was open. What the host holds wins.
   if (fresh.length === read.length) return read;
