@@ -88,6 +88,15 @@ export async function faceSprites(shape: string | undefined, color: string): Pro
   return uris.filter((uri): uri is string => Boolean(uri));
 }
 
+/** The variants already drawn and written, if this bot has been seen. */
+export function cachedFaceSprites(shape: string | undefined, color: string): string[] {
+  const resolved = shapeOf(shape);
+  const tint = color || '#8b5cf6';
+  return FACE_VARIANTS.map((variant) => cache.get(keyOf(resolved, tint, variant))).filter(
+    (uri): uri is string => Boolean(uri),
+  );
+}
+
 /**
  * Draws one sprite at a time, out of sight, and writes it where the widget can
  * read it. Mounted once at the root: no screen has to know it exists.

@@ -33,6 +33,8 @@ export type QueueFace = {
   color: string;
   shape?: string;
   startedAt: number;
+  /** The real Bloub variants, once the app has drawn them. */
+  faceUris?: string[];
 };
 
 export type HermesTurnProps = {
@@ -89,7 +91,11 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
         : status);
 
   const frames = props.faceUris ?? [];
-  const faceUri = frames[0];
+  // The variant follows what the turn is doing: looking up while it thinks,
+  // looking aside while it writes, a wink when it is done. No cycling.
+  const variantIndex =
+    props.phase === 'thinking' ? 1 : props.phase === 'writing' ? 2 : props.phase === 'answered' ? 4 : 0;
+  const faceUri = frames.length ? frames[variantIndex % frames.length] : undefined;
   // Every running agent is on the Island at once, side by side, in the order
   // their turns started. One agent is a face; several are a row of faces.
   const roster: QueueFace[] =
@@ -109,9 +115,31 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
   }) => {
     const faceColor = tint?.color || accent;
     const faceShape = tint?.shape ?? props.shape;
-    // A sprite is only used where there is room to read it, and only for the
-    // activity's own bot; a face from the queue is drawn in its colour.
-    const picture = !tint && faceUri && size >= 30 ? faceUri : undefined;
+    // A stable identity for the bot, so its gaze is its own and does not move
+    // when the row is rebuilt.
+    const seedText = `${faceColor}${faceShape ?? ''}`;
+    let seed = 0;
+    for (let index = 0; index < seedText.length; index += 1) {
+      seed = (seed * 31 + seedText.charCodeAt(index)) % 9973;
+    }
+    const lookX = ((seed % 3) - 1) * Math.max(1, Math.round(size * 0.09));
+    const lookY = ((Math.floor(seed / 3) % 3) - 1) * Math.max(1, Math.round(size * 0.05));
+    const winks = seed % 6 === 0;
+    const tinted = tint?.faceUris?.length
+      ? tint.faceUris[seed % tint.faceUris.length]
+      : undefined;
+    const picture =
+      size >= 24 ? tinted || (!tint ? faceUri : undefined) : undefined;
+    const corner =
+      faceShape === 'galet'
+        ? 0.42
+        : faceShape === 'squircle'
+          ? 0.33
+          : faceShape === 'nuage'
+            ? 0.5
+            : faceShape === 'hexagone'
+              ? 0.24
+              : 0.32;
     const body =
       faceShape === 'capsule' ? (
         <Capsule modifiers={[foregroundStyle(faceColor)]} />
@@ -121,11 +149,12 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
         <Circle modifiers={[foregroundStyle(faceColor)]} />
       ) : (
         <RoundedRectangle
-          cornerRadius={Math.round(size * 0.32)}
+          cornerRadius={Math.round(size * corner)}
           modifiers={[foregroundStyle(faceColor)]}
         />
       );
     const eye = Math.max(2, Math.round(size * 0.13));
+    const look = Math.max(2, Math.round(size * 0.17));
     return (
       <ZStack
         alignment="center"
@@ -142,9 +171,22 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
         ) : (
           <>
             {body}
-            <HStack spacing={Math.max(2, Math.round(size * 0.17))}>
-              <Circle modifiers={[foregroundStyle('#FFFFFF'), frame({ width: eye, height: eye })]} />
-              <Circle modifiers={[foregroundStyle('#FFFFFF'), frame({ width: eye, height: eye })]} />
+            <HStack
+              spacing={look}
+              modifiers={[offset({ x: lookX, y: lookY })]}
+            >
+              <Circle
+                modifiers={[
+                  foregroundStyle('#f6f3e9'),
+                  frame({ width: eye, height: winks ? Math.max(1, Math.round(eye * 0.3)) : Math.round(eye * 1.25) }),
+                ]}
+              />
+              <Circle
+                modifiers={[
+                  foregroundStyle('#f6f3e9'),
+                  frame({ width: eye, height: Math.round(eye * 1.25) }),
+                ]}
+              />
             </HStack>
           </>
         )}
