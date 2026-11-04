@@ -21,6 +21,14 @@ export default defineConfig({
           branches: 100,
           statements: 100,
         },
+        // A conversation that keeps up with the host: what is new, and how a
+        // transcript that grew is folded into the one on screen.
+        'src/live.ts': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
         'src/conversations.ts': {
           lines: 100,
           functions: 100,
