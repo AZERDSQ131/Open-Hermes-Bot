@@ -870,10 +870,16 @@ export default function App() {
           .find((line) => line.role !== 'event');
         const preview = last?.text.replace(/\s+/g, ' ').trim().slice(0, 90);
         const at = Math.max(...facts.map((fact) => fact.lastActive));
+        const open = activeIdRef.current || known[0]?.id;
         setThreads((current) =>
           current.map((entry) => {
             if (entry.id !== thread.id) return entry;
-            const merged = mergeTranscript(entry.messages, transcript.messages);
+            // A conversation nobody opened is not kept: only its row is
+            // refreshed, so the window still holds nothing of it.
+            const merged =
+              entry.id === open || entry.messages.length
+                ? mergeTranscript(entry.messages, transcript.messages)
+                : null;
             return {
               ...entry,
               messages: merged ?? entry.messages,
