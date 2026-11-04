@@ -919,6 +919,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const botId = thread.botId;
       const assistantId = `a-${Date.now()}`;
       const accent = botsRef.current.find((bot) => bot.id === botId)?.color ?? '#8b5cf6';
+      const shape = botsRef.current.find((bot) => bot.id === botId)?.shape;
       let answer = '';
       let settled = false;
       let streaming = false;
@@ -970,6 +971,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       startTurnActivity(threadId, {
         botName: thread.name,
         color: accent,
+        shape,
         phase: 'thinking',
         preview: '',
         startedAt: Date.now(),

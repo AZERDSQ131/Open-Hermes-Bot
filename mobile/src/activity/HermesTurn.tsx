@@ -1,4 +1,4 @@
-import { Circle, HStack, Image, Spacer, Text, VStack, ZStack } from '@expo/ui/swift-ui';
+import { Capsule, Circle, Ellipse, HStack, Image, RoundedRectangle, Spacer, Text, VStack, ZStack } from '@expo/ui/swift-ui';
 import {
   clipShape,
   containerBackground,
@@ -30,6 +30,8 @@ export type HermesTurnProps = {
   botName: string;
   /** The bot's colour, so the face in the Island is the same face. */
   color: string;
+  /** The bot's Bloub shape: cercle, capsule, galet, squircle, goutte… */
+  shape?: string;
   phase: TurnPhase;
   /** The last words of the answer, or what the turn had to say. */
   preview: string;
@@ -47,7 +49,6 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
   const accent = props.color || '#8B5CF6';
 
   const active = props.phase === 'thinking' || props.phase === 'writing';
-  const initial = (props.botName || 'H').trim().charAt(0).toUpperCase();
   const preview = (props.preview || '').replace(/\s+/g, ' ').trim();
 
   const status =
@@ -69,24 +70,38 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
 
   const started = new Date(props.startedAt);
 
-  /** The bot, in its own colour: a disc and its first letter. */
-  const Face = ({ size, soft = false }: { size: number; soft?: boolean }) => (
-    <ZStack alignment="center" modifiers={[frame({ width: size, height: size })]}>
-      <Circle modifiers={[foregroundStyle(accent), opacity(soft ? 0.28 : 1)]} />
-      <Text
+  /** The bot's Bloub face: its body shape and its two eyes, not a dot. */
+  const Face = ({ size, soft = false }: { size: number; soft?: boolean }) => {
+    const body =
+      props.shape === 'capsule' ? (
+        <Capsule modifiers={[foregroundStyle(accent)]} />
+      ) : props.shape === 'goutte' ? (
+        <Ellipse modifiers={[foregroundStyle(accent)]} />
+      ) : props.shape === 'cercle' || !props.shape ? (
+        <Circle modifiers={[foregroundStyle(accent)]} />
+      ) : (
+        <RoundedRectangle
+          cornerRadius={Math.round(size * 0.32)}
+          modifiers={[foregroundStyle(accent)]}
+        />
+      );
+    const eye = Math.max(2, Math.round(size * 0.13));
+    return (
+      <ZStack
+        alignment="center"
         modifiers={[
-          font({
-            weight: 'bold',
-            size: Math.max(10, Math.round(size * 0.42)),
-            design: 'rounded',
-          }),
-          foregroundStyle(soft ? accent : '#FFFFFF'),
+          frame({ width: size, height: size }),
+          opacity(soft ? 0.55 : 1),
         ]}
       >
-        {initial}
-      </Text>
-    </ZStack>
-  );
+        {body}
+        <HStack spacing={Math.max(2, Math.round(size * 0.17))}>
+          <Circle modifiers={[foregroundStyle('#FFFFFF'), frame({ width: eye, height: eye })]} />
+          <Circle modifiers={[foregroundStyle('#FFFFFF'), frame({ width: eye, height: eye })]} />
+        </HStack>
+      </ZStack>
+    );
+  };
 
   /** While the turn runs, the seconds; once it is over, the sign that it is. */
   const Pulse = ({ size = 12 }: { size?: number }) =>
@@ -170,12 +185,8 @@ const HermesTurn = (props: HermesTurnProps, _environment: LiveActivityEnvironmen
     compactLeading: <Face size={20} soft={!active} />,
     compactTrailing: <Pulse size={11} />,
 
-    // Minimal Island: a dot in the bot's colour is all there is room for.
-    minimal: (
-      <Circle
-        modifiers={[foregroundStyle(accent), frame({ width: 9, height: 9 }), opacity(active ? 1 : 0.5)]}
-      />
-    ),
+    // Minimal Island: the bot's face, small — the same face as everywhere.
+    minimal: <Face size={16} soft={!active} />,
 
     // Expanded Island: who is working, for how long, and what was said.
     expandedLeading: (
