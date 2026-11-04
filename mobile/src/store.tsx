@@ -101,6 +101,8 @@ type Store = {
   connect: (url: string, code: string) => Promise<void>;
   disconnect: () => Promise<void>;
   refresh: () => Promise<void>;
+  /** Everything again from the gateway: bots, rooms, transcripts, health. */
+  syncAll: () => Promise<void>;
   devices: BridgeDevice[];
   revokeDevice: (id: string) => Promise<void>;
 
@@ -411,6 +413,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         error instanceof BridgeError ? error.message : 'The bridge could not be read.';
       setConnection((state) => ({ ...state, status: 'error', error: message }));
     }
+  }, [adopt]);
+
+  // The button in the connection page: everything is read again, and nothing
+  // that was read before is taken as evidence. The next beats read every row
+  // whose session moved, instead of trusting a digest from before the click.
+  const syncAll = useCallback(async () => {
+    const active = client.current;
+    const current = connectionRef.current;
+    if (!active || current.status !== 'connected') {
+      throw new BridgeError('The bridge is not connected.', 'offline');
+    }
+    digests.current.clear();
+    following.current.clear();
+    await adopt(current.url, active.token, current.device);
   }, [adopt]);
 
   /* -------------------------------------------------------- the live beat */
@@ -1111,6 +1127,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       connect,
       disconnect,
       refresh,
+      syncAll,
       devices,
       revokeDevice,
       botById,
@@ -1151,6 +1168,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removeThread,
       send,
       setModel,
+      syncAll,
       setPref,
       threadById,
       threads,

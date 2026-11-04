@@ -18,7 +18,7 @@ import { C, INK, createStyles } from '../theme';
  * that hold one can be forgotten.
  */
 export function ConnectionScreen() {
-  const { connection, connect, disconnect, devices, revokeDevice, refresh, prefs } = useStore();
+  const { connection, connect, disconnect, devices, revokeDevice, syncAll, prefs } = useStore();
   const [url, setUrl] = useState(connection.url);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -107,16 +107,20 @@ export function ConnectionScreen() {
 
             <View style={styles.buttons}>
               <PrimaryButton
-                label={busy ? 'Reading…' : 'Read it again'}
-                tone="quiet"
+                label={busy ? 'Syncing…' : 'Sync everything'}
                 onPress={async () => {
                   setError('');
+                  setNotice('');
                   setBusy(true);
                   try {
-                    await refresh();
-                    setNotice('Read again from Hermes.');
-                  } catch {
-                    setError('The bridge did not answer.');
+                    await syncAll();
+                    setNotice('Everything read again from the gateway.');
+                  } catch (failure) {
+                    setError(
+                      failure instanceof BridgeError
+                        ? failure.message
+                        : 'The bridge did not answer.',
+                    );
                   } finally {
                     setBusy(false);
                   }
@@ -125,6 +129,10 @@ export function ConnectionScreen() {
               <View style={styles.gap} />
               <PrimaryButton label="Disconnect this phone" tone="quiet" onPress={() => void disconnect()} />
             </View>
+            <Hint>
+              Reads the bots, their rooms, the transcripts and the turns still running again from
+              the gateway. Nothing kept on this phone is trusted.
+            </Hint>
 
             <SectionLabel>Devices</SectionLabel>
             <Card>
