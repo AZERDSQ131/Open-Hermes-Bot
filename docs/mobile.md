@@ -63,6 +63,11 @@ with its own ids, and the app recognises them by what they say. A conversation
 just started on the desktop takes the thread over, since the phone shows the
 newest room of each bot.
 
+**Settings → Connection → Sync everything** reads it all again from the
+gateway in one gesture: the bots, their rooms, the transcripts and the health.
+It also forgets every digest, so the next beats read every row instead of
+trusting what they saw before the click.
+
 ## Where things are
 
 | Path | What lives there |
