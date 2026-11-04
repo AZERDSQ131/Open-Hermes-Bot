@@ -85,6 +85,7 @@ import {
   type PastGroup,
   type PastSession,
 } from './history';
+import { LIVE_MS, mergeTranscript, PROFILE_EVERY, sessionDigest } from './live';
 import type { ScheduleRun } from './schedules';
 import {
   extractReaction,
@@ -350,6 +351,12 @@ export function mergeBots(
   );
   return [chiefNext, ...bots, ...waiting, ...local];
 }
+
+/** One read of a conversation: its lines, or why they are not there. */
+type ThreadRead = { ok: boolean; messages: Message[] };
+
+/** One read of the host's sessions, profile by profile. */
+type SessionRead = { ok: boolean; perProfile: Map<string, HermesSession[]> };
 
 // The conversations the server holds, folded into the sidebar. A bot's
 // conversation is the session under its name; a group is rebuilt from the
@@ -639,13 +646,27 @@ export default function App() {
   // A read that failed is tried again.
   const transcriptRetryRef = useRef<number | null>(null);
   const [transcriptRetry, setTranscriptRetry] = useState(0);
+  // What the live beat reads: the bots the host serves, and the last thing each
+  // conversation said, so nothing is read twice for nothing.
+  const liveProfiles = useRef<HermesProfile[]>([]);
+  const liveDigests = useRef(new Map<string, string>());
+  const liveRunning = useRef(false);
+  const liveTicks = useRef(0);
+  const threadsRef = useRef<Thread[]>(threads);
+  const pastOpenRef = useRef(pastOpen);
+  useEffect(() => {
+    threadsRef.current = threads;
+  }, [threads]);
+  useEffect(() => {
+    pastOpenRef.current = pastOpen;
+  }, [pastOpen]);
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
   // The conversations every profile is holding. The calls go out together, over
   // the tunnel the app already keeps open.
-  async function loadConversations(profiles: HermesProfile[]) {
+  async function readSessions(profiles: HermesProfile[]): Promise<SessionRead> {
     const bridge = window.hermes;
-    if (!bridge?.sessions) return;
+    if (!bridge?.sessions) return { ok: false, perProfile: new Map() };
     const targets = [undefined, ...profiles.map((entry) => entry.name)];
     const answers = await Promise.all(
       targets.map(async (profile) => {
@@ -665,7 +686,14 @@ export default function App() {
       if (!answer) continue;
       perProfile.set(profileKey(answer.profile), answer.sessions);
     }
-    setThreads((current) => withConversations(current, perProfile));
+    if (!perProfile.size) return { ok: false, perProfile };
+    return { ok: true, perProfile };
+  }
+
+  async function loadConversations(profiles: HermesProfile[]) {
+    const read = await readSessions(profiles);
+    if (!read.ok) return;
+    setThreads((current) => withConversations(current, read.perProfile));
   }
 
   // The sessions the host already held, asked profile by profile. Nothing is
@@ -715,6 +743,198 @@ export default function App() {
     setHistoryState(failure && !rows.length ? 'error' : 'ready');
   }
 
+  // What a conversation is made of on the host: one session, or one per member
+  // of a group. Those sessions say whether anything moved.
+  function sessionFactsOf(
+    thread: Thread,
+    perProfile: Map<string, HermesSession[]>,
+  ): HermesSession[] {
+    if (thread.members?.length) {
+      const facts: HermesSession[] = [];
+      for (const member of thread.members) {
+        const id = thread.sessions?.[member.id];
+        if (!id) continue;
+        const found = (perProfile.get(profileKey(member.profile)) ?? []).find(
+          (session) => session.id === id,
+        );
+        if (found) facts.push(found);
+      }
+      return facts;
+    }
+    if (!thread.sessionId) return [];
+    const found = (perProfile.get(profileKey(thread.profile)) ?? []).find(
+      (session) => session.id === thread.sessionId,
+    );
+    return found ? [found] : [];
+  }
+
+  // A turn in flight belongs to this window: the host has not caught up with it
+  // yet, and reading now would draw the same answer twice.
+  function liveBusy(thread: Thread): boolean {
+    return Boolean(
+      thread.thinking ||
+        thread.streaming ||
+        thread.watching ||
+        thread.pending ||
+        thread.live?.length ||
+        thread.approvals?.length ||
+        thread.clarifies?.length ||
+        requestThread.current.has(thread.id) ||
+        groupRound.current.has(thread.id),
+    );
+  }
+
+  async function readThreadTranscript(thread: Thread): Promise<ThreadRead> {
+    const bridge = window.hermes;
+    if (!bridge?.messages) return { ok: false, messages: [] };
+    const members = thread.members ?? [];
+    const reads = members.length
+      ? members
+          .filter((member) => thread.sessions?.[member.id])
+          .map((member) => ({
+            profile: member.profile,
+            sessionId: thread.sessions?.[member.id] as string,
+          }))
+      : thread.sessionId
+        ? [{ profile: thread.profile, sessionId: thread.sessionId }]
+        : [];
+    if (!reads.length) return { ok: false, messages: [] };
+    const transcripts = new Map<string, HermesMessage[]>();
+    for (const read of reads) {
+      const result = await bridge.messages(read);
+      if (!result.ok || !result.messages) return { ok: false, messages: [] };
+      if (!members.length) {
+        transcripts.set('', result.messages);
+        continue;
+      }
+      const member = members.find(
+        (entry) =>
+          entry.profile === read.profile &&
+          thread.sessions?.[entry.id] === read.sessionId,
+      );
+      if (member) transcripts.set(member.id, result.messages);
+    }
+    return {
+      ok: true,
+      messages: members.length
+        ? groupTranscript(members, transcripts)
+        : privateTranscript(transcripts.get('') ?? []),
+    };
+  }
+
+  // The host is the truth, so the window says it on a beat: what the bots hold
+  // is read again, and a conversation that moved is read back. A turn sent
+  // from the phone lands here without anyone pressing anything.
+  const syncLive = useCallback(async () => {
+    const bridge = window.hermes;
+    if (!bridge?.sessions) return;
+    if (hermesStatus.state !== 'connected') return;
+    if (document.visibilityState === 'hidden') return;
+    if (liveRunning.current) return;
+    const served = liveProfiles.current.filter(
+      (profile) => profile.served !== false,
+    );
+    if (!served.length) return;
+    liveRunning.current = true;
+    const tick = liveTicks.current + 1;
+    liveTicks.current = tick;
+    try {
+      // A bot is a rarer thing than a message, and listing one asks the host
+      // for a shell: the slower beat is enough for a bot made elsewhere.
+      if (tick % PROFILE_EVERY === 0) setRefreshToken((count) => count + 1);
+
+      const read = await readSessions(served);
+      if (!read.ok) return;
+
+      // The sidebar's own conversations, and the groups their titles spell.
+      setThreads((current) => {
+        const next = withConversations(current, read.perProfile);
+        const same =
+          next.length === current.length &&
+          next.every((entry, index) => entry === current[index]);
+        return same ? current : next;
+      });
+
+      const known = withConversations(threadsRef.current, read.perProfile);
+      for (const thread of known) {
+        if (liveBusy(thread)) continue;
+        const facts = sessionFactsOf(thread, read.perProfile);
+        if (!facts.length) continue;
+        const digest = sessionDigest(facts);
+        if (digest === liveDigests.current.get(thread.id)) continue;
+        const transcript = await readThreadTranscript(thread);
+        if (!transcript.ok) continue;
+        liveDigests.current.set(thread.id, digest);
+        const last = [...transcript.messages]
+          .reverse()
+          .find((line) => line.role !== 'event');
+        const preview = last?.text.replace(/\s+/g, ' ').trim().slice(0, 90);
+        const at = Math.max(...facts.map((fact) => fact.lastActive));
+        setThreads((current) =>
+          current.map((entry) => {
+            if (entry.id !== thread.id) return entry;
+            const merged = mergeTranscript(entry.messages, transcript.messages);
+            return {
+              ...entry,
+              messages: merged ?? entry.messages,
+              preview: preview || entry.preview,
+              time: relativeDay(Date.now(), at),
+            };
+          }),
+        );
+      }
+
+      // A past conversation is drawn over its bot, and read on its own.
+      const past = pastOpenRef.current;
+      if (past) {
+        const facts = (
+          read.perProfile.get(profileKey(past.group.profile)) ?? []
+        ).filter((session) => session.id === past.session.id);
+        const key = `past:${past.session.id}`;
+        const digest = sessionDigest(facts);
+        if (facts.length && digest !== liveDigests.current.get(key)) {
+          const result = await bridge.messages({
+            profile: past.group.profile,
+            sessionId: past.session.id,
+          });
+          if (result.ok && result.messages) {
+            liveDigests.current.set(key, digest);
+            const incoming = privateTranscript(result.messages);
+            setPastMessages(
+              (current) => mergeTranscript(current, incoming) ?? current,
+            );
+          }
+        }
+      }
+    } finally {
+      liveRunning.current = false;
+    }
+  }, [hermesStatus.state]);
+
+  // While the window is in front, the conversation keeps up: a beat reads what
+  // the host holds, and the room on screen follows it. Behind another window
+  // there is nothing to keep up with, and the beat waits for the way back.
+  useEffect(() => {
+    if (hermesStatus.state !== 'connected') return;
+    let stopped = false;
+    const beat = () => {
+      if (!stopped) void syncLive();
+    };
+    const timer = window.setInterval(beat, LIVE_MS);
+    const wake = () => {
+      if (document.visibilityState !== 'hidden') beat();
+    };
+    document.addEventListener('visibilitychange', wake);
+    window.addEventListener('focus', wake);
+    beat();
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', wake);
+      window.removeEventListener('focus', wake);
+    };
+  }, [hermesStatus.state, syncLive]);
+
   // The setup is asked for once. The app's own record says whether the door
   // was already walked through; a Hermes the person has already placed — on
   // this machine or on another one — means they know what they are doing, and
@@ -758,6 +978,7 @@ export default function App() {
       .then((result) => {
         if (cancelled) return;
         if (result.ok && result.profiles) {
+          liveProfiles.current = result.profiles;
           const now = Date.now();
           const listed = new Map(
             (result.profiles ?? []).map((profile) => [profile.name, profile]),
