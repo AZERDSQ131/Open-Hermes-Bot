@@ -23,6 +23,7 @@ import {
   type Thread,
 } from './data';
 import type { BloubShape } from './bloubFrames';
+import { LIVE_MS, mergeMessages } from './live';
 import { pairingCodeReady } from './pairing';
 import {
   BridgeError,
@@ -256,10 +257,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const client = useRef<BridgeClient | null>(null);
   const threadsRef = useRef<Thread[]>(threads);
+  const messagesRef = useRef(messages);
+  // The threads with a turn in flight: the host has not caught up with them,
+  // and reading now would draw the same answer twice.
+  const busy = useRef(new Set<string>());
+  // What each conversation looked like the last time it was read.
+  const digests = useRef(new Map<string, string>());
+  const syncing = useRef(false);
   const connectionRef = useRef(connection);
   useEffect(() => {
     threadsRef.current = threads;
   }, [threads]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   useEffect(() => {
     connectionRef.current = connection;
   }, [connection]);
@@ -380,6 +391,143 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setConnection((state) => ({ ...state, status: 'error', error: message }));
     }
   }, [adopt]);
+
+  /* -------------------------------------------------------- the live beat */
+
+  // What the host holds now, folded into what is on screen. Only what moved is
+  // read: a session's digest is its identity, its length and its last activity,
+  // so a conversation that did not move costs one list call and nothing more.
+  const sync = useCallback(async () => {
+    const active = client.current;
+    if (!active || syncing.current) return;
+    if (connectionRef.current.status !== 'connected') return;
+    if (AppState.currentState !== 'active') return;
+    syncing.current = true;
+    try {
+      const [rawBots, sessions] = await Promise.all([
+        active.bots(),
+        active.sessions(),
+      ]);
+      const newest = (botId: string): BridgeSession | undefined =>
+        sessions
+          .filter((row) => row.bot === botId && !row.archived)
+          .sort((left, right) => right.lastActive - left.lastActive)[0];
+
+      // A bot made on the desktop is a bot here too: it takes its face, and
+      // the one the host stopped listing is left where it was.
+      const nextBots = rawBots.map(toBot);
+      setBots((current) => {
+        const known = new Map(current.map((bot) => [bot.id, bot]));
+        let moved = nextBots.length !== current.length;
+        const merged = nextBots.map((bot) => {
+          const before = known.get(bot.id);
+          if (
+            before &&
+            before.name === bot.name &&
+            before.shape === bot.shape &&
+            before.color === bot.color
+          ) {
+            return before;
+          }
+          moved = true;
+          return bot;
+        });
+        return moved ? merged : current;
+      });
+
+      const threads = threadsRef.current;
+      const shown = messagesRef.current;
+      const additions: Thread[] = [];
+      const updates = new Map<string, Partial<Thread>>();
+      const transcripts = new Map<string, Message[]>();
+
+      for (const raw of rawBots) {
+        const threadId = `bot:${raw.id}`;
+        const latest = newest(raw.id);
+        const before = threads.find((entry) => entry.id === threadId);
+        const thread: Thread = before ?? {
+          id: threadId,
+          kind: 'bot',
+          botId: raw.id,
+          name: raw.name,
+          preview: latest ? `${latest.messageCount} messages` : 'No conversation yet',
+          time: latest ? relativeTime(latest.lastActive) : '',
+          threadModel: connectionRef.current.model || DEFAULT_MODEL,
+          sessionId: latest?.id,
+        };
+        const patch: Partial<Thread> = {};
+
+        if (latest && !thread.typing && !busy.current.has(threadId)) {
+          // A new conversation on the bot takes the thread over: the phone
+          // shows the room the person would be in, not the one before it.
+          const rebound = Boolean(thread.sessionId) && latest.id !== thread.sessionId;
+          const digest = `${latest.id}:${latest.messageCount}:${latest.lastActive}`;
+          if (rebound || digest !== digests.current.get(threadId)) {
+            const rows = await active
+              .messages(raw.id, latest.id, 80)
+              .catch(() => null);
+            if (rows) {
+              digests.current.set(threadId, digest);
+              const incoming = toMessages(threadId, raw.id, rows);
+              const merged = rebound
+                ? incoming
+                : mergeMessages(shown[threadId] ?? [], incoming);
+              if (merged) transcripts.set(threadId, merged);
+              const last = [...incoming]
+                .reverse()
+                .find((message) => message.text.trim());
+              patch.sessionId = latest.id;
+              patch.time = relativeTime(latest.lastActive);
+              if (last) {
+                patch.preview = last.text.replace(/\s+/g, ' ').trim().slice(0, 90);
+              }
+            }
+          }
+        }
+
+        if (!before) additions.push({ ...thread, ...patch });
+        else if (Object.keys(patch).length) updates.set(threadId, patch);
+      }
+
+      if (additions.length || updates.size) {
+        setThreads((current) => {
+          const added = new Set(additions.map((thread) => thread.id));
+          const kept = current
+            .filter((thread) => !added.has(thread.id))
+            .map((thread) => {
+              const patch = updates.get(thread.id);
+              return patch ? { ...thread, ...patch } : thread;
+            });
+          return [...additions, ...kept];
+        });
+      }
+      if (transcripts.size) {
+        setMessages((current) => {
+          const next = { ...current };
+          transcripts.forEach((rows, id) => {
+            next[id] = rows;
+          });
+          return next;
+        });
+      }
+    } catch {
+      // A beat that fails is not a disconnect: the next one tries again.
+    } finally {
+      syncing.current = false;
+    }
+  }, []);
+
+  // While the app is in front, the conversation keeps up: a beat reads what
+  // the host holds, so a turn sent from the desktop lands here without anyone
+  // pulling the list. A real absence is repaired by the listener below.
+  useEffect(() => {
+    if (connection.status !== 'connected') return;
+    const timer = setInterval(() => {
+      void sync();
+    }, LIVE_MS);
+    void sync();
+    return () => clearInterval(timer);
+  }, [connection.status, sync]);
 
   // iOS can drop a stream while the app is away. A real absence is repaired
   // by reading the host again; a glance at Control Center is not.
@@ -746,6 +894,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const active = client.current;
       if (!active) return;
+      busy.current.add(threadId);
       const botId = thread.botId;
       const assistantId = `a-${Date.now()}`;
       let answer = '';
@@ -755,6 +904,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const settle = (outcome: string, failed: boolean) => {
         if (settled) return;
         settled = true;
+        busy.current.delete(threadId);
         // A stream can stop after the bot has said most of its answer. The
         // words already written are the person's; the reason is a note under
         // them, not a replacement for them.
