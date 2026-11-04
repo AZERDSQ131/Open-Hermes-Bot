@@ -27,6 +27,24 @@ export function SearchIcon({ size = 16, className }: IconProps) {
   );
 }
 
+export function SyncIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      strokeWidth="2"
+      className={className}
+      {...base}
+    >
+      <path d="M20 11a8 8 0 0 0-13.7-4.6L4 8.5" />
+      <path d="M4 4v4.5h4.5" />
+      <path d="M4 13a8 8 0 0 0 13.7 4.6L20 15.5" />
+      <path d="M20 20v-4.5h-4.5" />
+    </svg>
+  );
+}
+
 export function PlusIcon({ size = 20, className }: IconProps) {
   return (
     <svg
