@@ -52,7 +52,32 @@ export type Connector = {
   mcp: boolean;
   /** Whether the service is already present on the host. */
   installed: boolean;
+  /** The values the service needs before it can run, when it declares any. */
+  env?: ConnectorEnvVar[];
 };
+
+/** One value a service needs before it can run. */
+export type ConnectorEnvVar = {
+  /** The name the host knows it by, and writes it as. */
+  name: string;
+  /** The words to put over the field. */
+  prompt: string;
+  required: boolean;
+  /** A secret is written to the host's env file, never to the block. */
+  secret: boolean;
+  /** Whether the host already holds a value for it. */
+  set: boolean;
+};
+
+/**
+ * The values a service still needs, in the order the host declared them.
+ *
+ * A value the host already holds is not asked for again: the page has no way
+ * to show it, and typing a new one would only overwrite a working credential.
+ */
+export function missingEnv(connector: Connector): ConnectorEnvVar[] {
+  return (connector.env ?? []).filter((field) => !field.set);
+}
 
 /**
  * The name a person reads, when the catalogue does not give one.
@@ -165,6 +190,30 @@ function stateOf(
 }
 
 /**
+ * The values the host declared for a service, read the way the page draws
+ * them: a name that is not a shell variable is not one the host could write,
+ * so it is dropped rather than shown as a field that cannot work.
+ */
+function envSpecsOf(
+  described: HermesConnectorCatalog | undefined,
+): ConnectorEnvVar[] {
+  const specs = Array.isArray(described?.env) ? described.env : [];
+  const fields: ConnectorEnvVar[] = [];
+  for (const spec of specs) {
+    const name = String(spec?.name ?? '').trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) continue;
+    fields.push({
+      name,
+      prompt: String(spec?.prompt ?? '').trim() || name,
+      required: spec?.required !== false,
+      secret: spec?.secret !== false,
+      set: spec?.set === true,
+    });
+  }
+  return fields;
+}
+
+/**
  * The connectors of the host, read out of the three lists it answered with.
  *
  * The catalogue says what a service is called, the toolkit says which ones
@@ -213,6 +262,7 @@ export function readConnectors(list: HermesConnectorList): Connector[] {
       // the toolkit that says so: a portal row is never one of those.
       mcp: Boolean(known?.mcp ?? described?.mcp),
       installed: Boolean(known?.installed),
+      env: envSpecsOf(described),
     });
   }
   return rows;

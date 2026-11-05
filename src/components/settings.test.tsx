@@ -854,6 +854,79 @@ describe('the settings', () => {
     ).toBeTruthy();
   }, 15000);
 
+  it(
+    'asks a service for the values it needs before connecting it',
+    async () => {
+      const mcpConnect = vi.fn(async () => ({
+        ok: true,
+        url: 'https://provider.test/authorize',
+        port: 4567,
+      }));
+      withBridge({
+        connectors: vi.fn(async () => ({
+          ok: true,
+          available: true,
+          catalog: [
+            {
+              slug: 'asana',
+              name: 'Asana',
+              mcp: true,
+              env: [
+                {
+                  name: 'ASANA_CLIENT_ID',
+                  prompt: 'Asana client id',
+                  required: true,
+                  secret: false,
+                  set: false,
+                },
+                {
+                  name: 'ASANA_CLIENT_SECRET',
+                  prompt: 'Asana client secret',
+                  required: true,
+                  secret: true,
+                  set: false,
+                },
+              ],
+            },
+          ],
+          toolkit: [
+            { connector: 'asana', enabled: true, connected: false, installed: false },
+          ],
+          accounts: [],
+          messages: [],
+        })),
+        mcpConnect,
+        mcpConnectStatus: vi.fn(async () => ({ done: true, ok: true })),
+      });
+      renderSettings();
+      await userEvent.click(screen.getByRole('button', { name: 'Connectors' }));
+      await userEvent.click(await screen.findByRole('button', { name: 'Connect' }));
+
+      // The fields come first: the host refuses the install without them.
+      const clientId = await screen.findByLabelText('Asana client id');
+      expect(mcpConnect).not.toHaveBeenCalled();
+      const submit = screen.getByRole('button', {
+        name: 'Connect',
+      }) as HTMLButtonElement;
+      expect(submit.disabled).toBe(true);
+
+      await userEvent.type(clientId, 'client-123');
+      await userEvent.type(
+        screen.getByLabelText('Asana client secret'),
+        'shh',
+      );
+      expect(submit.disabled).toBe(false);
+      await userEvent.click(submit);
+
+      expect(mcpConnect).toHaveBeenCalledWith({
+        name: 'asana',
+        installed: false,
+        env: { ASANA_CLIENT_ID: 'client-123', ASANA_CLIENT_SECRET: 'shh' },
+      });
+    },
+    15000,
+  );
+
   it('read the host in the middle while the connectors load', async () => {
     withBridge({
       connectors: vi.fn(() => new Promise(() => undefined)),
