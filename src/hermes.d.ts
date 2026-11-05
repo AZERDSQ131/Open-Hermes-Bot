@@ -261,6 +261,20 @@ export type HermesConnectorCatalog = {
   logo?: string;
   /** A service the host connects by itself, outside the Nous portal. */
   mcp?: boolean;
+  /** The values the service needs before it can run, and whether each is set. */
+  env?: HermesConnectorEnvVar[];
+};
+
+/** One value a service needs before it can run. */
+export type HermesConnectorEnvVar = {
+  name: string;
+  /** The words to put over the field. */
+  prompt?: string;
+  required?: boolean;
+  /** A secret is written to the host's env file, never to the block. */
+  secret?: boolean;
+  /** Whether the host already holds a value for it. */
+  set?: boolean;
 };
 
 /** One connector of the toolkit of the account. */
@@ -534,7 +548,12 @@ export type HermesBridge = {
    * A local service the host connects by itself: installed there, then
    * signed in by the provider's own browser flow. No Nous account.
    */
-  mcpConnect: (payload: { name: string; installed?: boolean }) => Promise<{
+  mcpConnect: (payload: {
+    name: string;
+    installed?: boolean;
+    /** The values the service asked for, when the person filled them in. */
+    env?: Record<string, string>;
+  }) => Promise<{
     ok: boolean;
     url?: string;
     port?: number;
