@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { HermesConnectorList } from '../hermes';
-import { readConnectors, type Connector } from '../connectors';
+import { missingEnv, readConnectors, type Connector } from '../connectors';
 import { ConnectorMark } from './ConnectorMark';
 
 /** Where a connector stands, in one word. */
@@ -37,6 +37,11 @@ export function ConnectorsSettings() {
   const [answer, setAnswer] = useState<HermesConnectorList | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
+  // The service whose values are being typed, and what has been typed so far:
+  // a service that needs a value is asked for it at the moment of connecting,
+  // never before.
+  const [asking, setAsking] = useState('');
+  const [draft, setDraft] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState('');
   // Every ask is a token, and the retry asks past the answer the shell keeps:
   // after a service was connected, the list read a minute ago is a lie.
@@ -166,7 +171,7 @@ export function ConnectorsSettings() {
    * the flow stands until it is done, the person cancels, or the window for
    * approving is gone.
    */
-  async function connectLocal(row: Connector) {
+  async function connectLocal(row: Connector, values: Record<string, string> = {}) {
     if (!bridge?.mcpConnect || !bridge?.mcpConnectStatus) {
       setError('Connecting a service needs the desktop app.');
       return;
@@ -178,7 +183,11 @@ export function ConnectorsSettings() {
       const started = await bridge.mcpConnect({
         name: row.slug,
         installed: row.installed,
+        // Nothing rides along for the services that asked for nothing: the
+        // call stays exactly what it was before the fields existed.
+        ...(Object.keys(values).length ? { env: values } : {}),
       });
+      setAsking('');
       if (!started.ok) {
         setError(started.error ?? 'The connection could not be started.');
         return;
@@ -449,43 +458,110 @@ export function ConnectorsSettings() {
             </button>
           </header>
           <div className="capability-list">
-            {rows.map((row) => (
-              <div className="capability-row" key={row.slug}>
-                <ConnectorMark row={row} className="capability-mark" />
-                <span className="capability-copy">
-                  <span className="capability-name">{row.name}</span>
-                  {row.description ? (
-                    <span className="capability-description">
-                      {row.description}
+            {rows.map((row) => {
+              const needed = missingEnv(row);
+              const open = asking === row.slug && needed.length > 0;
+              // A required value left empty is a click that cannot work: the
+              // button says so instead of sending a form the host would refuse.
+              const incomplete = needed.some(
+                (field) => field.required && !(draft[field.name] ?? '').trim(),
+              );
+              return (
+                <Fragment key={row.slug}>
+                  <div className="capability-row">
+                    <ConnectorMark row={row} className="capability-mark" />
+                    <span className="capability-copy">
+                      <span className="capability-name">{row.name}</span>
+                      {row.description ? (
+                        <span className="capability-description">
+                          {row.description}
+                        </span>
+                      ) : null}
                     </span>
+                    <span className={`capability-state is-${row.state}`}>
+                      {STATE_WORD[row.state]}
+                    </span>
+                    {open || row.state === 'connected' ? null : row.mcp &&
+                      busy === row.slug ? (
+                      <button
+                        type="button"
+                        className="settings-text-button"
+                        onClick={() =>
+                          void bridge?.mcpConnectCancel?.({ name: row.slug })
+                        }
+                      >
+                        Cancel
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="settings-action is-small"
+                        disabled={busy === row.slug || !row.enabled}
+                        onClick={() => {
+                          if (row.mcp && needed.length > 0) {
+                            setAsking(open ? '' : row.slug);
+                            setDraft({});
+                            setError('');
+                            return;
+                          }
+                          void connect(row);
+                        }}
+                      >
+                        {busy === row.slug ? 'Opening…' : 'Connect'}
+                      </button>
+                    )}
+                  </div>
+                  {open ? (
+                    <div className="connector-env">
+                      <p className="settings-hint">
+                        {row.name} needs {needed.length === 1 ? 'a value' : `${needed.length} values`} on the host
+                        before it can connect.
+                      </p>
+                      {needed.map((field) => (
+                        <label className="settings-field" key={field.name}>
+                          <span className="settings-field-label">
+                            {field.prompt}
+                          </span>
+                          <input
+                            type={field.secret ? 'password' : 'text'}
+                            value={draft[field.name] ?? ''}
+                            placeholder={field.name}
+                            autoComplete="off"
+                            spellCheck={false}
+                            onChange={(event) =>
+                              setDraft((next) => ({
+                                ...next,
+                                [field.name]: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                      ))}
+                      <div className="connectors-actions">
+                        <button
+                          type="button"
+                          className="settings-action is-small"
+                          disabled={incomplete || busy === row.slug}
+                          onClick={() => void connectLocal(row, draft)}
+                        >
+                          {busy === row.slug ? 'Connecting…' : 'Connect'}
+                        </button>
+                        <button
+                          type="button"
+                          className="settings-text-button"
+                          onClick={() => {
+                            setAsking('');
+                            setDraft({});
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                   ) : null}
-                </span>
-                <span className={`capability-state is-${row.state}`}>
-                  {STATE_WORD[row.state]}
-                </span>
-                {row.state === 'connected' ? null : row.mcp &&
-                  busy === row.slug ? (
-                  <button
-                    type="button"
-                    className="settings-text-button"
-                    onClick={() =>
-                      void bridge?.mcpConnectCancel?.({ name: row.slug })
-                    }
-                  >
-                    Cancel
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="settings-action is-small"
-                    disabled={busy === row.slug || !row.enabled}
-                    onClick={() => void connect(row)}
-                  >
-                    {busy === row.slug ? 'Opening…' : 'Connect'}
-                  </button>
-                )}
-              </div>
-            ))}
+                </Fragment>
+              );
+            })}
           </div>
           {closed.length > 0 && !failed ? (
             <div className="settings-card-body">

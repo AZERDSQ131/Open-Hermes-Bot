@@ -368,6 +368,27 @@ button:focus-visible {
   border-top: 0;
 }
 
+/* The values a service needs are typed under its own row, where the
+   service is: the fields belong to it, not to a page of their own. The
+   inset lines them up with the name, past the mark. */
+.connector-env {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 16px 14px 54px;
+  background: rgba(255, 255, 255, 0.015);
+  border-top: 1px dashed var(--divider);
+}
+
+.connector-env .settings-field {
+  padding: 10px 0 0;
+  border-top: 0;
+}
+
+.connector-env .connectors-actions {
+  padding-top: 12px;
+}
+
 .capability-mark {
   display: grid;
   flex: 0 0 auto;

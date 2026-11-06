@@ -1385,6 +1385,33 @@ def mcp_service_state():
     return out
 
 
+def env_specs_of(name):
+    """The values a service needs written before it can run, and which are set.
+
+    Read from the service's own manifest: the values sit beside its auth
+    spec, and the entries that need none answer with an empty list. The set
+    flag is the host's answer about its own env file, so the page asks only
+    for what is missing and never for a value it already holds.
+    """
+    from hermes_cli.config import get_env_value
+    from hermes_cli.mcp_catalog import get_entry
+
+    entry = get_entry(name)
+    auth = getattr(entry, "auth", None) if entry is not None else None
+    if auth is None:
+        return []
+    specs = []
+    for spec in list(getattr(auth, "env", []) or []):
+        specs.append({
+            "name": str(spec.name),
+            "prompt": str(getattr(spec, "prompt", "") or spec.name),
+            "required": bool(getattr(spec, "required", True)),
+            "secret": bool(getattr(spec, "secret", True)),
+            "set": bool(get_env_value(spec.name)),
+        })
+    return specs
+
+
 def connectors_of():
     """The services of the account: the catalogue, the toolkit, the accounts.
 
@@ -1463,6 +1490,7 @@ def connectors_of():
             out["catalog"].append({
                 "slug": name, "name": "", "description": "",
                 "category": "", "logo": "", "mcp": True,
+                "env": env_specs_of(name),
             })
             if not any(str(entry.get("connector") or "") == name for entry in out["toolkit"]):
                 out["toolkit"].append({
@@ -1493,6 +1521,46 @@ def connector_connect():
         answer({"ok": False, "url": "", "error": "The host could not start the connection."})
     snapshot = start.operation.snapshot()
     answer({"ok": True, "url": str(snapshot.get("connect_url") or "")})
+
+
+def mcp_install_with_values():
+    """Install a service with the values the person typed, and no prompt.
+
+    The secrets go to the env file here, before the install looks for them:
+    the installer keeps a secret as a reference in the server block and only
+    resolves it from the env file, so the write has to come first. Values
+    that are not secret ride in with the install and are written into the
+    block itself, which is why the env file stays for secrets only.
+    """
+    from hermes_cli.config import save_env_value
+    from hermes_cli.mcp_catalog import get_entry, install_entry
+
+    entry = get_entry(VALUE)
+    if entry is None:
+        answer({"ok": False, "error": "The host does not know that service."})
+
+    raw = ""
+    try:
+        raw = "" if sys.stdin.isatty() else sys.stdin.read()
+    except Exception:
+        raw = ""
+    values = {}
+    try:
+        parsed = json.loads(raw) if str(raw or "").strip() else {}
+    except Exception:
+        parsed = {}
+    for key, value in (parsed or {}).items():
+        text = str(value or "").strip()
+        if text:
+            values[str(key)] = text
+
+    for spec in list(getattr(getattr(entry, "auth", None), "env", []) or []):
+        given = values.get(spec.name)
+        if spec.secret and given:
+            save_env_value(spec.name, given)
+
+    install_entry(entry, enable=True, preloaded_env=values or None)
+    answer({"ok": True, "name": VALUE})
 
 
 def nous_login_start():
@@ -1607,6 +1675,8 @@ try:
         answer(dict(connectors_of(), ok=True))
     elif WHAT == "connector-connect":
         connector_connect()
+    elif WHAT == "mcp-install":
+        mcp_install_with_values()
     elif WHAT == "nous-login-start":
         answer(nous_login_start())
     elif WHAT == "nous-login-poll":
@@ -1650,7 +1720,7 @@ function capabilityCommand(scriptPath, env) {
 }
 
 // A question for the host, asked with the script that knows the answer.
-async function askHost(what, env = {}, timeoutMs = 45000, timeoutMessage) {
+async function askHost(what, env = {}, timeoutMs = 45000, timeoutMessage, input) {
   const script = Buffer.from(CAPABILITIES_PYTHON, 'utf8').toString('base64');
   const path = '/tmp/hermesbot-capabilities.py';
   // The cleanup must not mask the script: without the exit round-trip a
@@ -1664,7 +1734,7 @@ async function askHost(what, env = {}, timeoutMs = 45000, timeoutMessage) {
   ].join('\n');
   // Answers grew past the old 8k window the day the local catalogue joined
   // them: a cut answer parses as nothing, and the page blamed the host.
-  const result = await runHostCommand(storedConnection(), command, timeoutMs, undefined, {
+  const result = await runHostCommand(storedConnection(), command, timeoutMs, input, {
     maxStdout: 512 * 1024,
     timeoutMessage,
   });
@@ -2029,7 +2099,18 @@ function waitForLink(flow, timeoutMs) {
   });
 }
 
-async function startMcpConnect(name, installed) {
+async function startMcpConnect(name, installed, env = {}) {
+  // Only the values the service asked for, and only as a name and a string:
+  // what arrives here comes from form fields, not from the manifest.
+  const values = {};
+  for (const [key, value] of Object.entries(env ?? {})) {
+    const field = String(key ?? '').trim();
+    const text = String(value ?? '').trim();
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(field) && text) {
+      values[field] = text;
+    }
+  }
+  const asked = Object.keys(values).length > 0;
   const running = mcpFlows.get(name);
   if (running && !running.done) {
     return { ok: true, url: running.url, port: running.port, error: '' };
@@ -2051,19 +2132,30 @@ async function startMcpConnect(name, installed) {
   void (async () => {
     try {
       // Nothing is asked for a service the host already has: a second
-      // install would only rewrite the entry.
-      if (!installed) {
-        const answer = await runHostCommand(
-          connection,
-          mcpInstallCommand(name),
-          180000,
-          undefined,
-          {
-            maxStdout: 64 * 1024,
-            maxStderr: 16 * 1024,
-            timeoutMessage: 'The host took too long to install the service.',
-          },
-        );
+      // install would only rewrite the entry. The one exception is a service
+      // that needs values it does not have yet: the install is what writes
+      // them, into the env file for the secrets and into the block for the
+      // rest, so it runs again with the fields the person filled in.
+      if (!installed || asked) {
+        const answer = asked
+          ? await askHost(
+              'mcp-install',
+              { HERMES_BOT_VALUE: name },
+              180000,
+              'The host took too long to install the service.',
+              JSON.stringify(values),
+            )
+          : await runHostCommand(
+              connection,
+              mcpInstallCommand(name),
+              180000,
+              undefined,
+              {
+                maxStdout: 64 * 1024,
+                maxStderr: 16 * 1024,
+                timeoutMessage: 'The host took too long to install the service.',
+              },
+            );
         if (!answer.ok) {
           flow.error =
             stderrOf(answer) ||
@@ -2135,7 +2227,11 @@ ipcMain.handle('hermes:mcp:connect', async (_event, payload) => {
   if (!/^[a-z0-9_-]+$/i.test(name)) {
     return { ok: false, error: 'That is not a service the host can install' };
   }
-  return startMcpConnect(name, Boolean(payload?.installed));
+  return startMcpConnect(
+    name,
+    Boolean(payload?.installed),
+    payload?.env && typeof payload.env === 'object' ? payload.env : {},
+  );
 });
 
 ipcMain.handle('hermes:mcp:connect-status', (_event, payload) => {

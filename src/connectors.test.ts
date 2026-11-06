@@ -3,6 +3,7 @@ import {
   connectorLogo,
   connectorTitle,
   dockConnectors,
+  missingEnv,
   readConnectors,
   type Connector,
 } from './connectors';
@@ -355,5 +356,82 @@ describe('the dock of the connectors', () => {
 
   it('is empty when the host offers nothing', () => {
     expect(dockConnectors([])).toEqual([]);
+  });
+});
+
+describe('the values a service needs', () => {
+  const list = {
+    ok: true,
+    available: true,
+    accounts: [],
+    messages: [],
+    toolkit: [
+      { connector: 'asana', enabled: true, connected: false, installed: true },
+    ],
+    catalog: [
+      {
+        slug: 'asana',
+        name: 'Asana',
+        mcp: true,
+        env: [
+          {
+            name: 'ASANA_CLIENT_ID',
+            prompt: 'Asana client id',
+            required: true,
+            secret: false,
+            set: false,
+          },
+          {
+            name: 'ASANA_CLIENT_SECRET',
+            prompt: 'Asana client secret',
+            required: true,
+            secret: true,
+            set: true,
+          },
+          // A name the host could not write is not a field the page shows.
+          { name: 'not a variable', prompt: 'Nope' },
+        ],
+      },
+    ],
+  };
+
+  it('carries what the host declared, in the order it declared it', () => {
+    const [row] = readConnectors(list);
+    expect(row?.env).toEqual([
+      {
+        name: 'ASANA_CLIENT_ID',
+        prompt: 'Asana client id',
+        required: true,
+        secret: false,
+        set: false,
+      },
+      {
+        name: 'ASANA_CLIENT_SECRET',
+        prompt: 'Asana client secret',
+        required: true,
+        secret: true,
+        set: true,
+      },
+    ]);
+  });
+
+  it('only asks for what the host does not already hold', () => {
+    const [row] = readConnectors(list);
+    expect(missingEnv(row!).map((field) => field.name)).toEqual([
+      'ASANA_CLIENT_ID',
+    ]);
+  });
+
+  it('asks for nothing from a service that declares nothing', () => {
+    const [row] = readConnectors({
+      ok: true,
+      available: true,
+      accounts: [],
+      messages: [],
+      catalog: [{ slug: 'notion', name: 'Notion' }],
+      toolkit: [{ connector: 'notion', enabled: true, connected: true }],
+    });
+    expect(row?.env).toEqual([]);
+    expect(missingEnv(row!)).toEqual([]);
   });
 });
