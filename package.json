@@ -5,6 +5,9 @@
   "description": "A dark, native-feeling macOS chat app for AI agents.",
   "main": "electron/main.js",
   "private": true,
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "concurrently -k -s first \"vite --port 5199 --strictPort\" \"wait-on http-get://localhost:5199 && VITE_DEV_SERVER_URL=http://localhost:5199 electron .\"",
     "build": "tsc --noEmit && vite build",
