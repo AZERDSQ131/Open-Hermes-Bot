@@ -12,7 +12,8 @@ person, ask first whether Hermes could keep it instead.
 
 ## Getting set up
 
-You need Node 24 and a Hermes host to talk to.
+You need Node 24 — `nvm use` reads the `.nvmrc` — and a Hermes host to talk
+to.
 
 ```bash
 npm install
