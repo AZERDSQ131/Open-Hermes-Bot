@@ -119,6 +119,9 @@ shows them. Nothing else is needed: no account, no cloud, no key typed by
 hand. The setup can be run again from **Settings → Setup**, whenever Hermes
 moves to another machine.
 
+The recipes - a host on your LAN, a VPS, several bots on one machine, a key
+that moved - are in [docs/setups.md](docs/setups.md).
+
 ### Updates
 
 The app finds its next version by itself: it looks on the releases page when
