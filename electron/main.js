@@ -30,6 +30,14 @@ const {
   sshConfigHosts,
 } = require('./connection.js');
 const { createMarkReader } = require('./logos.js');
+const {
+  PORT_ATTEMPTS,
+  portAfter,
+  readTunnelPid,
+  sshArgs,
+  testPortFor,
+  isOurTunnelCommand,
+} = require('./tunnel.js');
 const { createConnectorsReader } = require('./connectors.js');
 const { authUrlIn, callbackPort, loginOutcome } = require('./mcp.js');
 const {
@@ -280,22 +288,9 @@ function publicSettings() {
   };
 }
 
-// The live tunnel owns `localPort`; the probe uses the next free slot so a
-// connection test never collides with a tunnel that is already running.
-function testPortFor(localPort) {
-  return localPort >= 65535 ? localPort - 1 : localPort + 1;
-}
-
-// A port can be held by a forward nobody reaped: an ssh that outlived the app
-// keeps the local port, and the tunnel cannot bind. The next free port is
-// then the one to use — the setting stays the preference, the app just works
-// around what is in the way.
-const PORT_ATTEMPTS = 5;
-
-function portAfter(localPort, attempt) {
-  const port = localPort + attempt;
-  return port > 65535 ? localPort - attempt : port;
-}
+// The port the live tunnel owns, the next free slot a connection test uses,
+// and the walk to a port that is not held already: those rules live in
+// `electron/tunnel.js`, with the arguments of the ssh itself.
 
 function portIsBusy(message) {
   return /address already in use|cannot listen to port|bind: /i.test(
@@ -349,19 +344,17 @@ function reapOrphanTunnel() {
   const file = tunnelPidPath();
   let pid = 0;
   try {
-    pid = Number.parseInt(fs.readFileSync(file, 'utf8').trim(), 10);
+    pid = readTunnelPid(fs.readFileSync(file, 'utf8'));
   } catch {
     return;
   }
-  if (Number.isInteger(pid) && pid > 0) {
+  if (pid) {
     try {
       const probe = spawnSync('ps', ['-p', String(pid), '-o', 'command='], {
         encoding: 'utf8',
       });
       const command = (probe.stdout || '').trim();
-      const isOurTunnel =
-        command.includes('ssh') && /-L 127\.0\.0\.1:\d+:/.test(command);
-      if (isOurTunnel) process.kill(pid, 'SIGTERM');
+      if (isOurTunnelCommand(command)) process.kill(pid, 'SIGTERM');
     } catch {
       // Already gone: nothing to reap.
     }
@@ -374,27 +367,8 @@ function reapOrphanTunnel() {
 }
 
 function spawnTunnel(connection, localPort) {
-  const args = [
-    '-o',
-    'BatchMode=yes',
-    // The forward belongs to this process: a shared SSH connection would keep
-    // the port listening after the app that opened it is gone, and the next
-    // launch would find its own port taken by a link to nothing.
-    '-o',
-    'ControlMaster=no',
-    '-o',
-    'ControlPath=none',
-    '-o',
-    'ExitOnForwardFailure=yes',
-    '-o',
-    'ConnectTimeout=10',
-    '-o',
-    'ServerAliveInterval=30',
-    '-N',
-    '-L',
-    `127.0.0.1:${localPort}:127.0.0.1:${connection.apiPort}`,
-    connection.sshHost,
-  ];
+  // The arguments, and every `-o` rule in them, are in `electron/tunnel.js`.
+  const args = sshArgs(connection, localPort);
   const state = { child: null, stderr: '', localPort, dead: false, error: '' };
   const child = spawn('ssh', args, { stdio: ['ignore', 'ignore', 'pipe'] });
   state.child = child;

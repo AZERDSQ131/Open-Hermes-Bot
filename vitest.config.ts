@@ -126,6 +126,15 @@ export default defineConfig({
           branches: 100,
           statements: 100,
         },
+        // The rules of the tunnel: what ssh is asked for, the port to try when
+        // the one in the record is held, and how the app recognises the
+        // forward it left behind. The bridge cannot be checked by hand.
+        'electron/tunnel.js': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
         // How a model is named on both sides of the door: `auto` and a
         // prefixed id must not reach the lock as if they were a pair.
         'electron/models.js': {
@@ -207,6 +216,7 @@ export default defineConfig({
         'src/**/*.{ts,tsx}',
         'electron/updater.js',
         'electron/connection.js',
+        'electron/tunnel.js',
         'electron/logos.js',
         'electron/keys.js',
         'electron/stream.js',
