@@ -57,13 +57,13 @@ Then in the app: *On another machine*, the **SSH host** - the name your
 Behind it, the app runs:
 
 ```
-ssh -N -L 127.0.0.1:18742:<host>:8642 <host>
+ssh -N -L 127.0.0.1:18742:127.0.0.1:8642 <host>
 ```
 
-`8642` is Hermes' API port on the host, `18742` is the local end of the
-forward. A VPS wants exactly the same thing, and its firewall can stay closed:
-port `8642` is never reached from outside the machine, because the only caller
-is the tunnel's other end.
+The forward lands on the host's own loopback, where Hermes' API server
+listens: `18742` is the local end, `8642` the host's. A VPS wants exactly the
+same thing, and its firewall can stay closed: port `8642` is never reached
+from outside the machine, because the only caller is the tunnel's other end.
 
 Two things the tunnel does not fix, so they are worth knowing before you meet
 them:

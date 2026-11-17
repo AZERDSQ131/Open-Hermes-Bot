@@ -21,7 +21,7 @@ This is the `ssh` mode. The app opens a local forward and speaks to the API
 as if it were local:
 
 ```
-ssh -N -L 127.0.0.1:<localPort>:<host>:<apiPort>
+ssh -N -L 127.0.0.1:<localPort>:127.0.0.1:<apiPort> <host>
 ```
 
 The defaults are Hermes' own: `8642` on the host, `18742` locally. Nothing
