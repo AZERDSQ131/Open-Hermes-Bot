@@ -868,6 +868,125 @@ svg {
   line-height: 1.5;
 }
 
+/* ------------------------------------------------------------------- why */
+
+.why-head {
+  max-width: 62ch;
+  margin-bottom: clamp(36px, 4.5vw, 54px);
+}
+
+.why-head h2 {
+  margin-top: 14px;
+  font-size: clamp(30px, 3.6vw, 46px);
+}
+
+.why-head > p:last-child {
+  margin-top: 18px;
+  color: var(--text-2);
+  font-size: 17px;
+  line-height: 1.62;
+}
+
+.why-points {
+  border-top: 1px solid var(--line);
+}
+
+.why-points li {
+  display: grid;
+  grid-template-columns: minmax(200px, 0.85fr) minmax(0, 2fr);
+  gap: 8px 36px;
+  padding: 20px 0 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.why-points strong {
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.why-points span {
+  color: var(--text-3);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.why-points code {
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.why-check {
+  margin-top: clamp(44px, 5.5vw, 68px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
+
+.why-check-label {
+  padding: 16px 20px 15px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 13px;
+  letter-spacing: 0.01em;
+}
+
+.why-check-scroll {
+  overflow-x: auto;
+}
+
+.why-check table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.why-check th,
+.why-check td {
+  padding: 13px 20px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.why-check thead th {
+  border-bottom: 1px solid var(--line-2);
+  color: var(--text-2);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.why-check tbody th {
+  color: var(--text-3);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.why-check tbody tr:last-child th,
+.why-check tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.why-check .is-ours {
+  background: var(--paper-soft);
+}
+
+.why-check thead .is-ours {
+  color: var(--paper);
+}
+
+.why-note {
+  max-width: 62ch;
+  margin-top: 22px;
+  color: var(--text-3);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
 /* --------------------------------------------------------------- bento */
 
 .bento {
@@ -1487,6 +1606,61 @@ svg {
 }
 
 @media (max-width: 640px) {
+  .why-points li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .why-check table {
+    min-width: 0;
+  }
+
+  .why-check thead {
+    display: none;
+  }
+
+  .why-check tbody tr {
+    display: grid;
+    gap: 4px;
+    padding: 15px 18px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .why-check tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .why-check tbody th {
+    padding: 0 0 4px;
+    border: 0;
+    color: var(--text-2);
+    font-size: 12.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: normal;
+  }
+
+  .why-check tbody td {
+    padding: 0;
+    border: 0;
+    color: var(--text-2);
+    font-size: 14px;
+  }
+
+  .why-check tbody td::before {
+    content: attr(data-label) ' · ';
+    color: var(--text-3);
+  }
+
+  .why-check tbody td.is-ours {
+    background: none;
+    color: var(--text);
+  }
+
+  .why-check tbody td.is-ours::before {
+    color: var(--paper);
+  }
+
   .bento {
     grid-template-columns: minmax(0, 1fr);
   }

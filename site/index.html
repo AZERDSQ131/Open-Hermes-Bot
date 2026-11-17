@@ -58,6 +58,7 @@
         </a>
 
         <nav class="nav-links" aria-label="Sections">
+          <a href="#why">Why</a>
           <a href="#window">The window</a>
           <a href="#crew">Groups</a>
           <a href="#faces">Faces</a>
@@ -241,6 +242,118 @@
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <!-- --------------------------------------------------------------- why -->
+      <section class="section" id="why">
+        <div class="container">
+          <div class="why-head">
+            <p class="eyebrow" data-reveal>Why Hermes Bot</p>
+            <h2 data-reveal data-reveal-delay="1">
+              Everything it needs is already on your Mac.
+            </h2>
+            <p data-reveal data-reveal-delay="2">
+              Most chat apps ship their own assistant and keep the conversation on their side.
+              This one points at the Hermes you already run: the bots are its profiles, the
+              models are the ones it is signed in to, and the transcript is where it already
+              keeps it.
+            </p>
+          </div>
+
+          <ul class="why-points">
+            <li data-reveal>
+              <strong>The bots are Hermes profiles</strong>
+              <span>
+                On your Mac or on your server. Their memory, skills, tools and credentials stay
+                on that host: the app keeps none of them, and creates no account anywhere.
+              </span>
+            </li>
+            <li data-reveal data-reveal-delay="1">
+              <strong>The models are the ones Hermes is signed in to</strong>
+              <span>
+                A subscription through OAuth, or a key already in
+                <code>~/.hermes/.env</code>. The app never asks for a model key.
+              </span>
+            </li>
+            <li data-reveal data-reveal-delay="2">
+              <strong>One window for several agents</strong>
+              <span>
+                With the rules of a room: who answers, when a bot stays silent, tapbacks,
+                @mentions, and steering a turn mid-flight.
+              </span>
+            </li>
+            <li data-reveal data-reveal-delay="3">
+              <strong>The phone is the same room</strong>
+              <span>
+                Over a bridge on the host, published on your own tailnet. The same bots, the
+                same conversations, in your pocket.
+              </span>
+            </li>
+            <li data-reveal data-reveal-delay="4">
+              <strong>MIT throughout</strong>
+              <span>
+                App and bridge, with the conversations on disk where Hermes already keeps them.
+              </span>
+            </li>
+          </ul>
+
+          <div class="why-check" data-reveal>
+            <p class="why-check-label">Where each one runs, and what it keeps</p>
+            <div class="why-check-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <td></td>
+                    <th class="is-ours" scope="col">Hermes Bot</th>
+                    <th scope="col">Grok Bot</th>
+                    <th scope="col">Hermes' own bots</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">The agent</th>
+                    <td class="is-ours" data-label="Hermes Bot">Your Hermes, on your host</td>
+                    <td data-label="Grok Bot">Grok, on xAI's side</td>
+                    <td data-label="Hermes' own bots">Your Hermes, on your host</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Where a conversation lives</th>
+                    <td class="is-ours" data-label="Hermes Bot">Your host, in Hermes' sessions</td>
+                    <td data-label="Grok Bot">xAI's side</td>
+                    <td data-label="Hermes' own bots">Your host, in Hermes' sessions</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">The models</th>
+                    <td class="is-ours" data-label="Hermes Bot">What Hermes is signed in to</td>
+                    <td data-label="Grok Bot">What that app offers</td>
+                    <td data-label="Hermes' own bots">What Hermes is signed in to</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">How you reach it</th>
+                    <td class="is-ours" data-label="Hermes Bot">This window, and a phone app</td>
+                    <td data-label="Grok Bot">That app</td>
+                    <td data-label="Hermes' own bots">
+                      Telegram, Discord, Slack, or its own desktop app
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">The source</th>
+                    <td class="is-ours" data-label="Hermes Bot">MIT</td>
+                    <td data-label="Grok Bot">Closed</td>
+                    <td data-label="Hermes' own bots">Open</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p class="why-note" data-reveal>
+            If you want a bot to answer on Telegram, Hermes' own bots do that better: reaching
+            you where you already are is what those platforms are for. This app is for the room
+            instead — several bots in front of you, a group that decides who speaks, and a
+            conversation that reads like a transcript rather than a chat log.
+          </p>
         </div>
       </section>
 
