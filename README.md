@@ -16,6 +16,38 @@ the conventions, how to cut a version, and the traps.
 
 The site is at <https://azerdsq131.github.io/Open-Hermes-Bot/>.
 
+## Why Open Hermes Bot
+
+Most chat apps put one assistant in a window. This one puts your **Hermes** in
+one: the bots, the group and the phone you already run, with every decision
+left to the harness.
+
+- **The bots are Hermes profiles**, on your Mac or on your server. Their
+  memory, skills, tools and credentials stay on that host: the app keeps none of
+  them, and creates no account anywhere.
+- **The models are the ones Hermes is already signed in to** - a subscription
+  through OAuth, or a key in `~/.hermes/.env`. The app never asks for a model
+  key.
+- **One window for several agents**, with the rules of a room: who answers, when
+  a bot stays silent, tapbacks, @mentions, and steering a turn mid-flight.
+- **The phone is the same room**, over a bridge on the host and your own
+  tailnet ([docs/mobile.md](docs/mobile.md)).
+- **MIT throughout**, app and bridge, with the conversations on disk where
+  Hermes already keeps them.
+
+|  | Open Hermes Bot | Grok Bot | Hermes' own bots |
+|---|---|---|---|
+| The agent | your Hermes, on your host | Grok, on xAI's side | your Hermes, on your host |
+| Where a conversation lives | your host, in Hermes' sessions | xAI's side | your host, in Hermes' sessions |
+| The models | what Hermes is signed in to | what that app offers | what Hermes is signed in to |
+| How you reach it | this window, and a phone app | that app | Telegram, Discord, Slack, or Hermes' own desktop app |
+| The source | MIT | closed | open |
+
+If you want a bot to answer on Telegram, use Hermes' own bots: reaching you
+where you already are is what the messaging platforms are for. This app is for
+the room instead - several bots in front of you, a group that decides who
+speaks, and a conversation that reads like a transcript rather than a chat log.
+
 ## What this is
 
 This app is an **interface for Hermes**. It is not a harness.
