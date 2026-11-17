@@ -12,6 +12,8 @@ the tour; these are the details.
   what each side owns, and what the app does not keep.
 - [Transport](transport.md) — the SSH tunnel, the Hermes API calls, and why
   this app speaks one harness rather than a general agent protocol.
+- [Setups](setups.md) — the recipes: this Mac, a machine on your LAN, a VPS,
+  several bots on one host, and what to do when the key moved.
 - [Mobile](mobile.md) — the phone: the same screens as an Expo app, the
   bridge it is paired with, and the path from the phone to Hermes.
 - [Working together](working-together.md) — how more than one agent works on
