@@ -225,6 +225,9 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
   // The scan of this Mac runs itself once: the person chose it, and nothing
   // more should be asked of them than that.
   const [scanned, setScanned] = useState(false);
+  /** The person already answered the first page: a late settings read must
+   * not undo it. */
+  const choseMode = useRef(false);
   // The machines the person has already named in their SSH config: read
   // when a Hermes elsewhere is being connected to, and only then.
   const [savedHosts, setSavedHosts] = useState<string[] | null>(null);
@@ -249,7 +252,7 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       ?.getSettings?.()
       .then((settings) => {
         if (cancelled) return;
-        setMode(settings.mode ?? 'local');
+        if (!choseMode.current) setMode(settings.mode ?? 'local');
         setHost(settings.sshHost ?? '');
         setApiPort(String(settings.apiPort ?? 8642));
         setLocalPort(String(settings.localPort ?? 18742));
@@ -835,17 +838,15 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
       : connecting
         ? 'Start talking anyway'
         : 'Start talking'
-    : step === 'welcome'
-      ? 'Begin'
-      : testing
-        ? mode === 'local'
-          ? failed
-            ? 'Scan again'
-            : 'Scan this Mac'
-          : 'Test the connection'
-        : step === 'colour' && !madeBot
-          ? 'Make the bot'
-          : 'Continue';
+    : testing
+      ? mode === 'local'
+        ? failed
+          ? 'Scan again'
+          : 'Scan this Mac'
+        : 'Test the connection'
+      : step === 'colour' && !madeBot
+        ? 'Make the bot'
+        : 'Continue';
 
   async function makeBot(input: {
     shape: BloubShape;
@@ -1436,7 +1437,35 @@ export function Onboarding({ onFinish, onDismiss }: OnboardingProps) {
         </nav>
 
         <div className="onboarding-foot-right">
-          {picksItsOwnWay ? null : (
+          {step === 'welcome' ? (
+            // The two ways in, on the first page. Where Hermes runs is the
+            // only question the setup asks first, and a person who runs it on
+            // this Mac should not have to find that out two pages later.
+            <div className="onboarding-choices">
+              <button
+                type="button"
+                className="onboarding-button is-quiet"
+                onClick={() => {
+                  choseMode.current = true;
+                  setMode('ssh');
+                  goTo(stepIndex + 1);
+                }}
+              >
+                Hermes on another machine
+              </button>
+              <button
+                type="button"
+                className="onboarding-button is-primary"
+                onClick={() => {
+                  choseMode.current = true;
+                  setMode('local');
+                  goTo(stepIndex + 1);
+                }}
+              >
+                Hermes on this Mac
+              </button>
+            </div>
+          ) : picksItsOwnWay ? null : (
             <button
               type="button"
               className="onboarding-button is-primary"

@@ -75,7 +75,7 @@ async function walkTo(
   bridge: Record<string, unknown>,
   { host = 'hermes-box.local', key = 'sk-secret', mode = 'ssh' } = {},
 ) {
-  await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
   if (mode === 'ssh') {
     await userEvent.type(screen.getByLabelText('SSH host'), host);
   }
@@ -128,10 +128,37 @@ describe('the setup', () => {
     expect(screen.getByText(/Hermes runs them/)).toBeTruthy();
   });
 
+  it('offers both places Hermes can run, on the first page', () => {
+    makeBridge();
+    renderSetup();
+    // The question the setup asks first is visible before anything is
+    // clicked, with both answers named: a local Hermes is not something to
+    // discover two pages later.
+    expect(
+      screen.getByRole('button', { name: 'Hermes on this Mac' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Hermes on another machine' }),
+    ).toBeTruthy();
+  });
+
+  it('takes the first page answer as the connection it belongs to', async () => {
+    makeBridge();
+    renderSetup();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Hermes on this Mac' }),
+    );
+    expect(
+      screen.getByRole('radio', { name: /This Mac/ }),
+    ).toBeChecked();
+    // On this Mac the setup looks at the port itself, with no host asked for.
+    expect(screen.queryByLabelText('SSH host')).toBeNull();
+  });
+
   it('does not test without a host', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     const test = screen.getByRole('button', { name: 'Test the connection' });
     expect(test).toBeDisabled();
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
@@ -141,7 +168,7 @@ describe('the setup', () => {
   it('does not test without a key', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     const test = screen.getByRole('button', { name: 'Test the connection' });
     expect(test).toBeDisabled();
@@ -152,7 +179,7 @@ describe('the setup', () => {
   it('puts the whole connection on one page', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     expect(screen.getByLabelText('SSH host')).toBeTruthy();
     expect(screen.getByLabelText('API key')).toBeTruthy();
     expect(screen.getByText('The host answers')).toBeTruthy();
@@ -163,7 +190,7 @@ describe('the setup', () => {
   it("says the key it asks for is Hermes' own, not a model's", async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     const whereTheModelLives = /its key, or the subscription Hermes signs in with/;
     expect(screen.getByText(whereTheModelLives)).toBeTruthy();
     // The other connection asks for no key at all: the sentence is what tells
@@ -175,7 +202,7 @@ describe('the setup', () => {
   it('asks where Hermes runs before anything else', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on this Mac' }));
     expect(screen.getByText('Where does Hermes run?')).toBeTruthy();
     expect(
       screen.getByRole('radio', { name: /This Mac/ }),
@@ -188,7 +215,7 @@ describe('the setup', () => {
   it('lists the machines the SSH config names', async () => {
     const bridge = makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     expect(await screen.findByRole('button', { name: /jetson/ })).toBeTruthy();
     expect(
       screen.getByRole('button', { name: /lab-box/ }),
@@ -199,7 +226,7 @@ describe('the setup', () => {
   it('connects to a saved host with one click', async () => {
     const bridge = makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await userEvent.click(await screen.findByRole('button', { name: /jetson/ }));
     // The key is read from the machine, the connection is written down
     // and opened: none of it asked for.
@@ -225,7 +252,7 @@ describe('the setup', () => {
       })),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await userEvent.click(
       await screen.findByRole('button', { name: /jetson/ }),
     );
@@ -241,7 +268,7 @@ describe('the setup', () => {
       sshHosts: vi.fn(async () => ({ ok: true, hosts: [] })),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     expect(
       await screen.findByText(/No host saved in your SSH config/),
     ).toBeTruthy();
@@ -251,7 +278,7 @@ describe('the setup', () => {
   it('goes back and forth between the two machines', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     expect(screen.queryByLabelText('SSH host')).toBeNull();
     await chooseMode('ssh');
@@ -261,7 +288,7 @@ describe('the setup', () => {
   it('asks for no host when Hermes runs on this machine', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     expect(screen.queryByLabelText('SSH host')).toBeNull();
     // The checks say what happens, not what a tunnel does.
@@ -272,7 +299,7 @@ describe('the setup', () => {
   it('scans this Mac before asking anything else', async () => {
     const bridge = makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     await waitFor(() => expect(bridge.test).toHaveBeenCalled());
     expect(bridge.importKey).toHaveBeenCalledWith(
@@ -298,7 +325,7 @@ describe('the setup', () => {
       })),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     expect(
       await screen.findByText('No Hermes answered on 127.0.0.1:8642. Is it running?'),
@@ -316,7 +343,7 @@ describe('the setup', () => {
       })),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     expect(
       await screen.findByText(/API_SERVER_KEY not found/),
@@ -337,7 +364,7 @@ describe('the setup', () => {
       })),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     const open = await screen.findByRole('button', {
       name: 'Turn the API server on',
@@ -373,7 +400,7 @@ describe('the setup', () => {
       })),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     await userEvent.click(
       await screen.findByRole('button', { name: 'Turn the API server on' }),
@@ -405,7 +432,7 @@ describe('the setup', () => {
       })),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     expect(await screen.findByText(/API server is off/)).toBeTruthy();
     await userEvent.click(
@@ -425,7 +452,7 @@ describe('the setup', () => {
       })),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     expect(
       await screen.findByText(/No Hermes answered on 127\.0\.0\.1:8642/),
@@ -447,7 +474,7 @@ describe('the setup', () => {
       })),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     expect(
       await screen.findByText(/No Hermes answered on 127\.0\.0\.1:8642/),
@@ -472,7 +499,7 @@ describe('the setup', () => {
         }),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     expect(
       await screen.findByText(/No Hermes answered on 127\.0\.0\.1:8642/),
@@ -485,7 +512,7 @@ describe('the setup', () => {
   it('shows the port and no tunnel when Hermes runs on this machine', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     await userEvent.click(screen.getByRole('button', { name: /The ports/ }));
     expect(screen.getByLabelText('API port')).toBeTruthy();
@@ -495,10 +522,10 @@ describe('the setup', () => {
     ).toBeTruthy();
   });
 
-  it('keeps the mode the app already knew', async () => {
+  it('keeps the choice made on the first page', async () => {
     makeBridge({}, { mode: 'local' });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on this Mac' }));
     expect(
       screen.getByRole('radio', { name: /This Mac/ }),
     ).toBeChecked();
@@ -508,7 +535,7 @@ describe('the setup', () => {
   it('says on the last page where Hermes runs', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     await waitFor(() =>
       expect(
@@ -524,7 +551,7 @@ describe('the setup', () => {
   it('reads the key from the server when the person asks it to', async () => {
     const bridge = makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     await userEvent.click(
       screen.getByRole('button', { name: /Read it from hermes-box.local/ }),
@@ -605,7 +632,7 @@ describe('the setup', () => {
   it('uses the key in the Keychain when there is none to type', async () => {
     const bridge = makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     await userEvent.click(
       screen.getByRole('button', { name: /Read it from hermes-box.local/ }),
@@ -623,7 +650,7 @@ describe('the setup', () => {
   it('falls back on the port Hermes uses when the field is emptied', async () => {
     const bridge = makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     await userEvent.click(screen.getByRole('button', { name: /The ports/ }));
     await userEvent.clear(screen.getByLabelText('Remote API port'));
@@ -640,7 +667,7 @@ describe('the setup', () => {
   it('shows the ports and the command that will run', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     await userEvent.click(screen.getByRole('button', { name: /The ports/ }));
     expect(screen.getByLabelText('Remote API port')).toBeTruthy();
@@ -660,7 +687,7 @@ describe('the setup', () => {
       })),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     await userEvent.click(
       screen.getByRole('button', { name: /Read it from hermes-box.local/ }),
@@ -1021,7 +1048,7 @@ describe('the setup', () => {
       }),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     await userEvent.type(screen.getByLabelText('API key'), 'sk-secret');
     await userEvent.click(
@@ -1051,7 +1078,7 @@ describe('the setup', () => {
   it('falls back on the local port when the field is emptied', async () => {
     const bridge = makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await userEvent.type(screen.getByLabelText('SSH host'), 'hermes-box.local');
     await userEvent.type(screen.getByLabelText('API key'), 'sk-secret');
     await userEvent.click(screen.getByRole('button', { name: /The ports/ }));
@@ -1098,7 +1125,7 @@ describe('the setup', () => {
   it('goes back to the step before', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     expect(screen.getByText(/Connect your Hermes/)).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(screen.getByText(/A window onto your agents/)).toBeTruthy();
@@ -1108,7 +1135,7 @@ describe('the setup', () => {
     makeBridge();
     renderSetup();
     const steps = screen.getByRole('navigation', { name: 'Setup steps' });
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     expect(
       within(steps).getByRole('button', { name: /The setup/ }),
     ).toBeTruthy();
@@ -1121,7 +1148,7 @@ describe('the setup', () => {
   it('goes on with the enter key', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await userEvent.keyboard('{Enter}');
     expect(screen.getByText(/Connect your Hermes/)).toBeTruthy();
   });
@@ -1129,7 +1156,7 @@ describe('the setup', () => {
   it('does not go on with the enter key when nothing is ready', async () => {
     makeBridge();
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await userEvent.keyboard('{Enter}');
     // The host is not known yet: the connection cannot be tested.
     expect(screen.getByText(/Connect your Hermes/)).toBeTruthy();
@@ -1188,7 +1215,7 @@ describe('the setup', () => {
       })),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     expect(await screen.findByText("Hermes' API server is off.")).toBeTruthy();
     // The command that fixes it is on the page, not a file to edit by hand.
@@ -1213,7 +1240,7 @@ describe('the setup', () => {
       })),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await userEvent.click(await screen.findByRole('button', { name: /jetson/ }));
     expect(
       await screen.findByText('The key could not be read from jetson.'),
@@ -1231,7 +1258,7 @@ describe('the setup', () => {
       })),
     });
     renderSetup();
-    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes on another machine' }));
     await chooseMode('local');
     expect(
       await screen.findByText(

@@ -6408,6 +6408,14 @@ mark.find-hit.is-current {
   justify-content: flex-end;
 }
 
+/* The two ways in, side by side on the first page: the choice is the
+   question, so it should not be a single button that hides it. */
+.onboarding-choices {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .onboarding-dots {
   display: flex;
   align-items: center;

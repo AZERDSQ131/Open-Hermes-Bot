@@ -427,7 +427,7 @@ describe('the app', () => {
     await renderApp(bridge);
     // The setup opens, the scan finds the Hermes on this Mac, and the person
     // makes their first bot.
-    await userEvent.click(await screen.findByRole('button', { name: 'Begin' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Hermes on this Mac' }));
     await userEvent.click(
       await screen.findByRole('button', { name: /Continue|Test the connection/ }),
     );
@@ -1701,7 +1701,7 @@ describe('the setup', () => {
     });
     await renderApp(bridge);
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Begin' }),
+      await screen.findByRole('button', { name: 'Hermes on another machine' }),
     );
     // The setup starts on this Mac; the conversation below is over SSH.
     await userEvent.click(screen.getByRole('radio', { name: /Another machine/ }));

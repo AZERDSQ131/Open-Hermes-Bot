@@ -126,13 +126,12 @@ ID, this section disappears: builds will be signed and notarized instead.
 
 ### First run
 
-The app opens on a setup that asks one question first: **where does Hermes
-run?**
+The app opens on a first page that asks one question before anything else:
+**where does Hermes run?**
 
-- **On this Mac.** No host to name and no tunnel to open: the app asks for the
-  **API key** — press *Read it from this Mac* and it reads `API_SERVER_KEY`
-  from `~/.hermes/.env` here — and talks to the API port directly. The key
-  stays in the login Keychain, under the app's own entry.
+- **On this Mac.** No host to name and no tunnel to open: the app reads the
+  **API key** from `~/.hermes/.env` here by itself, keeps it in the login
+  Keychain under the app's own entry, and talks to the API port directly.
 - **On another machine.** The setup asks for the **SSH host** — the name your
   `~/.ssh/config` already uses, e.g. `jetson` — and for the **API key**. Press
   *Read it from \<host\>* and the app reads `API_SERVER_KEY` from the host's
@@ -150,6 +149,21 @@ Then it shakes hands: the app reaches Hermes, asks it which bots exist, and
 shows them. Nothing else is needed: no account, no cloud, no key typed by
 hand. The setup can be run again from **Settings → Setup**, whenever Hermes
 moves to another machine.
+
+### Connect to a local Hermes
+
+Hermes can run on the same Mac as the app: no server to rent, no tunnel to
+open.
+
+1. Install Hermes here, and let it create its home in `~/.hermes`.
+2. Give its API server a key: write `API_SERVER_KEY=<16 characters or more>`
+   in `~/.hermes/.env`, then restart the gateway.
+3. Open Hermes Bot and choose **Hermes on this Mac** on the first page. The app
+   reads the key from `~/.hermes/.env`, keeps its copy in the login Keychain,
+   and speaks to `127.0.0.1:8642` directly.
+
+There is no key to copy and paste, and no host to name. If nothing answers on
+the port, the setup says so and offers to turn the API server on for you.
 
 ### Updates
 
